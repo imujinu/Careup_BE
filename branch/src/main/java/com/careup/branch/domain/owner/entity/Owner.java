@@ -26,7 +26,6 @@ public class Owner extends BaseTimeEntity {
     private String name; // 성명
 
     @Column(nullable = false)
-    @Temporal(TemporalType.DATE)
     private LocalDate birth; // 생년월일
 
     @Column(length = 20, nullable = false)

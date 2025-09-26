@@ -31,7 +31,7 @@ public class Branch extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private OwnershipType ownershipType; // 직영 여부
+    private OwnershipType ownershipType; // 직영 여부 (YES, NO)
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -39,7 +39,6 @@ public class Branch extends BaseTimeEntity {
     private BranchStatus status = BranchStatus.OPENED; // 지점 상태(OPENED, CLOSED, SUSPENDED))
 
     @Column(nullable = false)
-    @Temporal(TemporalType.DATE)
     private LocalDate openDate; // 개업연월
 
     @Column(length = 20, unique = true, nullable = false)
