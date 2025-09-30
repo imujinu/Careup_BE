@@ -13,8 +13,6 @@ import com.careup.branch.domain.chat.repository.ChatReadStatusRepository;
 import com.careup.branch.domain.chat.repository.ChatRoomRepository;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
-import com.careup.branch.domain.owner.entity.Owner;
-import com.careup.branch.domain.owner.repository.OwnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -32,7 +30,6 @@ public class ChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final ChatRoomRepository chatRoomRepository;
     private final EmployeeRepository employeeRepository;
-    private final OwnerRepository ownerRepository;
     private final BranchRepository branchRepository;
     private final ChatParticipantRepository chatParticipantRepository;
     private final ChatReadStatusRepository chatReadStatusRepository;
@@ -70,12 +67,12 @@ public class ChatService {
     public void joinGroupChatRoom(Long chatRoomId) {
         //이미 채팅방에 가입되어 있는지를 검증
         ChatRoom chatRoom = getChatRoom(chatRoomId);
-        Owner owner = getOwner();
-        ChatParticipant participant = getChatParticipant(chatRoom, owner.getEmail());
+        Employee employee = getEmployee();
+        ChatParticipant participant = getChatParticipant(chatRoom, employee.getEmail());
 
         //가입되어 있지 않다면 새로운 참여자 추가
         if (participant == null) {
-            participant = new ChatParticipant().fromChatRoomAndOwner(chatRoom,owner);
+            participant = new ChatParticipant().fromChatRoomAndOwner(chatRoom,employee);
             chatParticipantRepository.save(participant);
         }
 
@@ -96,8 +93,8 @@ public class ChatService {
     //메시지 읽음 처리
     public void getReadMessage(Long roomId){
         ChatRoom chatRoom = getChatRoom(roomId);
-        Owner owner = getOwner();
-        ChatParticipant chatParticipant = getChatParticipant(chatRoom, owner.getEmail());
+        Employee employee = getEmployee();
+        ChatParticipant chatParticipant = getChatParticipant(chatRoom, employee.getEmail());
         List<ChatReadStatus> chatReadStatuses = chatReadStatusRepository.findAllByChatRoomAndChatParticipantAndIsReadFalse(chatRoom,chatParticipant);
         chatReadStatuses.stream().forEach(ChatReadStatus::readMessage);
     }
@@ -126,11 +123,7 @@ public class ChatService {
         return branchRepository.findAll().stream().map(Branch::getAddress).collect(Collectors.toList());
     }
 
-    private Owner getOwner(){
-        //todo : securitycontextholder 연결해주기
-        return null;
-//        return ownerRepository.findByEmail()
-    }
+
 
 
 }
