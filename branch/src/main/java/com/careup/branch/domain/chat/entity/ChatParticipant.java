@@ -3,7 +3,6 @@ package com.careup.branch.domain.chat.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
 import com.careup.branch.domain.employee.entity.Employee;
-import com.careup.branch.domain.owner.entity.Owner;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -44,18 +43,10 @@ public class ChatParticipant extends BaseTimeEntity {
                 .build();
     }
 
-    public ChatParticipant fromOwner(Owner owner) {
+    public ChatParticipant fromChatRoomAndOwner(ChatRoom chatRoom, Employee employee) {
         return ChatParticipant.builder()
-                .name(owner.getName())
-                .email(owner.getEmail())
-                .memberType(MemberType.OWNER)
-                .build();
-    }
-
-    public ChatParticipant fromChatRoomAndOwner(ChatRoom chatRoom, Owner owner) {
-        return ChatParticipant.builder()
-                .name(owner.getName())
-                .email(owner.getEmail())
+                .name(employee.getName())
+                .email(employee.getEmail())
                 .chatRoom(chatRoom)
                 .build();
     }

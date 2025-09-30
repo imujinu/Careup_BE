@@ -34,7 +34,7 @@ public class ChatRoomResDto {
         } else {
             ChatMessage lastMessage = messages.get(messages.size() - 1);
             lastMessageContent = lastMessage.getContent();
-            lastMessageContentTime = lastMessage.getCreatedTime();
+            lastMessageContentTime = lastMessage.getCreatedAt();
         }
 
         return ChatRoomResDto.builder()

@@ -16,14 +16,14 @@ import java.time.LocalDateTime;
 public class ChatMessageResDto {
     private Long roomId;
     private String content;
-    private LocalDateTime timestamp;
+    private LocalDateTime createdAt;
     private String senderEmail;
     private String senderName;
     public ChatMessageResDto fromChatMessage(ChatRoom chatRoom,ChatMessage chatMessage){
         return ChatMessageResDto.builder()
                 .roomId(chatRoom.getId())
                 .content(chatMessage.getContent())
-                .timestamp(chatMessage.getCreatedTime())
+                .createdAt(chatMessage.getCreatedAt())
                 //todo : 추후 수정
 //                .senderEmail()
 //                .senderName()
