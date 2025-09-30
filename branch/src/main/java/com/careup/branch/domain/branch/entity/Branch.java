@@ -21,7 +21,7 @@ public class Branch extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 50, unique = true, nullable = false)
+    @Column(length = 50, unique = true)
     private String code; // 지점 코드
 
     @Column(length = 100, nullable = false)
@@ -39,7 +39,7 @@ public class Branch extends BaseTimeEntity {
     @Builder.Default
     private BranchStatus status = BranchStatus.OPENED; // 지점 상태(OPENED, CLOSED, SUSPENDED))
 
-    @Column(nullable = false)
+//    @Column(nullable = false)
     private LocalDate openDate; // 개업연월
 
     @Column(length = 20, unique = true, nullable = false)
