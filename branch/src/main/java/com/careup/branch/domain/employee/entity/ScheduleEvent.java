@@ -47,7 +47,7 @@ public class ScheduleEvent extends BaseTimeEntity {
     private LocalDateTime clockOutAt;
 
     //출근 위치
-    @Column(name = "clock_in_location", nullable = true, columnDefinition = "POINT SRID 4326")
+    @Column(name = "clock_in_location", nullable = true, columnDefinition = "POINT")
     private Point clockIntLocation;
 
     //퇴근 위치
