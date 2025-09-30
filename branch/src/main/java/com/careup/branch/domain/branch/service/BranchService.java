@@ -6,6 +6,7 @@ import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class BranchService {
 
     private final BranchRepository branchRepository;
@@ -35,6 +37,8 @@ public class BranchService {
             throw new IllegalArgumentException("이미 등록된 전화번호입니다.");
         }
         Branch branch = dto.toEntity();
+        log.info("지점 등록 정보: {}", branch);
+
         return branchRepository.save(branch);
     }
 
@@ -52,6 +56,17 @@ public class BranchService {
         // Entity를 DTO로 변환
         Page<BranchDetailDto> branchDtoPage = findBranches.map(branch -> BranchDetailDto.fromEntity(branch));
 
+        log.info("지점 목록 조회 - 페이지: {}", page);
+        log.info("지점 목록 조회 - 총 페이지: {}", branchDtoPage.getTotalPages());
+        log.info("지점 목록 조회 - 총 데이터 갯수: {}", branchDtoPage.getTotalElements());
+        log.info("지점 목록 조회 - 현재 페이지 데이터 정보: {}", branchDtoPage.getContent());
+
         return BranchListResDto.fromPage(branchDtoPage);
     }
+
+    // 지점 상세 조회
+
+    // 지점 수정
+
+    // 지점 삭제
 }
