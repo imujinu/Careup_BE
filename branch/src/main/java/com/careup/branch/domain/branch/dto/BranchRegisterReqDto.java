@@ -2,13 +2,14 @@ package com.careup.branch.domain.branch.dto;
 
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.OwnershipType;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.validator.constraints.Length;
+
+import java.time.LocalDate;
 
 @Data
 @NoArgsConstructor
@@ -24,6 +25,9 @@ public class BranchRegisterReqDto {
 
     @NotNull(message = "직영여부는 필수입니다.")
     private OwnershipType ownershipType; // 직영 여부 (YES, NO)
+
+    @NotNull(message = "개업연월은 필수입니다.")
+    private LocalDate openDate; // 개업연월
 
     @NotBlank(message = "사업자등록번호는 필수입니다.")
     private String businessNumber; // 사업자등록번호
@@ -56,12 +60,19 @@ public class BranchRegisterReqDto {
 
     private String remark; // 비고
 
+    @Length(max = 100, message = "대리인명은 100자를 넘을 수 없습니다.")
+    private String attorneyName; // 대리인명
+
+    @Length(max = 100, message = "대리인명은 100자를 넘을 수 없습니다.")
+    private String attorneyPhoneNumber; // 대리인 연락처
+
     // DTO -> Entity
     public Branch toEntity() {
         return Branch.builder()
                 .name(this.name)
                 .businessDomain(this.businessDomain)
                 .ownershipType(this.ownershipType)
+                .openDate(this.openDate)
                 .businessNumber(this.businessNumber)
                 .corporationNumber(this.corporationNumber)
                 .zipcode(this.zipcode)
@@ -73,6 +84,8 @@ public class BranchRegisterReqDto {
                 .location(this.location)
                 .geofenceRadius(this.geofenceRadius)
                 .remark(this.remark)
+                .attorneyName(this.attorneyName)
+                .attorneyPhoneNumber(this.attorneyPhoneNumber)
                 .build();
     }
 }

@@ -10,6 +10,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -24,6 +26,9 @@ public class BranchUpdateDto {
 
     @NotNull(message = "직영여부는 필수입니다.")
     private OwnershipType ownershipType; // 직영 여부 (YES, NO)
+
+    @NotNull(message = "개업연월은 필수입니다.")
+    private LocalDate openDate; // 개업연월
 
     @NotBlank(message = "사업자등록번호는 필수입니다.")
     private String businessNumber; // 사업자등록번호

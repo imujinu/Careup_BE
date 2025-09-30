@@ -17,7 +17,6 @@ import java.time.LocalDate;
 public class BranchDetailDto {
 
     private Long id;
-    private String code;
     private String name;
     private String businessDomain;
     private OwnershipType ownershipType;
@@ -35,7 +34,6 @@ public class BranchDetailDto {
     public static BranchDetailDto fromEntity(Branch branch) {
         return BranchDetailDto.builder()
                 .id(branch.getId())
-                .code(branch.getCode())
                 .name(branch.getName())
                 .businessDomain(branch.getBusinessDomain())
                 .ownershipType(branch.getOwnershipType())

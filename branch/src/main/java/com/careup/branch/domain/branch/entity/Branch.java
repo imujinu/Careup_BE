@@ -4,10 +4,7 @@ package com.careup.branch.domain.branch.entity;
 import com.careup.branch.common.domain.BaseTimeEntity;
 import com.careup.branch.domain.branch.dto.BranchUpdateDto;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 
@@ -16,14 +13,13 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Builder
 @Getter
+@EqualsAndHashCode(callSuper = false)
+@ToString
 public class Branch extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(length = 50, unique = true, nullable = false)
-    private String code; // 지점 코드
 
     @Column(length = 100, nullable = false)
     private String name; // 지점명
@@ -50,7 +46,7 @@ public class Branch extends BaseTimeEntity {
     @Column(length = 20, unique = true, nullable = false)
     private String businessNumber; // 사업자등록번호
 
-    @Column(length = 20, unique = true, nullable = false)
+    @Column(length = 20, nullable = false)
     private String corporationNumber; // 법인등록번호
 
     @Column(length = 20, nullable = false)

@@ -9,8 +9,12 @@ import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.service.BranchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -50,10 +54,11 @@ public class BranchController {
     }
 
     // 지점 목록 조회 API (페이징)
-    @GetMapping("/{page}")
-    public ResponseEntity<?> getList(@PathVariable int page) {
+    @GetMapping
+    public ResponseEntity<?> getList(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         try {
-            BranchListResDto branchList = branchService.getBranchList(page);
+            BranchListResDto branchList = branchService.getBranchList(pageable);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(branchList)
@@ -75,7 +80,7 @@ public class BranchController {
 
     // 지점 수정 API
     @PatchMapping("/{branchId}")
-    public ResponseEntity<?> update(@PathVariable Long branchId, @Valid @RequestBody BranchUpdateDto request) {
+    public ResponseEntity<?> update(@PathVariable Long branchId, @Validated @RequestBody BranchUpdateDto request) {
         try {
             Branch updatedBranch = branchService.updateBranch(branchId, request);
             return ResponseEntity.ok(
@@ -95,8 +100,23 @@ public class BranchController {
     }
 
     // 지점 삭제 API
-    /*@DeleteMapping("/{branchId}")
+    @DeleteMapping("/{branchId}")
     public ResponseEntity<?> delete(@PathVariable Long branchId) {
-
-    }*/
+        try {
+            branchService.deleteBranch(branchId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branchId)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 삭제 완료")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("지점 삭제 실패 : " + e.getMessage())
+            );
+        }
+    }
 }
