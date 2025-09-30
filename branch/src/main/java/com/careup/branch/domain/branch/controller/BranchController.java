@@ -4,6 +4,7 @@ import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.dto.BranchListResDto;
 import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
+import com.careup.branch.domain.branch.dto.BranchUpdateDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.service.BranchService;
 import jakarta.validation.Valid;
@@ -69,4 +70,33 @@ public class BranchController {
             );
         }
     }
+
+    // 지점 상세 조회 API
+
+    // 지점 수정 API
+    @PatchMapping("/{branchId}")
+    public ResponseEntity<?> update(@PathVariable Long branchId, @Valid @RequestBody BranchUpdateDto request) {
+        try {
+            Branch updatedBranch = branchService.updateBranch(branchId, request);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(updatedBranch)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 수정 완료")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("지점 수정 실패: " + e.getMessage())
+            );
+        }
+    }
+
+    // 지점 삭제 API
+    /*@DeleteMapping("/{branchId}")
+    public ResponseEntity<?> delete(@PathVariable Long branchId) {
+
+    }*/
 }

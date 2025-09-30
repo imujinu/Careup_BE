@@ -3,8 +3,10 @@ package com.careup.branch.domain.branch.service;
 import com.careup.branch.domain.branch.dto.BranchDetailDto;
 import com.careup.branch.domain.branch.dto.BranchListResDto;
 import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
+import com.careup.branch.domain.branch.dto.BranchUpdateDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -64,9 +66,37 @@ public class BranchService {
         return BranchListResDto.fromPage(branchDtoPage);
     }
 
+    // 지점 수정
+    public Branch updateBranch(Long branchId, @Valid BranchUpdateDto request) {
+        Branch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
+
+        // 이름 중복 체크
+        if (!branch.getName().equals(request.getName()) && branchRepository.existsByName(request.getName())) {
+            throw new IllegalArgumentException("이미 등록된 지점명입니다.");
+        }
+        // 사업자등록번호 중복 체크
+        if (!branch.getBusinessNumber().equals(request.getBusinessNumber()) && branchRepository.existsByBusinessNumber(request.getBusinessNumber())) {
+            throw new IllegalArgumentException("이미 등록된 사업자등록번호입니다.");
+        }
+        // 법인등록번호 중복 체크
+        if (!branch.getCorporationNumber().equals(request.getCorporationNumber()) && branchRepository.existsByCorporationNumber(request.getCorporationNumber())) {
+            throw new IllegalArgumentException("이미 등록된 법인등록번호입니다.");
+        }
+        // 전화번호 중복 체크
+        if (!branch.getPhone().equals(request.getPhone()) && branchRepository.existsByPhone(request.getPhone())) {
+            throw new IllegalArgumentException("이미 등록된 전화번호입니다.");
+        }
+
+        branch.updateBranch(request);
+        branchRepository.save(branch);
+
+        return branch;
+    }
+
     // 지점 상세 조회
 
-    // 지점 수정
 
     // 지점 삭제
+
 }

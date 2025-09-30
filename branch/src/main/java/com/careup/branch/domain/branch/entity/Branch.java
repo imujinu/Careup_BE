@@ -2,6 +2,7 @@ package com.careup.branch.domain.branch.entity;
 
 
 import com.careup.branch.common.domain.BaseTimeEntity;
+import com.careup.branch.domain.branch.dto.BranchUpdateDto;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -80,4 +81,22 @@ public class Branch extends BaseTimeEntity {
 
     @Column(name = "attorney_phone_number", length = 100, nullable = true)
     private String attorneyPhoneNumber; // 대리인 연락처
+
+    // 지점 수정 메서드
+    public void updateBranch(BranchUpdateDto request) {
+        this.name = request.getName();
+        this.businessDomain = request.getBusinessDomain();
+        this.ownershipType = request.getOwnershipType();
+        this.businessNumber = request.getBusinessNumber();
+        this.corporationNumber = request.getCorporationNumber();
+        this.zipcode = request.getZipcode();
+        this.address = request.getAddress();
+        this.addressDetail = request.getAddressDetail();
+        this.phone = request.getPhone();
+        this.profileImageUrl = request.getProfileImageUrl();
+        this.email = request.getEmail();
+        this.location = request.getLocation();
+        this.geofenceRadius = request.getGeofenceRadius();
+        this.remark = request.getRemark();
+    }
 }
