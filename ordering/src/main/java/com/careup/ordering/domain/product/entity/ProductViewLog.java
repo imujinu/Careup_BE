@@ -19,7 +19,7 @@ public class ProductViewLog {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "product_view_log_id")
-    private Long productViewLogId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_product_id", nullable = false)
