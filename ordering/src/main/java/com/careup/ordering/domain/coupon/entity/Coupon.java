@@ -18,7 +18,7 @@ public class Coupon {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "coupon_id")
-    private Long couponId;
+    private Long id;
 
     @Column(name = "name", nullable = false, length = 50)
     private String name;

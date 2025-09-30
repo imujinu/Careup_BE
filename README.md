@@ -25,7 +25,7 @@
   https://docs.google.com/spreadsheets/d/1vdBJm-jEBpxN1ISfJjKrhP7lDmLZn2BtD2mFcSh8DDs/edit?gid=1298947418#gid=1298947418
 
 - **ERD (ERDCloud)**  
-  https://www.erdcloud.com/d/BheLqjBhttiyWkdZj
+  [https://www.erdcloud.com/d/BheLqjBhttiyWkdZj](https://www.erdcloud.com/d/SCWgToHZ4eQx4Y3Pg)
 
 - **화면설계서 (Figma)**  
   https://www.figma.com/design/KFWHtTRfOvJ7kE1tsQruIg/Care-up?node-id=0-1&p=f&t=gtd3O7evry5yZZHQ-0

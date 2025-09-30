@@ -1,5 +1,6 @@
 package com.careup.branch.domain.branch.entity;
 
+
 import com.careup.branch.common.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -73,4 +74,11 @@ public class Branch extends BaseTimeEntity {
 
     @Column(length = 200)
     private String remark; // 비고
+
+
+    @Column(name = "attorney_name", length = 100, nullable = true)
+    private String attorneyName; // 대리인명
+
+    @Column(name = "attorney_phone_number", length = 100, nullable = true)
+    private String attorneyPhoneNumber; // 대리인 연락처
 }

@@ -18,7 +18,7 @@ public class InventoryFlowDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "inventory_flow_detail_id")
-    private Long inventoryFlowDetailId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_products_id",nullable = false)
