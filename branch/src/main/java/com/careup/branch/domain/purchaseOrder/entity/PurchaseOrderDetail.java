@@ -14,7 +14,7 @@ public class PurchaseOrderDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "purchase_order_detail_id", nullable = false)
-    private long purchaseOrderDetailId;
+    private long id;
 
     // 발주와 1:N
     @ManyToOne(fetch = FetchType.LAZY)
