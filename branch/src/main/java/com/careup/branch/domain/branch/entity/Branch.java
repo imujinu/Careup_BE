@@ -40,8 +40,11 @@ public class Branch extends BaseTimeEntity {
     private BranchStatus status = BranchStatus.OPENED; // 지점 상태(OPENED, CLOSED, SUSPENDED))
 
     @Column(nullable = false)
-    @Temporal(TemporalType.DATE)
     private LocalDate openDate; // 개업연월
+
+    @Column(nullable = true)
+    private LocalDate closeDate;
+
 
     @Column(length = 20, unique = true, nullable = false)
     private String businessNumber; // 사업자등록번호

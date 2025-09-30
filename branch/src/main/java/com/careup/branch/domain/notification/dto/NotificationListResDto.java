@@ -18,7 +18,7 @@ public class NotificationListResDto {
     private String title;
     private String body;
     private NotificationType type;
-    private LocalDateTime createdTime;
+    private LocalDateTime createdAt;
 
     public static NotificationListResDto fromEntity(Notification notification) {
         return NotificationListResDto
@@ -26,7 +26,7 @@ public class NotificationListResDto {
                 .title(notification.getTitle())
                 .body(notification.getBody())
                 .type(notification.getType())
-                .createdTime(notification.getCreatedTime())
+                .createdAt(notification.getCreatedAt())
                 .build();
     }
 }

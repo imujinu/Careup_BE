@@ -1,7 +1,6 @@
 package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
-import com.careup.branch.domain.owner.entity.Owner;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,11 +21,6 @@ public class Documents extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name ="employee_id")
     private Employee employee;
-
-    //서류 N:1 가맹점 주
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name ="owner_id")
-    private Owner owner;
 
     //서류 타입
     private DocumentType documentType;

@@ -9,8 +9,6 @@ import com.careup.branch.domain.notification.domain.NotificationAction;
 import com.careup.branch.domain.notification.domain.NotificationType;
 import com.careup.branch.domain.notification.dto.NotificationListResDto;
 import com.careup.branch.domain.notification.repository.NotificationRepository;
-import com.careup.branch.domain.owner.entity.Owner;
-import com.careup.branch.domain.owner.repository.OwnerRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +27,6 @@ public class NotificationService {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final NotificationRepository notificationRepository;
     private final EmployeeRepository employeeRepository;
-    private final OwnerRepository ownerRepository;
 
     public void publish(String topic, String message) {
         kafkaTemplate.send(topic, message);
@@ -194,9 +191,7 @@ public class NotificationService {
                         .map(Employee::getName)
                         .orElse("Unknown");
             case OWNER:
-                return ownerRepository.findByEmail(email)
-                        .map(Owner::getName)
-                        .orElse("Unknown");
+
             default:
                 return "Unknown";
         }
