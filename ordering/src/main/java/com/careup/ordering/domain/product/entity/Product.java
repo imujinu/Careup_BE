@@ -50,6 +50,10 @@ public class Product extends BaseTimeEntity {
     @Column(name = "is_del_yn", nullable = false, length = 1)
     private String isDelYn = "N";
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "visibility", nullable = false)
+    private Visibility visibility;
+
     @OneToMany(mappedBy = "product",cascade = CascadeType.ALL)
     private List<ProductAttribute> attributes = new ArrayList<>();
 
@@ -63,4 +67,11 @@ public class Product extends BaseTimeEntity {
         this.maxPrice = maxPrice;
         this.imageUrl = imageUrl;
     }
+
+    // 삭제 메서드
+    public void delete() {
+        this.isDelYn = "Y";
+    }
+
+
 }

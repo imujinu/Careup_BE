@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.entity;
 
-public enum ProductVisibility {
-    MATERIAL, PRODUCT
+public enum Visibility {
+    ALL,
+    LIMITED
 }
