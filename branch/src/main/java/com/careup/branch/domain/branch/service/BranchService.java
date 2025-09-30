@@ -39,6 +39,16 @@ public class BranchService {
         return branchRepository.save(branch);
     }
 
+    // 지점 상세 조회
+    public BranchDetailDto getBranch(Long branchId) {
+        Branch findBranch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
+
+        log.info("지점 상세 조회: {}", findBranch);
+
+        return BranchDetailDto.fromEntity(findBranch);
+    }
+
     // 지점 목록 조회 (페이징)
     @Transactional(readOnly = true)
     public BranchListResDto getBranchList(Pageable pageable) {
@@ -77,8 +87,12 @@ public class BranchService {
             throw new IllegalArgumentException("이미 등록된 전화번호입니다.");
         }
 
+        log.info("지점 변경 전: {}", branch);
+
         branch.updateBranch(request);
         branchRepository.save(branch);
+
+        log.info("지점 변경 후: {}", branch);
 
         return branch;
     }
@@ -88,9 +102,10 @@ public class BranchService {
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
 
+        log.info("지점 삭제: {}", branch);
+
         branchRepository.delete(branch);
     }
 
-    // 지점 상세 조회
 
 }

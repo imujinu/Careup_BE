@@ -2,6 +2,7 @@ package com.careup.branch.domain.branch.controller;
 
 import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
+import com.careup.branch.domain.branch.dto.BranchDetailDto;
 import com.careup.branch.domain.branch.dto.BranchListResDto;
 import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
 import com.careup.branch.domain.branch.dto.BranchUpdateDto;
@@ -77,6 +78,26 @@ public class BranchController {
     }
 
     // 지점 상세 조회 API
+    @GetMapping("/{branchId}")
+    public ResponseEntity<?> getBranch(@PathVariable Long branchId) {
+        try {
+            BranchDetailDto branchDetailDto = branchService.getBranch(branchId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branchDetailDto)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 조회 성공")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.CONFLICT.value())
+                            .status_message("지점 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
 
     // 지점 수정 API
     @PatchMapping("/{branchId}")

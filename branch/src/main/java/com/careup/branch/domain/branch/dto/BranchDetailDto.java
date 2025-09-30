@@ -3,17 +3,19 @@ package com.careup.branch.domain.branch.dto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.BranchStatus;
 import com.careup.branch.domain.branch.entity.OwnershipType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 
+/**
+ * 지점 상세 조회 DTO
+ * 해당 지점 상세 조회 및 수정에 사용
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Getter
 public class BranchDetailDto {
 
     private Long id;
