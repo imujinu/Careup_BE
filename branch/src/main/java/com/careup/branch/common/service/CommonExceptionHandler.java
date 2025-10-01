@@ -1,6 +1,7 @@
 package com.careup.branch.common.service;
 
 import com.careup.branch.common.dto.CommonErrorDto;
+import io.jsonwebtoken.JwtException;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.extern.slf4j.Slf4j;
@@ -47,4 +48,9 @@ public class CommonExceptionHandler {
         return new ResponseEntity<>(new CommonErrorDto(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
+    @ExceptionHandler(JwtException.class)
+    public ResponseEntity<?> handleJwt(JwtException e) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new CommonErrorDto(HttpStatus.UNAUTHORIZED.value(), "유효하지 않은 토큰입니다."));
+    }
 }
