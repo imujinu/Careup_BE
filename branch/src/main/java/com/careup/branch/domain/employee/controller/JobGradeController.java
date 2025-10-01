@@ -25,11 +25,9 @@ public class JobGradeController {
 
     private final JobGradeService jobGradeService;
 
-    /// 직급 목록 (HQ_ADMIN, BRANCH_ADMIN, FRANCHISE_OWNER)
     @GetMapping("/list")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
-    public ResponseEntity<CommonSuccessDto> list(
-            @PageableDefault(size = 20, sort = "id") Pageable pageable) {
+    public ResponseEntity<CommonSuccessDto> list(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
         Page<JobGradeListDto> result = jobGradeService.list(pageable);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
@@ -40,7 +38,6 @@ public class JobGradeController {
         );
     }
 
-    /// 직급 상세 (HQ_ADMIN 전용)
     @GetMapping("/detail/{id}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
     public ResponseEntity<CommonSuccessDto> detail(@PathVariable Long id) {
@@ -54,7 +51,6 @@ public class JobGradeController {
         );
     }
 
-    /// 직급 생성 (HQ_ADMIN)
     @PostMapping("/create")
     @PreAuthorize("hasRole('HQ_ADMIN')")
     public ResponseEntity<CommonSuccessDto> create(@Valid @RequestBody JobGradeCreateDto req) {
@@ -68,8 +64,8 @@ public class JobGradeController {
         );
     }
 
-    /// 직급 수정 (HQ_ADMIN)
-    @PatchMapping("/updateFromDto/{id}")
+    // ★ '/update/{id}'로 경로 통일
+    @PatchMapping("/update/{id}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
     public ResponseEntity<CommonSuccessDto> update(@PathVariable Long id,
                                                    @Valid @RequestBody JobGradeUpdateDto req) {
@@ -83,7 +79,6 @@ public class JobGradeController {
         );
     }
 
-    /// 직급 삭제 (HQ_ADMIN)
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
     public ResponseEntity<CommonSuccessDto> delete(@PathVariable Long id) {
@@ -97,7 +92,6 @@ public class JobGradeController {
         );
     }
 
-    /// (드롭다운용) 직급 옵션 (HQ_ADMIN, BRANCH_ADMIN, FRANCHISE_OWNER)
     @GetMapping("/options")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> options() {

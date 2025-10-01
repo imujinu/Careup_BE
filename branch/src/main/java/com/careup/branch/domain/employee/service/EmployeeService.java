@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.service;
 
+import com.careup.branch.common.util.PhoneUtils;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.dto.request.DispatchAssignmentDto;
@@ -41,8 +42,8 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeDetailDto create(EmployeeCreateDto dto) {
-        dto.setMobile(normalizePhone(dto.getMobile()));
-        dto.setEmergencyTel(normalizePhone(dto.getEmergencyTel()));
+        dto.setMobile(PhoneUtils.normalize(dto.getMobile()));
+        dto.setEmergencyTel(PhoneUtils.normalize(dto.getEmergencyTel()));
         validateDuplicateOnCreate(dto);
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -50,8 +51,11 @@ public class EmployeeService {
         String role = String.valueOf(c.get("role"));
         Long actorId = c.get("employeeId", Long.class);
 
+        Employee actor = null;
         if (!"HQ_ADMIN".equals(role)) {
-            enforceBranchManagePermission(dto.getDispatches(), actorId);
+            actor = employeeRepository.findById(actorId)
+                    .orElseThrow(() -> new EntityNotFoundException("권한을 확인할 수 없습니다."));
+            enforceBranchManagePermission(dto.getDispatches(), actor);
         }
 
         JobGrade jobGrade = null;
@@ -92,16 +96,16 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeDetailDto update(Long id, EmployeeUpdateDto dto) {
-        Employee e = employeeRepository.findById(id)
+        Employee target = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
 
-        if (!dto.getEmployeeNumber().equals(e.getEmployeeNumber())) {
+        if (!dto.getEmployeeNumber().equals(target.getEmployeeNumber())) {
             throw new IllegalArgumentException("사번은 변경할 수 없습니다.");
         }
 
-        dto.setMobile(normalizePhone(dto.getMobile()));
-        dto.setEmergencyTel(normalizePhone(dto.getEmergencyTel()));
-        validateDuplicateOnUpdate(e, dto);
+        dto.setMobile(PhoneUtils.normalize(dto.getMobile()));
+        dto.setEmergencyTel(PhoneUtils.normalize(dto.getEmergencyTel()));
+        validateDuplicateOnUpdate(target, dto);
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Claims c = (Claims) auth.getDetails();
@@ -109,8 +113,10 @@ public class EmployeeService {
         Long actorId = c.get("employeeId", Long.class);
 
         if (!"HQ_ADMIN".equals(role)) {
-            ensureTargetBelongsToMyBranches(e.getId(), actorId, "수정");
-            enforceBranchManagePermission(dto.getDispatches(), actorId);
+            Employee actor = employeeRepository.findById(actorId)
+                    .orElseThrow(() -> new EntityNotFoundException("권한을 확인할 수 없습니다."));
+            ensureTargetBelongsToMyBranches(target, actor, "수정");
+            enforceBranchManagePermission(dto.getDispatches(), actor);
         }
 
         JobGrade jobGrade = null;
@@ -119,27 +125,21 @@ public class EmployeeService {
                     .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
         }
 
-        e.updateFromDto(dto, jobGrade);
+        target.updateFromDto(dto, jobGrade);
 
         if (dto.getRawPassword() != null && !dto.getRawPassword().isBlank()) {
-            String encoded = passwordEncoder.encode(dto.getRawPassword());
-            try {
-                var f = Employee.class.getDeclaredField("passwordHash");
-                f.setAccessible(true);
-                f.set(e, encoded);
-            } catch (Exception ex) {
-                throw new IllegalStateException("비밀번호 변경 중 오류가 발생했습니다.");
-            }
+            target.changePasswordHash(passwordEncoder.encode(dto.getRawPassword()));
         }
 
-        dispatchStatusRepository.deleteByEmployeeId(e.getId());
-        List<EmployeeDispatchDto> dispatchDtos = saveAllDispatches(e, dto.getDispatches());
-        return EmployeeDetailDto.fromEntity(e, dispatchDtos);
+        // 기존 배치 전량 삭제 후 재저장
+        dispatchStatusRepository.deleteByEmployee(target);
+        List<EmployeeDispatchDto> dispatchDtos = saveAllDispatches(target, dto.getDispatches());
+        return EmployeeDetailDto.fromEntity(target, dispatchDtos);
     }
 
     @Transactional
     public void delete(Long id) {
-        Employee e = employeeRepository.findById(id)
+        Employee target = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
 
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -148,36 +148,60 @@ public class EmployeeService {
         Long actorId = c.get("employeeId", Long.class);
 
         if (!"HQ_ADMIN".equals(role)) {
-            ensureTargetBelongsToMyBranches(e.getId(), actorId, "삭제");
+            Employee actor = employeeRepository.findById(actorId)
+                    .orElseThrow(() -> new EntityNotFoundException("권한을 확인할 수 없습니다."));
+            ensureTargetBelongsToMyBranches(target, actor, "삭제");
         }
 
         try {
-            employeeRepository.delete(e);
+            employeeRepository.delete(target);
             employeeRepository.flush();
         } catch (DataIntegrityViolationException ex) {
             throw new EntityExistsException("해당 직원과 연관된 배치/근태/기록이 있어 삭제할 수 없습니다.");
         }
     }
 
-    private void ensureTargetBelongsToMyBranches(Long targetEmployeeId, Long actorId, String actionKor) {
-        List<Long> myBranches = dispatchStatusRepository.findManageableBranchIds(actorId, LocalDate.now());
-        if (myBranches == null || myBranches.isEmpty()) {
-            throw new IllegalArgumentException(actionKor + " 권한이 없습니다.");
+    private void ensureTargetBelongsToMyBranches(Employee target, Employee actor, String actionKor) {
+        LocalDate today = LocalDate.now();
+
+        List<Branch> myBranches = dispatchStatusRepository
+                .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(actor, "N", today, today)
+                .stream()
+                .map(DispatchStatus::getBranch)
+                .distinct()
+                .toList();
+
+        if (myBranches.isEmpty()) {
+            throw new IllegalArgumentException("권한이 없습니다.");
         }
-        long cnt = dispatchStatusRepository.countActiveInBranches(targetEmployeeId, myBranches, LocalDate.now());
-        if (cnt == 0) {
+
+        boolean ok = dispatchStatusRepository
+                .existsByEmployeeAndBranchInAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+                        target, myBranches, "N", today, today
+                );
+
+        if (!ok) {
             throw new IllegalArgumentException("내 지점 소속 직원만 " + actionKor + "할 수 있습니다.");
         }
     }
 
-    private void enforceBranchManagePermission(List<DispatchAssignmentDto> dispatches, Long actorId) {
-        List<Long> allowedIds = dispatchStatusRepository.findManageableBranchIds(actorId, LocalDate.now());
-        Set<Long> allowed = new HashSet<>(allowedIds);
+    private void enforceBranchManagePermission(List<DispatchAssignmentDto> dispatches, Employee actor) {
+        if (dispatches == null || dispatches.isEmpty()) return;
 
-        Set<Long> requested = (dispatches == null || dispatches.isEmpty())
-                ? Set.of()
-                : dispatches.stream().map(DispatchAssignmentDto::getBranchId).collect(Collectors.toSet());
+        LocalDate today = LocalDate.now();
 
+        Set<Long> requested = dispatches.stream()
+                .map(DispatchAssignmentDto::getBranchId)
+                .collect(Collectors.toSet());
+
+        List<Branch> myBranches = dispatchStatusRepository
+                .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(actor, "N", today, today)
+                .stream()
+                .map(DispatchStatus::getBranch)
+                .distinct()
+                .toList();
+
+        Set<Long> allowed = myBranches.stream().map(Branch::getId).collect(Collectors.toSet());
         if (!allowed.containsAll(requested)) {
             throw new IllegalArgumentException("권한이 없는 지점이 포함되어 있습니다.");
         }
@@ -191,9 +215,9 @@ public class EmployeeService {
             validateDispatchDates(d.getAssignedFrom(), d.getAssignedTo());
 
             Branch branch = branchRepository.findById(d.getBranchId())
-                    .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("지점을 찾을 수 없습니다."));
 
-            String placementYn = (d.getPlacementYn() == null || d.getPlacementYn().isBlank()) ? "Y" : d.getPlacementYn();
+            String placementYn = (d.getPlacementYn() == null || d.getPlacementYn().isBlank()) ? "N" : d.getPlacementYn();
 
             DispatchStatus status = DispatchStatus.builder()
                     .employee(employee)
@@ -232,13 +256,5 @@ public class EmployeeService {
     private void validateDispatchDates(LocalDate from, LocalDate to) {
         if (from == null || to == null) throw new IllegalArgumentException("배치 시작/종료일이 필요합니다.");
         if (from.isAfter(to)) throw new IllegalArgumentException("배치 시작일이 종료일보다 늦을 수 없습니다.");
-    }
-
-    private String normalizePhone(String input) {
-        if (input == null) return null;
-        String digits = input.replaceAll("\\D", "");
-        if (digits.length() == 11) return digits.substring(0,3) + "-" + digits.substring(3,7) + "-" + digits.substring(7);
-        if (digits.length() == 10) return digits.substring(0,3) + "-" + digits.substring(3,6) + "-" + digits.substring(6);
-        return input;
     }
 }

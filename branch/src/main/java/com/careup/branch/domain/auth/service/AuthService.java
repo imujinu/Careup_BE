@@ -2,6 +2,7 @@ package com.careup.branch.domain.auth.service;
 
 import com.careup.branch.common.auth.JwtProperties;
 import com.careup.branch.common.auth.JwtTokenProvider;
+import com.careup.branch.common.util.PhoneUtils;
 import com.careup.branch.domain.auth.dto.request.AuthLoginRequest;
 import com.careup.branch.domain.auth.dto.response.AuthLoginResponse;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
@@ -39,7 +40,7 @@ public class AuthService {
         Employee emp = rawId.contains("@")
                 ? employeeRepository.findByEmailIgnoreCase(rawId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 이메일입니다."))
-                : employeeRepository.findByMobile(normalizeToHyphenPhone(rawId))
+                : employeeRepository.findByMobile(PhoneUtils.normalize(rawId))
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 휴대폰 번호입니다."));
 
         if (!Boolean.TRUE.equals(emp.getEnabled())) {
@@ -49,15 +50,15 @@ public class AuthService {
             throw new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다.");
         }
 
-        String role = emp.getAuthorityType().name(); // HQ_ADMIN / BRANCH_ADMIN / FRANCHISE_OWNER / STAFF
+        String role = emp.getAuthorityType().name();
         String at = jwt.createAccessToken(emp.getEmail(), role, emp.getId());
         String rt = jwt.createRefreshToken(emp.getEmail(), req.isRememberMe());
 
         LocalDate today = LocalDate.now();
-        var activeDispatchOpt =
-                dispatchStatusRepository
-                        .findFirstByEmployeeIdAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
-                                emp.getId(), "Y", today, today);
+        var activeDispatchOpt = dispatchStatusRepository
+                .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
+                        emp, "N", today, today
+                );
 
         Long branchId = null;
         String branchName = null;
@@ -85,17 +86,6 @@ public class AuthService {
                 .branchId(branchId)
                 .branchName(branchName)
                 .build();
-    }
-
-    private String normalizeToHyphenPhone(String input) {
-        String digits = input.replaceAll("\\D", "");
-        if (digits.length() == 11) {
-            return digits.substring(0, 3) + "-" + digits.substring(3, 7) + "-" + digits.substring(7);
-        } else if (digits.length() == 10) {
-            return digits.substring(0, 3) + "-" + digits.substring(3, 6) + "-" + digits.substring(6);
-        } else {
-            return input;
-        }
     }
 
     public static boolean isStrongPassword(String raw) {

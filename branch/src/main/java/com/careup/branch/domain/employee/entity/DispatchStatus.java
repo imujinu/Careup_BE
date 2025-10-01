@@ -2,7 +2,6 @@ package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
 import com.careup.branch.domain.branch.entity.Branch;
-import com.careup.branch.domain.chat.entity.ChatRoom;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;

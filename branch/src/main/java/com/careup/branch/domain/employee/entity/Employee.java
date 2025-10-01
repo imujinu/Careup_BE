@@ -5,6 +5,7 @@ import com.careup.branch.domain.employee.dto.request.EmployeeUpdateDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +28,11 @@ public class Employee extends BaseTimeEntity {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "job_grade_id")
+    @JoinColumn(
+            name = "job_grade_id",
+            nullable = true,
+            foreignKey = @ForeignKey(name = "fk_employee_job_grade")
+    )
     private JobGrade jobGrade;
 
     @Column(nullable = false)
@@ -118,5 +123,9 @@ public class Employee extends BaseTimeEntity {
         this.employmentType = dto.getEmploymentType();
         this.profileImageUrl = dto.getProfileImageUrl();
         this.remark = dto.getRemark();
+    }
+
+    public void changePasswordHash(String encoded) {
+        this.passwordHash = encoded;
     }
 }

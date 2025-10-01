@@ -2,6 +2,7 @@ package com.careup.branch.common.auth;
 
 /// JWT를 만들고 파싱(검증)할 때 필요
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -123,7 +124,7 @@ public class JwtTokenProvider {
         String loginId = claims.getSubject();
         String saved = redisTemplate.opsForValue().get("RT:" + loginId);
         if (saved == null || !saved.equals(refreshToken)) {
-            throw new IllegalArgumentException("유효하지 않은 token 입니다."); /// 401로 처리될 에러
+            throw new JwtException("유효하지 않은 토큰입니다.");
         }
         return claims;
     }
