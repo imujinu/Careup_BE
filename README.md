@@ -16,6 +16,24 @@
 
 ---
 
+## 🛠️ 스텍
+
+### 백엔드
+<a href="https://spring.io/" target="_blank"><img src="https://img.shields.io/badge/spring-%236DB33F.svg?style=for-the-badge&logo=spring&logoColor=white" alt="Spring"></a>
+<a href="https://spring.io/projects/spring-boot" target="_blank"><img src="https://img.shields.io/badge/springboot-%236DB33F.svg?style=for-the-badge&logo=springboot&logoColor=white" alt="Spring Boot"></a>
+<a href="https://spring.io/projects/spring-security" target="_blank"><img src="https://img.shields.io/badge/springsecurity-%236DB33F.svg?style=for-the-badge&logo=springsecurity&logoColor=white" alt="Spring Security"></a>
+<a href="https://www.java.com/ko/" target="_blank"><img src="https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white" alt="Java"></a>
+<a href="https://hibernate.org/" target="_blank"><img src="https://img.shields.io/badge/Hibernate-59666C?style=for-the-badge&logo=Hibernate&logoColor=white" alt="Hibernate(Spring Data JPA)"></a>
+<a href="https://mariadb.org/" target="_blank"><img src="https://img.shields.io/badge/MariaDB-003545?style=for-the-badge&logo=mariadb&logoColor=white" alt="MariaDB"></a>
+<a href="https://redis.io/" target="_blank"><img src="https://img.shields.io/badge/redis-%23DD0031.svg?style=for-the-badge&logo=redis&logoColor=white" alt="Redis"></a>
+<a href="https://kafka.apache.org/" target="_blank"><img src="https://img.shields.io/badge/Apache%20Kafka-000?style=for-the-badge&logo=apachekafka" alt="Apache Kafka"></a>
+<a href="https://www.elastic.co/kr/" target="_blank"><img src="https://img.shields.io/badge/elasticsearch-%230377CC.svg?style=for-the-badge&logo=elasticsearch&logoColor=white" alt="Elasticsearch"></a>
+<a href="https://www.elastic.co/kr/logstash" target="_blank"><img src="https://img.shields.io/badge/logstash-%23005571.svg?style=for-the-badge&logo=logstash&logoColor=white" alt="Logstash"></a>
+<a href="https://www.elastic.co/kibana" target="_blank"><img src="https://img.shields.io/badge/kibana-%23005571.svg?style=for-the-badge&logo=kibana&logoColor=white" alt="Kibana"></a>
+<a href="https://www.jwt.io/" target="_blank"><img src="https://img.shields.io/badge/JWT-black?style=for-the-badge&logo=JSON%20web%20tokens" alt="JWT"></a>
+
+---
+
 ## 📄 산출물 링크
 
 - **기획서(PDF)**  
