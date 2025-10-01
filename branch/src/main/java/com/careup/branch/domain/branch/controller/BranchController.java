@@ -1,9 +1,22 @@
 package com.careup.branch.domain.branch.controller;
 
+import com.careup.branch.common.dto.CommonErrorDto;
+import com.careup.branch.common.dto.CommonSuccessDto;
+import com.careup.branch.domain.branch.dto.BranchDetailDto;
+import com.careup.branch.domain.branch.dto.BranchListResDto;
+import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
+import com.careup.branch.domain.branch.dto.BranchUpdateDto;
+import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.service.BranchService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/branch")
@@ -12,5 +25,119 @@ public class BranchController {
 
     private final BranchService branchService;
 
-    // TODO: 지점 관련 API 추가
+    // 지점 등록 API
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@Valid @RequestBody BranchRegisterReqDto reqDto) {
+        try {
+            Branch branch = branchService.registerBranch(reqDto);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branch.getId())
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 등록이 완료되었습니다.")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.CONFLICT.value())
+                            .status_message(e.getMessage())
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("지점 등록 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    // 지점 목록 조회 API (페이징)
+    @GetMapping
+    public ResponseEntity<?> getList(
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        try {
+            BranchListResDto branchList = branchService.getBranchList(pageable);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branchList)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 목록 조회가 완료되었습니다.")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("지점 목록 조회 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    // 지점 상세 조회 API
+    @GetMapping("/{branchId}")
+    public ResponseEntity<?> getBranch(@PathVariable Long branchId) {
+        try {
+            BranchDetailDto branchDetailDto = branchService.getBranch(branchId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branchDetailDto)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 조회 성공")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.CONFLICT.value())
+                            .status_message("지점 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    // 지점 수정 API
+    @PatchMapping("/{branchId}")
+    public ResponseEntity<?> update(@PathVariable Long branchId, @Validated @RequestBody BranchUpdateDto request) {
+        try {
+            Branch updatedBranch = branchService.updateBranch(branchId, request);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(updatedBranch)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 수정 완료")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("지점 수정 실패: " + e.getMessage())
+            );
+        }
+    }
+
+    // 지점 삭제 API
+    @DeleteMapping("/{branchId}")
+    public ResponseEntity<?> delete(@PathVariable Long branchId) {
+        try {
+            branchService.deleteBranch(branchId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branchId)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 삭제 완료")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("지점 삭제 실패 : " + e.getMessage())
+            );
+        }
+    }
 }

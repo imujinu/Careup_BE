@@ -28,7 +28,6 @@ public class Employee extends BaseTimeEntity {
     private String name; // 성명
 
     @Column(nullable = false)
-    @Temporal(TemporalType.DATE)
     private LocalDate dateOfBirth; // 생년월일
 
     @Column(nullable = false)
@@ -58,10 +57,8 @@ public class Employee extends BaseTimeEntity {
     private Relationship relationship; // 관계 ()
 
     @Column(nullable = false)
-    @Temporal(TemporalType.DATE)
     private LocalDate hireDate; // 입사일
 
-    @Temporal(TemporalType.DATE)
     private LocalDate terminateDate; // 퇴사일
 
     @Column(nullable = false)
