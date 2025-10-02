@@ -2,7 +2,7 @@ package com.careup.branch.domain.branch.entity;
 
 
 import com.careup.branch.common.domain.BaseTimeEntity;
-import com.careup.branch.domain.branch.dto.BranchUpdateDto;
+import com.careup.branch.domain.branch.dto.branch.BranchUpdateDto;
 import jakarta.persistence.*;
 import lombok.*;
 

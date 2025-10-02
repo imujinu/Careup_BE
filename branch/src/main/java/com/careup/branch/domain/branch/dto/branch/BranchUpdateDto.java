@@ -1,6 +1,5 @@
-package com.careup.branch.domain.branch.dto;
+package com.careup.branch.domain.branch.dto.branch;
 
-import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.OwnershipType;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

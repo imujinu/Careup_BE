@@ -1,9 +1,9 @@
 package com.careup.branch.domain.branch.service;
 
-import com.careup.branch.domain.branch.dto.BranchDetailDto;
-import com.careup.branch.domain.branch.dto.BranchListResDto;
-import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
-import com.careup.branch.domain.branch.dto.BranchUpdateDto;
+import com.careup.branch.domain.branch.dto.branch.BranchDto;
+import com.careup.branch.domain.branch.dto.branch.BranchListResDto;
+import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
+import com.careup.branch.domain.branch.dto.branch.BranchUpdateDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import jakarta.validation.Valid;
@@ -40,13 +40,13 @@ public class BranchService {
     }
 
     // 지점 상세 조회
-    public BranchDetailDto getBranch(Long branchId) {
+    public BranchDto getBranch(Long branchId) {
         Branch findBranch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
 
         log.info("지점 상세 조회: {}", findBranch);
 
-        return BranchDetailDto.fromEntity(findBranch);
+        return BranchDto.fromEntity(findBranch);
     }
 
     // 지점 목록 조회 (페이징)
@@ -55,7 +55,7 @@ public class BranchService {
         Page<Branch> findBranches = branchRepository.findAll(pageable);
 
         // Entity를 DTO로 변환
-        Page<BranchDetailDto> branchDtoPage = findBranches.map(BranchDetailDto::fromEntity);
+        Page<BranchDto> branchDtoPage = findBranches.map(BranchDto::fromEntity);
 
         log.info("지점 목록 조회 - 페이지: {}", pageable.getPageNumber() + 1);
         log.info("지점 목록 조회 - 총 페이지: {}", branchDtoPage.getTotalPages());

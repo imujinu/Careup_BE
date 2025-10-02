@@ -1,4 +1,4 @@
-package com.careup.branch.domain.branch.dto;
+package com.careup.branch.domain.branch.dto.branch;
 
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.BranchStatus;
@@ -16,7 +16,7 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 @Getter
-public class BranchDetailDto {
+public class BranchDto {
 
     private Long id;
     private String name;
@@ -33,8 +33,8 @@ public class BranchDetailDto {
     private String profileImageUrl;
 
     // Entity -> DTO
-    public static BranchDetailDto fromEntity(Branch branch) {
-        return BranchDetailDto.builder()
+    public static BranchDto fromEntity(Branch branch) {
+        return BranchDto.builder()
                 .id(branch.getId())
                 .name(branch.getName())
                 .businessDomain(branch.getBusinessDomain())
