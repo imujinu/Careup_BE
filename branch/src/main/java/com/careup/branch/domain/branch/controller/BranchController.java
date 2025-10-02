@@ -2,10 +2,10 @@ package com.careup.branch.domain.branch.controller;
 
 import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
-import com.careup.branch.domain.branch.dto.BranchDetailDto;
-import com.careup.branch.domain.branch.dto.BranchListResDto;
-import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
-import com.careup.branch.domain.branch.dto.BranchUpdateDto;
+import com.careup.branch.domain.branch.dto.branch.BranchDto;
+import com.careup.branch.domain.branch.dto.branch.BranchListResDto;
+import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
+import com.careup.branch.domain.branch.dto.branch.BranchUpdateDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.service.BranchService;
 import jakarta.validation.Valid;
@@ -81,7 +81,7 @@ public class BranchController {
     @GetMapping("/{branchId}")
     public ResponseEntity<?> getBranch(@PathVariable Long branchId) {
         try {
-            BranchDetailDto branchDetailDto = branchService.getBranch(branchId);
+            BranchDto branchDetailDto = branchService.getBranch(branchId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(branchDetailDto)
