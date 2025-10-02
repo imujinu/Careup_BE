@@ -2,10 +2,7 @@ package com.careup.branch.domain.branch.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 
@@ -14,6 +11,8 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @Builder
 @Getter
+@EqualsAndHashCode(callSuper = false)
+@ToString
 public class KPI extends BaseTimeEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -36,4 +35,6 @@ public class KPI extends BaseTimeEntity {
     //진행량
     @Column(precision = 7, scale = 2, nullable = false)
     private BigDecimal progress;
+
+    // 공식
 }
