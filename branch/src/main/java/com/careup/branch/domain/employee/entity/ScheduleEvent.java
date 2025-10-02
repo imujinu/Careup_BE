@@ -46,12 +46,17 @@ public class ScheduleEvent extends BaseTimeEntity {
     @Column(name = "clock_out_at", nullable = true)
     private LocalDateTime clockOutAt;
 
-    //출근 위치
-    @Column(name = "clock_in_location", nullable = true, columnDefinition = "POINT")
-    private Point clockInLocation;
+    //출근 위치 (위도, 경도)
+    @Column(name = "clock_in_lat", precision = 9, scale = 6)
+    private Double clockInLat;
 
-    //퇴근 위치
-    @Column(name = "clock_out_location", nullable = true)
-    private Point clockOutLocation;
+    @Column(name = "clock_in_lon", precision = 9, scale = 6)
+    private Double clockInLon;
 
+    //퇴근 위치 (위도, 경도)
+    @Column(name = "clock_out_lat", precision = 9, scale = 6)
+    private Double clockOutLat;
+
+    @Column(name = "clock_out_lon", precision = 9, scale = 6)
+    private Double clockOutLon;
 }

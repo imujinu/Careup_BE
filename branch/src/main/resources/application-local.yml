@@ -42,20 +42,20 @@ spring:
 cloud:
   aws:
     credentials:
-      access-key: xxxxxxxxxxxxx
-      secret-key: yyyyyyyyyyyyyy
+      access-key: ${ACCESS_KEY}
+      secret-key: ${SECRET_KEY}
     region:
       static: ap-northeast-2
     s3:
-      bucket: xxxxxxxxxxxxx
+      bucket: ${S3_BUCKET}
 
 jwt:
   accessTokenExpiryMinutes: 30 # 30분
-  secretKeyAt: ${accessToken}
+  secretKeyAt: ${ACCESS_TOKEN}
   #  refreshTokenExpiryDays: 180 # 180일
   refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
   refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
-  secretKeyRt: ${refreshToken}
+  secretKeyRt: ${REFRESH_KEY}
 
 security:
   csrf:
@@ -63,7 +63,7 @@ security:
       - "http://localhost:3000"
     skip-paths:
       - "/health"
-      -
+
 logging:
   level:
     root: info

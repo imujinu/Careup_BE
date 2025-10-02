@@ -37,7 +37,7 @@ public class SecurityConfig {
         /// 2) URL 접근 권한 설정
         http.authorizeHttpRequests(auth -> auth
                 /// 로그인 없이 접근 가능한 공개 경로들
-                .requestMatchers("/actuator/**", "/auth/**", "/public/**").permitAll()
+                .requestMatchers("/actuator/**", "/auth/**", "/public/**", "/health").permitAll()
                 /// 그 외 모든 경로는 인증(토큰) 필요
                 .anyRequest().authenticated()
         );
