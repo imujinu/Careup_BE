@@ -17,17 +17,14 @@ public class Documents extends BaseTimeEntity {
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private Long id;
 
-    //서류 N:1 직원
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name ="employee_id")
     private Employee employee;
 
-    //서류 타입
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 40)
     private DocumentType documentType;
 
-    //서류
     @Column(name = "document_url", columnDefinition = "TEXT", nullable = false)
     private String documentUrl;
-
-
 }

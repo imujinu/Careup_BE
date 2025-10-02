@@ -48,7 +48,7 @@ public class ScheduleEvent extends BaseTimeEntity {
 
     //출근 위치
     @Column(name = "clock_in_location", nullable = true, columnDefinition = "POINT")
-    private Point clockIntLocation;
+    private Point clockInLocation;
 
     //퇴근 위치
     @Column(name = "clock_out_location", nullable = true)
