@@ -2,11 +2,9 @@ package com.careup.branch.domain.branch.entity;
 
 
 import com.careup.branch.common.domain.BaseTimeEntity;
+import com.careup.branch.domain.branch.dto.branch.BranchUpdateDto;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
 
@@ -15,14 +13,13 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Builder
 @Getter
+@EqualsAndHashCode(callSuper = false)
+@ToString
 public class Branch extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(length = 50, unique = true, nullable = false)
-    private String code; // 지점 코드
 
     @Column(length = 100, nullable = false)
     private String name; // 지점명
@@ -32,7 +29,7 @@ public class Branch extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private OwnershipType ownershipType; // 직영 여부
+    private OwnershipType ownershipType; // 직영 여부 (YES, NO)
 
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -49,7 +46,7 @@ public class Branch extends BaseTimeEntity {
     @Column(length = 20, unique = true, nullable = false)
     private String businessNumber; // 사업자등록번호
 
-    @Column(length = 20, unique = true, nullable = false)
+    @Column(length = 20, nullable = false)
     private String corporationNumber; // 법인등록번호
 
     @Column(length = 20, nullable = false)
@@ -84,4 +81,22 @@ public class Branch extends BaseTimeEntity {
 
     @Column(name = "attorney_phone_number", length = 100, nullable = true)
     private String attorneyPhoneNumber; // 대리인 연락처
+
+    // 지점 수정 메서드
+    public void updateBranch(BranchUpdateDto request) {
+        this.name = request.getName();
+        this.businessDomain = request.getBusinessDomain();
+        this.ownershipType = request.getOwnershipType();
+        this.businessNumber = request.getBusinessNumber();
+        this.corporationNumber = request.getCorporationNumber();
+        this.zipcode = request.getZipcode();
+        this.address = request.getAddress();
+        this.addressDetail = request.getAddressDetail();
+        this.phone = request.getPhone();
+        this.profileImageUrl = request.getProfileImageUrl();
+        this.email = request.getEmail();
+        this.location = request.getLocation();
+        this.geofenceRadius = request.getGeofenceRadius();
+        this.remark = request.getRemark();
+    }
 }

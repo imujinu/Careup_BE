@@ -51,11 +51,11 @@ cloud:
 
 jwt:
   accessTokenExpiryMinutes: 30 # 30분
-  secretKeyAt: YmV5b25kYWNjZXNzdG9rZW5zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2tlbnNlY3JldGtleWJleW9uZGFjY2Vzc3Rva2Vuc2VjcmV0a2V5
+  secretKeyAt: ${accessToken}
   #  refreshTokenExpiryDays: 180 # 180일
   refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
   refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
-  secretKeyRt: YmV5b25kYWNjZXNzdG9rZW5zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2tlbnNlY3JldGtleWJleW9uZGFjY2Vzc3Rva2Vuc2VjcmV0a2V5
+  secretKeyRt: ${refreshToken}
 
 security:
   csrf:
