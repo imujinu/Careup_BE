@@ -21,4 +21,3 @@ public class PurchaseOrderListResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-
