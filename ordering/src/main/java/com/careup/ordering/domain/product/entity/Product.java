@@ -58,13 +58,14 @@ public class Product extends BaseTimeEntity {
 
     @Builder
     public Product(Category category, String name, String description,
-                   Long minPrice, Long maxPrice, String imageUrl) {
+                   Long minPrice, Long maxPrice, String imageUrl, Visibility visibility) {
         this.category = category;
         this.name = name;
         this.description = description;
         this.minPrice = minPrice;
         this.maxPrice = maxPrice;
         this.imageUrl = imageUrl;
+        this.visibility = visibility != null ? visibility : Visibility.ALL;
     }
 
     // 삭제 메서드
@@ -72,5 +73,12 @@ public class Product extends BaseTimeEntity {
         this.isDelYn = "Y";
     }
 
-
+    // 상품 수정 메서드
+    public void updateInfo(String name, String description, Long minPrice, Long maxPrice, String imageUrl) {
+        if (name != null) this.name = name;
+        if (description != null) this.description = description;
+        if (minPrice != null) this.minPrice = minPrice;
+        if (maxPrice != null) this.maxPrice = maxPrice;
+        if (imageUrl != null) this.imageUrl = imageUrl;
+    }
 }
