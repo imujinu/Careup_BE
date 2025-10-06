@@ -1,6 +1,11 @@
 package com.careup.branch.domain.employee.entity;
 
 public enum Relationship {
-    SINGLE,
-    MARRIED
+    PARENT,
+    SIBLING,
+    SPOUSE,
+    CHILD,
+    FRIEND,
+    NEIGHBOR,
+    OTHER
 }
