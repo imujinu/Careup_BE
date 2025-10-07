@@ -25,5 +25,5 @@ public class OrderDetailResponseDto {
     private String rejectedReason;
     private LocalDateTime createdAt;
     private List<OrderItemResponseDto> orderItems;
-    private PaymentResponseDto payment;
+//    private PaymentResponseDto payment;
 }

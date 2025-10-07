@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "ordered")
+@Table(name = "ordered_item") // 이름만 수정했음
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -27,7 +27,7 @@ public class OrderedItem {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    @Column(name = "quantity",nullable = false)
+    @Column(name = "quantity", nullable = false)
     private Long quantity;
 
     @Column(name = "unit_price", nullable = false)
@@ -37,11 +37,11 @@ public class OrderedItem {
     private Long totalPrice;
 
     @Builder
-    public OrderedItem(Order order,Product product,Long quantity,Long unitPrice){
-     this.order = order;
-     this.product = product;
-     this.quantity = quantity;
-     this.unitPrice = unitPrice;
-     this.totalPrice = quantity * unitPrice;
+    public OrderedItem(Order order, Product product, Long quantity, Long unitPrice) {
+        this.order = order;
+        this.product = product;
+        this.quantity = quantity;
+        this.unitPrice = unitPrice;
+        this.totalPrice = quantity * unitPrice;
     }
 }

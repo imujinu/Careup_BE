@@ -2,13 +2,17 @@ package com.careup.ordering.domain.order.dto;
 
 import com.careup.ordering.domain.order.entity.OrderType;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.List;
 
 @Getter
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class OrderRequestDto {
     @NotNull(message = "회원 ID는 필수입니다")
     private Long memberId;
