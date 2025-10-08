@@ -7,19 +7,33 @@ import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class InventoryService {
 
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
     private final ProductRepository productRepository;
+    
+    // 🔥 Redis와 Kafka 추가
+    private final RedisTemplate<String, Object> redisTemplate;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+    
+    private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
+    private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
 
     // 지점별 상품 등록
     public BranchProduct createBranchProduct(Long productId, Long branchId, String serialNumber,
@@ -75,6 +89,12 @@ public class InventoryService {
         }
         
         branchProductRepository.save(branchProduct);
+        
+        // redis 캐시 업데이트
+        updateInventoryCache(branchProduct);
+        
+        // 재고 변경 이벤트 발송
+        publishInventoryChangeEvent(branchProduct, quantity, type, reason);
         
         // 입출고 기록 생성
         InventoryFlowDetail flow = InventoryFlowDetail.builder()
@@ -145,6 +165,48 @@ public class InventoryService {
             return inventoryFlowDetailRepository.findByRemarkContaining(reason);
         } else {
             return inventoryFlowDetailRepository.findAll();
+        }
+    }
+    
+    // redis/kafka
+    // redis 캐시 업데이트
+    private void updateInventoryCache(BranchProduct branchProduct) {
+        try {
+            String cacheKey = INVENTORY_CACHE_PREFIX + branchProduct.getBranchId() + ":product:" + branchProduct.getProduct().getId();
+            log.info("🔥 Redis 캐시 키: {}", cacheKey);
+            
+            Map<String, Object> cacheData = new HashMap<>();
+            cacheData.put("branchProductId", branchProduct.getId());
+            cacheData.put("branchId", branchProduct.getBranchId());
+            cacheData.put("productId", branchProduct.getProduct().getId());
+            cacheData.put("stockQuantity", branchProduct.getStockQuantity());
+            cacheData.put("safetyStock", branchProduct.getSafetystock());
+            cacheData.put("price", branchProduct.getPrice());
+            
+            redisTemplate.opsForValue().set(cacheKey, cacheData, Duration.ofMinutes(30));
+            log.info("재고 캐시 업데이트 완료: branchId={}, productId={}", branchProduct.getBranchId(), branchProduct.getProduct().getId());
+        } catch (Exception e) {
+            log.error("재고 캐시 업데이트 실패: branchProductId={}", branchProduct.getId(), e);
+        }
+    }
+    
+    // 재고 변경 이벤트 발송
+    private void publishInventoryChangeEvent(BranchProduct branchProduct, Long quantity, String type, String reason) {
+        try {
+            Map<String, Object> eventData = new HashMap<>();
+            eventData.put("branchId", branchProduct.getBranchId());
+            eventData.put("productId", branchProduct.getProduct().getId());
+            eventData.put("productName", branchProduct.getProduct().getName());
+            eventData.put("quantity", quantity);
+            eventData.put("changeType", type);
+            eventData.put("reason", reason);
+            eventData.put("currentStock", branchProduct.getStockQuantity());
+            
+            kafkaTemplate.send(INVENTORY_CHANGE_TOPIC, eventData);
+            log.info("재고 변경 이벤트 발송: branchId={}, productId={}, type={}, quantity={}", 
+                branchProduct.getBranchId(), branchProduct.getProduct().getId(), type, quantity);
+        } catch (Exception e) {
+            log.error("재고 변경 이벤트 발송 실패: branchProductId={}", branchProduct.getId(), e);
         }
     }
 }
