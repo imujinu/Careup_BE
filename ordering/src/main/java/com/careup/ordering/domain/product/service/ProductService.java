@@ -7,6 +7,7 @@ import com.careup.ordering.domain.product.entity.Visibility;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;

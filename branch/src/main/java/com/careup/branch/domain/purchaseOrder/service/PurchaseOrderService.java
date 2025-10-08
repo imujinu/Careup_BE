@@ -9,6 +9,8 @@ import com.careup.branch.domain.purchaseOrder.entity.PurchaseOrderDetail;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderRepository;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderDetailRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,12 +20,15 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class PurchaseOrderService {
 
     private static final Long HEAD_OFFICE_BRANCH_ID = 1L;
+    private static final String PURCHASE_ORDER_APPROVED_TOPIC = "purchase-order-approved";
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
+    private final KafkaTemplate<String, Object> purchaseOrderKafkaTemplate;
     
     // 발주 생성 (가맹점용)
     @Transactional
@@ -147,6 +152,10 @@ public class PurchaseOrderService {
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+        
+        // kafka로 발주 승인 이벤트 발송
+        publishPurchaseOrderApprovedEvent(savedOrder, orderDetails);
+        
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
@@ -218,5 +227,20 @@ public class PurchaseOrderService {
                 .unitPrice(detail.getUnitPrice())
                 .subtotalPrice(detail.getSubtotalPrice())
                 .build();
+    }
+    
+    // kafka 이벤트 발송
+    // 발주 승인 이벤트 발송
+    private void publishPurchaseOrderApprovedEvent(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        try {
+            PurchaseOrderResponseDto event = convertToResponseDto(purchaseOrder, orderDetails);
+            
+            purchaseOrderKafkaTemplate.send(PURCHASE_ORDER_APPROVED_TOPIC, event);
+            log.info("발주 승인 이벤트 발송 완료: purchaseOrderId={}, branchId={}, totalPrice={}", 
+                purchaseOrder.getId(), purchaseOrder.getBranchId(), purchaseOrder.getPrice());
+                
+        } catch (Exception e) {
+            log.error("발주 승인 이벤트 발송 실패: purchaseOrderId={}", purchaseOrder.getId(), e);
+        }
     }
 }
