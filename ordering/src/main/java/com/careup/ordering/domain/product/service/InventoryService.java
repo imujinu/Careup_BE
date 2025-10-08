@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.service;
 
+import com.careup.ordering.common.service.DistributedLockService;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.entity.Product;
@@ -28,9 +29,11 @@ public class InventoryService {
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
     private final ProductRepository productRepository;
     
-    // 🔥 Redis와 Kafka 추가
+    // redis와 kafka 추가
     private final RedisTemplate<String, Object> redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    private final DistributedLockService distributedLockService;
     
     private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
     private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
@@ -77,19 +80,47 @@ public class InventoryService {
         branchProductRepository.save(branchProduct);
     }
 
-    // 재고 증감
+    // 재고 증감 (분산 락 적용)
     public void adjustStock(Long branchProductId, Long quantity, String type, String reason) {
+        
+        // 분산 락 동시성 제어
+        distributedLockService.executeInventoryLock(branchProductId, () -> {
+            return performStockAdjustment(branchProductId, quantity, type, reason);
+        });
+    }
+    
+    // 실제 재고 증감 로직
+    private Void performStockAdjustment(Long branchProductId, Long quantity, String type, String reason) {
+        
         BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
                 .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+        
+        Long oldStock = branchProduct.getStockQuantity();
         
         if ("INCREASE".equals(type)) {
             branchProduct.increaseStock(quantity);
         } else if ("DECREASE".equals(type)) {
+            // 재고 부족 확인
+            if (branchProduct.getStockQuantity() < quantity) {
+                log.warn("재고 부족: 현재재고={}, 요청수량={}, 부족수량={}",
+                    branchProduct.getStockQuantity(), quantity, 
+                    quantity - branchProduct.getStockQuantity());
+                
+                // 재고 부족 시 에러 발생
+                throw new IllegalArgumentException(
+                    String.format("재고가 부족합니다. 현재 재고: %d개, 요청 수량: %d개", 
+                        branchProduct.getStockQuantity(), quantity));
+                
+                // 부분주문이 된다면
+                // Long availableStock = branchProduct.getStockQuantity();
+                // branchProduct.decreaseStock(availableStock);
+
+            }
             branchProduct.decreaseStock(quantity);
         }
         
         branchProductRepository.save(branchProduct);
-        
+
         // redis 캐시 업데이트
         updateInventoryCache(branchProduct);
         
@@ -105,6 +136,8 @@ public class InventoryService {
                 .build();
         
         inventoryFlowDetailRepository.save(flow);
+        
+        return null;
     }
 
     // 입출고 기록 등록
