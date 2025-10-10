@@ -1,24 +1,20 @@
 package com.careup.branch.domain.auth.dto.response;
 
 import lombok.*;
+import java.time.Instant;
 
 @Getter
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class AuthLoginResponse {
-    private String tokenType;
-    private String accessToken;
-    private String refreshToken; // rememberMe=false면 null
-    private int expiresInMinutes;
-    private String role;
+public class AuthLogoutResponse {
+    private boolean tokenRevoked;     // 항상 true
     private Long employeeId;
-
     private String name;
-    private String title;
     private String email;
     private String mobile;
-
+    private String role;
     private Long branchId;
     private String branchName;
+    private Instant revokedAt;        // 로그아웃 시각
 }

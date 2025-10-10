@@ -49,7 +49,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 String role = String.valueOf(c.get("role"));
                 var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
-                /// 6) 인증 객체 생성(Principal: subject=loginId)
+                /// 6) 인증 객체 생성(Principal: subject=employeeId 문자열)
                 var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), null, authorities);
 
                 /// 7) 필요 시 세부정보로 Claims를 담아 컨트롤러에서 활용 가능

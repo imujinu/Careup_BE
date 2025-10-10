@@ -38,6 +38,16 @@ spring:
     bootstrap-servers: localhost:9092
     consumer:
       group-id: test-topic-group-01
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USER}
+    password: ${MAIL_PW}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
 
 cloud:
   aws:
@@ -50,11 +60,10 @@ cloud:
       bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 30 # 30분
+  accessTokenExpiryMinutes: 1   # ← 테스트용: 1분
+  refreshTokenExpiryDaysPersistent: 180
+  refreshTokenExpiryDaysNonPersistent: 1
   secretKeyAt: ${ACCESS_TOKEN}
-  #  refreshTokenExpiryDays: 180 # 180일
-  refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
-  refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
   secretKeyRt: ${REFRESH_TOKEN}
 
 security:
