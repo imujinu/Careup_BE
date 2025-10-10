@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Payment {
 
     @Id
@@ -25,36 +26,37 @@ public class Payment {
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(name = "amount",nullable = false)
+    @Column(name = "amount", nullable = false)
     private Long amount;
 
-    @Column(name = "payment_method",nullable = false)
+    @Column(name = "payment_method", length = 20)
     private String paymentMethod;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "payment_status",nullable = false)
+    @Column(name = "payment_status", nullable = false)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
-    @Column(name = "pg_transaction_id",length = 100)
+    @Column(name = "payment_key", length = 200)
+    private String paymentKey;
+
+    @Column(name = "pg_transaction_id", length = 100)
     private String pgTransactionId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Builder
-    public Payment(Order order,Long amount,String paymentMethod){
+    public Payment(Order order, Long amount) {
         this.order = order;
         this.amount = amount;
-        this.paymentMethod = paymentMethod;
+        this.paymentStatus = PaymentStatus.PENDING;
         this.createdAt = LocalDateTime.now();
     }
 
-    public void completePayment(String pgTransactionId){
-        this.paymentStatus = PaymentStatus.COMPLETED;
+    // 결제 승인
+    public void confirm(String paymentKey, String pgTransactionId) {
+        this.paymentKey = paymentKey;
         this.pgTransactionId = pgTransactionId;
-    }
-
-    public void failPayment(){
-        this.paymentStatus = PaymentStatus.FAILED;
+        this.paymentStatus = PaymentStatus.COMPLETED;
     }
 }

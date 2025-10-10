@@ -57,8 +57,9 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderedItem> orderedItems = new ArrayList<>();
 
-    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
-    private Payment payment;
+//    순한참조 할것 같아서 뺴둠 order<->payment
+//    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+//    private Payment payment;
 
     @Builder
     public Order(Member member, Long branchId, Long totalAmount, OrderType orderType) {

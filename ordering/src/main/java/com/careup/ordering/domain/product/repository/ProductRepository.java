@@ -9,9 +9,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ProductRepository extends JpaRepository<Product,Long> {
-    List<Product> findByStatusAndIsDelYn(ProductStatus status);
-
-    Page<Product> findByCategoryIdAndStatusAndIsDelYn(Long categoryId, ProductStatus status, String isDelYn, Pageable pageable);
-
 
 }
