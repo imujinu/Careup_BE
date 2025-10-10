@@ -55,7 +55,7 @@ jwt:
   #  refreshTokenExpiryDays: 180 # 180일
   refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
   refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
-  secretKeyRt: ${REFRESH_KEY}
+  secretKeyRt: ${REFRESH_TOKEN}
 
 security:
   csrf:

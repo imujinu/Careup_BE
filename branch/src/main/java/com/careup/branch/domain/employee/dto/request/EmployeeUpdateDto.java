@@ -23,10 +23,11 @@ public class EmployeeUpdateDto {
     @Size(max = 100)
     private String name;
 
-    private Long jobGradeId; // nullable
+    private Long jobGradeId;
 
     @NotNull
     private LocalDate dateOfBirth;
+
     @NotNull
     private Gender gender;
 
@@ -40,6 +41,7 @@ public class EmployeeUpdateDto {
 
     @NotBlank
     private String address;
+
     @NotBlank
     private String addressDetail;
 
@@ -60,16 +62,18 @@ public class EmployeeUpdateDto {
 
     @NotNull
     private LocalDate hireDate;
+
     private LocalDate terminateDate;
 
     @NotNull
     private AuthorityType authorityType;
+
     @NotNull
     private EmploymentStatus employmentStatus;
+
     @NotNull
     private EmploymentType employmentType;
 
-    @NotBlank
     private String profileImageUrl;
 
     @Size(max = 200)

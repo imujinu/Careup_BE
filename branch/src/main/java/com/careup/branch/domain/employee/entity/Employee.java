@@ -28,11 +28,7 @@ public class Employee extends BaseTimeEntity {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(
-            name = "job_grade_id",
-            nullable = true,
-            foreignKey = @ForeignKey(name = "fk_employee_job_grade")
-    )
+    @JoinColumn(name = "job_grade_id", nullable = true, foreignKey = @ForeignKey(name = "fk_employee_job_grade"))
     private JobGrade jobGrade;
 
     @Column(nullable = false)
@@ -127,5 +123,22 @@ public class Employee extends BaseTimeEntity {
 
     public void changePasswordHash(String encoded) {
         this.passwordHash = encoded;
+    }
+
+    public void changeProfileImageUrl(String url) {
+        this.profileImageUrl = url;
+    }
+
+    public void deactivate(LocalDate terminatedAt) {
+        this.employmentStatus = EmploymentStatus.TERMINATED;
+        this.terminateDate = terminatedAt;
+        this.enabled = false;
+    }
+
+    public void rehire(LocalDate newHireDate) {
+        this.employmentStatus = EmploymentStatus.ACTIVE;
+        this.terminateDate = null;
+        this.hireDate = newHireDate;
+        this.enabled = true;
     }
 }

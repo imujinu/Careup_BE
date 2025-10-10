@@ -8,9 +8,11 @@ import com.careup.branch.domain.employee.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/employee")
@@ -19,11 +21,13 @@ public class EmployeeController {
 
     private final EmployeeService employeeService;
 
-    /// 직원 생성 (HQ_ADMIN, BRANCH_ADMIN, FRANCHISE_OWNER) + 최초 배치
-    @PostMapping("/create")
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
-    public ResponseEntity<CommonSuccessDto> create(@Valid @RequestBody EmployeeCreateDto req) {
-        EmployeeDetailDto result = employeeService.create(req);
+    public ResponseEntity<CommonSuccessDto> create(
+            @Valid @RequestPart("meta") EmployeeCreateDto meta,
+            @RequestPart(value = "image", required = false) MultipartFile image
+    ) {
+        EmployeeDetailDto result = employeeService.create(meta, image);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 CommonSuccessDto.builder()
                         .result(result)
@@ -33,12 +37,14 @@ public class EmployeeController {
         );
     }
 
-    /// 직원 수정 (HQ_ADMIN, BRANCH_ADMIN, FRANCHISE_OWNER)
-    @PatchMapping("/update/{id}")
+    @PatchMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
-    public ResponseEntity<CommonSuccessDto> update(@PathVariable Long id,
-                                                   @Valid @RequestBody EmployeeUpdateDto req) {
-        EmployeeDetailDto result = employeeService.update(id, req);
+    public ResponseEntity<CommonSuccessDto> update(
+            @PathVariable Long id,
+            @Valid @RequestPart("meta") EmployeeUpdateDto meta,
+            @RequestPart(value = "image", required = false) MultipartFile image
+    ) {
+        EmployeeDetailDto result = employeeService.update(id, meta, image);
         return ResponseEntity.status(HttpStatus.OK).body(
                 CommonSuccessDto.builder()
                         .result(result)
@@ -48,16 +54,28 @@ public class EmployeeController {
         );
     }
 
-    /// 직원 삭제 (HQ_ADMIN, BRANCH_ADMIN, FRANCHISE_OWNER)
     @DeleteMapping("/delete/{id}")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> delete(@PathVariable Long id) {
-        employeeService.delete(id);
+        employeeService.deactivate(id);
         return ResponseEntity.status(HttpStatus.OK).body(
                 CommonSuccessDto.builder()
                         .result("ok")
                         .status_code(HttpStatus.OK.value())
-                        .status_message("직원 삭제 완료")
+                        .status_message("직원 비활성화(퇴사) 처리 완료")
+                        .build()
+        );
+    }
+
+    @PatchMapping("/rehire/{id}")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
+    public ResponseEntity<CommonSuccessDto> rehire(@PathVariable Long id) {
+        EmployeeDetailDto result = employeeService.rehire(id);
+        return ResponseEntity.status(HttpStatus.OK).body(
+                CommonSuccessDto.builder()
+                        .result(result)
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("재입사 처리 완료")
                         .build()
         );
     }

@@ -23,10 +23,11 @@ public class EmployeeCreateDto {
     @Size(max = 100)
     private String name;
 
-    private Long jobGradeId; // nullable
+    private Long jobGradeId;
 
     @NotNull
     private LocalDate dateOfBirth;
+
     @NotNull
     private Gender gender;
 
@@ -40,6 +41,7 @@ public class EmployeeCreateDto {
 
     @NotBlank
     private String address;
+
     @NotBlank
     private String addressDetail;
 
@@ -57,18 +59,21 @@ public class EmployeeCreateDto {
 
     @NotNull
     private Relationship relationship;
+
     @NotNull
     private LocalDate hireDate;
+
     private LocalDate terminateDate;
 
     @NotNull
     private AuthorityType authorityType;
+
     @NotNull
     private EmploymentStatus employmentStatus;
+
     @NotNull
     private EmploymentType employmentType;
 
-    @NotBlank
     private String profileImageUrl;
 
     @Size(max = 200)
@@ -78,7 +83,6 @@ public class EmployeeCreateDto {
     @Size(min = 8, max = 100)
     private String rawPassword;
 
-    /// 최초 배치(여러 개 가능)
     @Valid
     @Size(min = 1, message = "최소 1개 지점 배치가 필요합니다.")
     private List<DispatchAssignmentDto> dispatches;
