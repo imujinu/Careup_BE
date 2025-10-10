@@ -1,3 +1,4 @@
+// com.careup.branch.domain.auth.service.AuthService
 package com.careup.branch.domain.auth.service;
 
 import com.careup.branch.common.auth.JwtProperties;
@@ -37,7 +38,7 @@ public class AuthService {
     private final PasswordResetTokenStore passwordResetTokenStore;
     private final EmailSender emailSender;
 
-    /** 이메일 또는 휴대폰 로그인 → employeeId 기준 AT/RT(옵션) 발급 */
+    /** 이메일 또는 휴대폰 로그인 → employeeId 기준 AT/RT 발급 */
     public AuthLoginResponse login(AuthLoginRequest req) {
         if (req.getId() == null || req.getId().isBlank())
             throw new IllegalArgumentException("아이디(이메일 또는 휴대폰 번호)는 필수입니다.");
@@ -63,7 +64,9 @@ public class AuthService {
         Long employeeId = emp.getId();
 
         String at = jwt.createAccessToken(employeeId, role);
-        String rt = jwt.createRefreshToken(employeeId, req.isRememberMe()); // rememberMe=false면 null
+
+        // rememberMe=false면 RT 미발급을 원하면 아래를 null 처리하세요.
+        String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
 
         // 배치 지점
         LocalDate today = LocalDate.now();
@@ -82,7 +85,7 @@ public class AuthService {
         return AuthLoginResponse.builder()
                 .tokenType("Bearer")
                 .accessToken(at)
-                .refreshToken(rt) // null 가능
+                .refreshToken(rt) // rememberMe=false 시 null로 바꾸려면 여기 조정
                 .expiresInMinutes(jwtProps.getAccessTokenExpiryMinutes())
                 .role(role)
                 .employeeId(employeeId)
@@ -95,7 +98,7 @@ public class AuthService {
                 .build();
     }
 
-    /** 자동로그인: RT로 AT 재발급 (메시지 없음 DTO) */
+    /** 자동로그인: RT로 AT 재발급 */
     public AuthRefreshResponse refresh(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
         Long employeeId = Long.valueOf(claims.getSubject());
@@ -132,7 +135,7 @@ public class AuthService {
                 .build();
     }
 
-    /** 로그아웃: RT 폐기 (메시지 없음 DTO) */
+    /** 로그아웃: RT 폐기 */
     @Transactional
     public AuthLogoutResponse logout(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
@@ -167,18 +170,33 @@ public class AuthService {
                 .build();
     }
 
-    /** 이메일로 비밀번호 재설정 토큰 발급 */
+    /** (NEW) 비밀번호 재설정 메일 발송: 이메일+휴대폰 모두 DB와 일치해야 함 */
     @Transactional
-    public void issueResetToken(String email) {
-        employeeRepository.findByEmailIgnoreCase(email)
+    public void issueResetTokenByIdentity(String email, String mobile) {
+        String normalizedMobile = PhoneUtils.normalize(mobile);
+
+        Employee emp = employeeRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 계정을 찾을 수 없습니다."));
+
+        // 이메일은 위에서 일치, 휴대폰 일치 추가 확인
+        if (!normalizedMobile.equals(PhoneUtils.normalize(emp.getMobile()))) {
+            throw new IllegalArgumentException("이메일과 휴대폰 정보가 일치하지 않습니다.");
+        }
+
+        // 토큰 발급(키는 email 기준)
         String token = passwordResetTokenStore.issue(email);
+
+        // 메일 발송(링크 포함)
         emailSender.sendPasswordReset(email, token);
     }
 
-    /** 이메일 토큰으로 비밀번호 재설정 */
+    /** (NEW) 토큰으로 비밀번호 재설정: 확인값까지 검증 */
     @Transactional
-    public void resetPassword(String email, String token, String newPassword) {
+    public void resetPassword(String email, String token, String newPassword, String confirmPassword) {
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("새 비밀번호와 확인 값이 일치하지 않습니다.");
+        }
+
         String saved = passwordResetTokenStore.get(email)
                 .orElseThrow(() -> new IllegalArgumentException("재설정 토큰이 만료되었거나 존재하지 않습니다."));
         if (!saved.equals(token))
@@ -189,6 +207,8 @@ public class AuthService {
         Employee emp = employeeRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
         emp.changePasswordHash(passwordEncoder.encode(newPassword));
+
+        // 토큰 1회성 소진
         passwordResetTokenStore.delete(email);
     }
 

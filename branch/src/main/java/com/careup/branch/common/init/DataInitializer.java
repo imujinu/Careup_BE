@@ -80,7 +80,7 @@ public class DataInitializer implements CommandLineRunner {
             ));
 
             createEmployee(
-                    "H2025001", "이승지", "hq.admin@starbucks.co.kr", "010-2331-4132", Gender.FEMALE,
+                    "H2025001", "이승지", "dev.s3lim@gmail.com", "010-2331-4132", Gender.FEMALE,
                     gradeIds.get("본사매니저"),
                     AuthorityType.HQ_ADMIN, EmploymentStatus.ACTIVE, EmploymentType.FULL_TIME,
                     "서울특별시 광진구 아차산로 200", "1203호", "05010",
