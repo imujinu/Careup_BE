@@ -1,6 +1,7 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
 import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
@@ -198,7 +199,7 @@ public class PurchaseOrderService {
 
     // 발주 부분 승인 (본사용)
     @Transactional
-    public PurchaseOrderResponseDto partialApprovePurchaseOrder(Long purchaseOrderId) {
+    public PurchaseOrderResponseDto partialApprovePurchaseOrder(Long purchaseOrderId, PartialApproveRequestDto requestDto) {
         PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(purchaseOrderId)
                 .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
 
@@ -206,11 +207,87 @@ public class PurchaseOrderService {
             throw new IllegalStateException("대기 상태의 발주만 부분 승인할 수 있습니다.");
         }
         
-        purchaseOrder.changeOrderStatus(OrderStatus.PARTIAL);
+        // 발주 상세 내역 조회
+        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(purchaseOrder);
+        
+        // 승인할 수량 설정
+        setApprovedQuantities(orderDetails, requestDto.getApprovedDetails());
+        
+        // 승인 상태 결정
+        determineApprovalStatus(purchaseOrder, orderDetails);
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
-        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
-        return convertToResponseDto(savedOrder, orderDetails);
+        // 상세 내역 저장
+        List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
+        
+        // kafka 이벤트 발송 (승인된 수량만)
+        publishPartialApprovedEvent(savedOrder, savedDetails);
+
+
+        return convertToResponseDto(savedOrder, savedDetails);
+    }
+
+    /**
+     * - APPROVED: 모든 상품이 요청 수량대로 승인
+     * - REJECTED: 모든 상품이 승인 거부
+     * - PARTIAL: 일부는 승인, 일부는 부분 승인 또는 거부
+     */
+    private void determineApprovalStatus(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        // 모든 상품이 전체 승인되었는지 확인
+        boolean allFullyApproved = orderDetails.stream()
+                .allMatch(detail -> detail.getApprovedQuantity() == detail.getQuantity());
+
+        // 모든 상품이 거부되었는지 확인
+        boolean allRejected = orderDetails.stream()
+                .allMatch(detail -> detail.getApprovedQuantity() == 0);
+
+        if (allFullyApproved) {
+            purchaseOrder.changeOrderStatus(OrderStatus.APPROVED);
+            log.info("발주 전체 승인: purchaseOrderId={}", purchaseOrder.getId());
+        } else if (allRejected) {
+            purchaseOrder.changeOrderStatus(OrderStatus.REJECTED);
+            log.info("발주 전체 거부: purchaseOrderId={}", purchaseOrder.getId());
+        } else {
+            purchaseOrder.changeOrderStatus(OrderStatus.PARTIAL);
+            log.info("발주 부분 승인: purchaseOrderId={}", purchaseOrder.getId());
+        }
+    }
+    
+    // 승인할 수량 설정
+    private void setApprovedQuantities(List<PurchaseOrderDetail> orderDetails, 
+                                     List<PartialApproveRequestDto.PartialApproveDetailDto> approvedDetails) {
+        
+        for (PurchaseOrderDetail orderDetail : orderDetails) {
+            // 승인 요청에서 해당 상품 찾기
+            PartialApproveRequestDto.PartialApproveDetailDto approvedDetail = approvedDetails.stream()
+                    .filter(detail -> detail.getProductId().equals(orderDetail.getProductId()))
+                    .findFirst()
+                    .orElse(null);
+            
+            if (approvedDetail != null) {
+                // 승인 수량 검증
+                if (approvedDetail.getApprovedQuantity() > orderDetail.getQuantity()) {
+                    throw new IllegalArgumentException(
+                        String.format("승인 수량(%d)이 요청 수량(%d)을 초과할 수 없습니다.", 
+                            approvedDetail.getApprovedQuantity(), orderDetail.getQuantity()));
+                }
+                
+                if (approvedDetail.getApprovedQuantity() <= 0) {
+                    throw new IllegalArgumentException("승인 수량은 1개 이상이어야 합니다.");
+                }
+                
+                // 승인 수량 설정
+                orderDetail.setApprovedQuantity(approvedDetail.getApprovedQuantity());
+                
+                log.info("상품 부분 승인: productId={}, 요청수량={}, 승인수량={}", 
+                    orderDetail.getProductId(), orderDetail.getQuantity(), approvedDetail.getApprovedQuantity());
+            } else {
+                // 승인 요청에 없는 상품은 0개 승인
+                orderDetail.setApprovedQuantity(0);
+                log.info("상품 승인 제외: productId={}, 요청수량={}, 승인수량=0", 
+                    orderDetail.getProductId(), orderDetail.getQuantity());
+            }
+        }
     }
 
     private PurchaseOrderListResponseDto convertToListResponseDto(PurchaseOrder purchaseOrder) {
@@ -262,5 +339,55 @@ public class PurchaseOrderService {
         } catch (Exception e) {
             log.error("발주 승인 이벤트 발송 실패: purchaseOrderId={}", purchaseOrder.getId(), e);
         }
+    }
+    
+    // 발주 부분 승인 이벤트 발송 (승인된 수량만 재고 차감)
+    private void publishPartialApprovedEvent(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        try {
+            // 승인된 수량만 포함한 이벤트 생성
+            PurchaseOrderResponseDto event = convertToPartialApprovedResponseDto(purchaseOrder, orderDetails);
+            
+            purchaseOrderKafkaTemplate.send(PURCHASE_ORDER_APPROVED_TOPIC, event);
+                
+        } catch (Exception e) {
+            log.error("발주 부분 승인 이벤트 발송 실패: purchaseOrderId={}", purchaseOrder.getId(), e);
+        }
+    }
+    
+    // 부분 승인된 상품만 포함한 응답 dto
+    private PurchaseOrderResponseDto convertToPartialApprovedResponseDto(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        // 승인된 수량이 0보다 큰 상품에 대하여
+        List<PurchaseOrderDetail> approvedDetails = orderDetails.stream()
+                .filter(detail -> detail.getApprovedQuantity() > 0)
+                .collect(Collectors.toList());
+        
+        // 승인된 수량으로 새로운 상세 내역 생성
+        List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto> approvedDetailDtos = approvedDetails.stream()
+                .map(detail -> PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
+                        .purchaseOrderDetailId(detail.getId())
+                        .productId(detail.getProductId())
+                        .quantity(detail.getApprovedQuantity()) // 승인된 수량 사용
+                        .approvedQuantity(detail.getApprovedQuantity())
+                        .unitPrice(detail.getUnitPrice())
+                        .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
+                        .build())
+                .collect(Collectors.toList());
+        
+        return PurchaseOrderResponseDto.builder()
+                .purchaseOrderId(purchaseOrder.getId())
+                .branchId(purchaseOrder.getBranchId())
+                .orderStatus(purchaseOrder.getOrderStatus())
+                .totalPrice(calculatePartialApprovedTotalPrice(approvedDetails))
+                .orderDetails(approvedDetailDtos)
+                .createdAt(purchaseOrder.getCreatedAt())
+                .updatedAt(purchaseOrder.getUpdatedAt())
+                .build();
+    }
+    
+    // 부분 승인된 총액 계산
+    private long calculatePartialApprovedTotalPrice(List<PurchaseOrderDetail> approvedDetails) {
+        return approvedDetails.stream()
+                .mapToLong(detail -> detail.getApprovedQuantity() * detail.getUnitPrice())
+                .sum();
     }
 }

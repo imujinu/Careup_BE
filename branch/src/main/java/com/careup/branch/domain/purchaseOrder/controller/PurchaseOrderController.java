@@ -1,5 +1,6 @@
 package com.careup.branch.domain.purchaseOrder.controller;
 
+import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/purchase-orders")
+@RequestMapping("/purchase-orders")
 @RequiredArgsConstructor
 public class PurchaseOrderController {
     
@@ -55,8 +56,10 @@ public class PurchaseOrderController {
 
     // 발주 부분 승인 (본사용)
     @PostMapping("/{purchaseOrderId}/partial-approve")
-    public ResponseEntity<PurchaseOrderResponseDto> partialApprovePurchaseOrder(@PathVariable Long purchaseOrderId) {
-        PurchaseOrderResponseDto partialApprovedOrder = purchaseOrderService.partialApprovePurchaseOrder(purchaseOrderId);
+    public ResponseEntity<PurchaseOrderResponseDto> partialApprovePurchaseOrder(
+            @PathVariable Long purchaseOrderId, 
+            @RequestBody PartialApproveRequestDto requestDto) {
+        PurchaseOrderResponseDto partialApprovedOrder = purchaseOrderService.partialApprovePurchaseOrder(purchaseOrderId, requestDto);
         return ResponseEntity.ok(partialApprovedOrder);
     }
 

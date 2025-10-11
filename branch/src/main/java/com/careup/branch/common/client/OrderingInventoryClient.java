@@ -9,64 +9,64 @@ import java.util.List;
 public interface OrderingInventoryClient {
 
      // 상품 목록 조회
-    @GetMapping("/api/products")
+    @GetMapping("/products")
     List<ProductResponseDto> getProducts();
 
      // 상품 상세 조회
-    @GetMapping("/api/products/{productId}")
+    @GetMapping("/products/{productId}")
     ProductResponseDto getProduct(@PathVariable Long productId);
 
      // 상품 등록
-    @PostMapping("/api/products")
+    @PostMapping("/products")
     ProductResponseDto createProduct(@RequestBody ProductRequestDto request);
 
      // 상품 수정
-    @PutMapping("/api/products/{productId}")
+    @PutMapping("/products/{productId}")
     ProductResponseDto updateProduct(@PathVariable Long productId, @RequestBody ProductRequestDto request);
 
      // 상품 삭제
-    @DeleteMapping("/api/products/{productId}")
+    @DeleteMapping("/products/{productId}")
     void deleteProduct(@PathVariable Long productId);
 
     // 재고 관리
 
      // 지점별 상품 재고 조회
-    @GetMapping("/api/inventory/branch/{branchId}")
+    @GetMapping("/inventory/branch/{branchId}")
     List<BranchProductResponseDto> getBranchProducts(@PathVariable Long branchId);
 
      // 특정 상품의 지점별 재고 조회
-    @GetMapping("/api/inventory/branch/{branchId}/product/{productId}")
+    @GetMapping("/inventory/branch/{branchId}/product/{productId}")
     BranchProductResponseDto getBranchProduct(@PathVariable Long branchId, @PathVariable Long productId);
 
      // 안전재고 설정
-    @PostMapping("/api/inventory/safety-stock")
+    @PostMapping("/inventory/safety-stock")
     void updateSafetyStock(@RequestBody SafetyStockRequest request);
 
      // 재고 증감
-    @PostMapping("/api/inventory/adjust")
+    @PostMapping("/inventory/adjust")
     void adjustStock(@RequestBody StockAdjustRequest request);
 
     // 입출고 관리
 
      // 입출고 조회
-    @GetMapping("/api/inventory/flow")
+    @GetMapping("/inventory/flow")
     List<InventoryFlowResponseDto> getInventoryFlows(@RequestParam(required = false) Long branchId,
                                                      @RequestParam(required = false) Long productId);
 
      // 입출고 등록
-    @PostMapping("/api/inventory/flow")
+    @PostMapping("/inventory/flow")
     InventoryFlowResponseDto createInventoryFlow(@RequestBody InventoryFlowRequest request);
 
      // 입출고 수정
-    @PutMapping("/api/inventory/flow/{flowId}")
+    @PutMapping("/inventory/flow/{flowId}")
     InventoryFlowResponseDto updateInventoryFlow(@PathVariable Long flowId, @RequestBody InventoryFlowRequest request);
 
      // 입출고 기록 삭제
-    @DeleteMapping("/api/inventory/flow/{flowId}")
+    @DeleteMapping("/inventory/flow/{flowId}")
     void deleteInventoryFlow(@PathVariable Long flowId);
 
      // 재고 조정 내역 조회 (불량/폐기)
-    @GetMapping("/api/inventory/adjustment-history")
+    @GetMapping("/inventory/adjustment-history")
     List<InventoryFlowResponseDto> getAdjustmentHistory(@RequestParam(required = false) Long branchId,
                                                         @RequestParam(required = false) String reason);
 
