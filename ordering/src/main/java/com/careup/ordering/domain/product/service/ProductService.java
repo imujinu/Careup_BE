@@ -41,6 +41,7 @@ public class ProductService {
                 .category(category)
                 .name(request.getName())
                 .description(request.getDescription())
+                .supplyPrice(request.getSupplyPrice())
                 .minPrice(request.getMinPrice())
                 .maxPrice(request.getMaxPrice())
                 .imageUrl(request.getImageUrl())
@@ -77,6 +78,7 @@ public class ProductService {
         product.updateInfo(
                 request.getName(),
                 request.getDescription(),
+                request.getSupplyPrice(),
                 request.getMinPrice(),
                 request.getMaxPrice(),
                 request.getImageUrl()
@@ -100,6 +102,7 @@ public class ProductService {
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
+                product.getSupplyPrice(),
                 product.getMinPrice(),
                 product.getMaxPrice(),
                 product.getImageUrl(),

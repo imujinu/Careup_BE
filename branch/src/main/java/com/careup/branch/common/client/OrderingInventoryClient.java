@@ -77,6 +77,7 @@ public interface OrderingInventoryClient {
         public Long categoryId;
         public String name;
         public String description;
+        public Long supplyPrice;
         public Long minPrice;
         public Long maxPrice;
         public String imageUrl;
@@ -87,6 +88,7 @@ public interface OrderingInventoryClient {
         public Long categoryId;
         public String name;
         public String description;
+        public Long supplyPrice;
         public Long minPrice;
         public Long maxPrice;
         public String imageUrl;

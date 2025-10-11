@@ -13,6 +13,7 @@ public class ProductDto {
         private Long categoryId;
         private String name;
         private String description;
+        private Long supplyPrice;
         private Long minPrice;
         private Long maxPrice;
         private String imageUrl;
@@ -26,6 +27,7 @@ public class ProductDto {
         private Long productId;
         private String name;
         private String description;
+        private Long supplyPrice;
         private Long minPrice;
         private Long maxPrice;
         private String imageUrl;

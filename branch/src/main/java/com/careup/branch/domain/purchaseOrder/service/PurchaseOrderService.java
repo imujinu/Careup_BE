@@ -1,5 +1,6 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
+import com.careup.branch.common.client.OrderingInventoryClient;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
@@ -29,6 +30,7 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
     private final KafkaTemplate<String, Object> purchaseOrderKafkaTemplate;
+    private final OrderingInventoryClient orderingInventoryClient;
     
     // 발주 생성 (가맹점용)
     @Transactional
@@ -36,32 +38,65 @@ public class PurchaseOrderService {
         // 1. 검증
         validatePurchaseOrderRequest(requestDto);
         
-        // 2. 발주 생성 (PENDING 상태로 시작)
+        // 2. 상품별 공급가 조회 및 설정
+        List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details =
+                setSupplyPrices(requestDto.getOrderDetails());
+        
+        // 3. 발주 생성 (PENDING 상태로 시작)
         PurchaseOrder purchaseOrder = PurchaseOrder.builder()
                 .branchId(requestDto.getBranchId())
                 .orderStatus(OrderStatus.PENDING)
-                .price(calculateTotalPrice(requestDto.getOrderDetails()))
+                .price(calculateTotalPrice(details))
                 .build();
         
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
         
-        // 3. 발주 상세 내역 생성
-        List<PurchaseOrderDetail> orderDetails = requestDto.getOrderDetails().stream()
+        // 4. 발주 상세 내역 생성
+        List<PurchaseOrderDetail> orderDetails = details.stream()
                 .filter(detail -> detail.getQuantity() > 0)
                 .map(detailDto -> PurchaseOrderDetail.builder()
                         .purchaseOrder(savedOrder)
                         .productId(detailDto.getProductId())
                         .quantity(detailDto.getQuantity())
                         .approvedQuantity(0)
-                        .unitPrice(detailDto.getUnitPrice())
-                        .subtotalPrice(detailDto.getQuantity() * detailDto.getUnitPrice())
+                        .unitPrice(detailDto.getSupplyPrice())
+                        .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
                         .build())
                 .collect(Collectors.toList());
         
-        // 4. 상세 내역 저장
+        // 5. 상세 내역 저장
         List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
 
+
         return convertToResponseDto(savedOrder, savedDetails);
+    }
+    
+    // 공급가 조회 및 설정
+    private List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> setSupplyPrices(
+            List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> orderDetails) {
+        
+        return orderDetails.stream()
+                .map(detail -> {
+                    // ordering 서버에서 상품 정보 조회
+                    OrderingInventoryClient.ProductResponseDto product = 
+                        orderingInventoryClient.getProduct(detail.getProductId());
+                    
+                    // 공급가 자동 설정
+                    detail.setSupplyPrice(product.supplyPrice);
+
+                    
+                    return detail;
+                })
+                .collect(Collectors.toList());
+    }
+    
+    // 검증된 데이터로 총액 계산
+    private long calculateTotalPrice(
+            List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> orderDetails) {
+        return orderDetails.stream()
+                .filter(detail -> detail.getQuantity() > 0)
+                .mapToLong(detail -> detail.getQuantity() * detail.getSupplyPrice())
+                .sum();
     }
 
 
@@ -82,23 +117,8 @@ public class PurchaseOrderService {
         if (!hasValidQuantity) {
             throw new IllegalArgumentException("수량을 입력해주세요.");
         }
-        
-        // 단가가 0보다 큰지 확인
-        boolean hasValidPrice = requestDto.getOrderDetails().stream()
-                .allMatch(detail -> detail.getUnitPrice() > 0);
-        
-        if (!hasValidPrice) {
-            throw new IllegalArgumentException("유효하지 않은 단가입니다.");
-        }
     }
 
-     // 총 금액 계산
-    private long calculateTotalPrice(List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> orderDetails) {
-        return orderDetails.stream()
-                .filter(detail -> detail.getQuantity() > 0)
-                .mapToLong(detail -> detail.getQuantity() * detail.getUnitPrice())
-                .sum();
-    }
 
 
     // 발주 목록 조회
