@@ -63,4 +63,18 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(partialApprovedOrder);
     }
 
+    // 발주 배송 시작 (본사용)
+    @PostMapping("/{purchaseOrderId}/ship")
+    public ResponseEntity<PurchaseOrderResponseDto> shipPurchaseOrder(@PathVariable Long purchaseOrderId) {
+        PurchaseOrderResponseDto shippedOrder = purchaseOrderService.shipPurchaseOrder(purchaseOrderId);
+        return ResponseEntity.ok(shippedOrder);
+    }
+
+    // 발주 입고 완료 (가맹점용)
+    @PostMapping("/{purchaseOrderId}/complete")
+    public ResponseEntity<PurchaseOrderResponseDto> completePurchaseOrder(@PathVariable Long purchaseOrderId) {
+        PurchaseOrderResponseDto completedOrder = purchaseOrderService.completePurchaseOrder(purchaseOrderId);
+        return ResponseEntity.ok(completedOrder);
+    }
+
 }

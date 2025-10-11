@@ -27,6 +27,7 @@ public class PurchaseOrderService {
 
     private static final Long HEAD_OFFICE_BRANCH_ID = 1L;
     private static final String PURCHASE_ORDER_APPROVED_TOPIC = "purchase-order-approved";
+    private static final String PURCHASE_ORDER_COMPLETED_TOPIC = "purchase-order-completed";
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
@@ -173,6 +174,12 @@ public class PurchaseOrderService {
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+        
+        // 전체 승인 시 approvedQuantity를 요청 수량으로 설정
+        for (PurchaseOrderDetail detail : orderDetails) {
+            detail.setApprovedQuantity(detail.getQuantity());
+        }
+        orderDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
         
         // kafka로 발주 승인 이벤트 발송
         publishPurchaseOrderApprovedEvent(savedOrder, orderDetails);
@@ -389,5 +396,87 @@ public class PurchaseOrderService {
         return approvedDetails.stream()
                 .mapToLong(detail -> detail.getApprovedQuantity() * detail.getUnitPrice())
                 .sum();
+    }
+
+    // 발주 배송 시작 (본사용)
+    @Transactional
+    public PurchaseOrderResponseDto shipPurchaseOrder(Long purchaseOrderId) {
+        PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
+
+        if (purchaseOrder.getOrderStatus() != OrderStatus.APPROVED && 
+            purchaseOrder.getOrderStatus() != OrderStatus.PARTIAL) {
+            throw new IllegalStateException("승인된 발주만 배송 시작할 수 있습니다. 현재 상태: " + purchaseOrder.getOrderStatus());
+        }
+        
+        // 상태를 SHIPPED로 변경
+        purchaseOrder.changeOrderStatus(OrderStatus.SHIPPED);
+        PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+
+        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+
+        return convertToResponseDto(savedOrder, orderDetails);
+    }
+
+    // 발주 입고 완료 (가맹점용)
+    @Transactional
+    public PurchaseOrderResponseDto completePurchaseOrder(Long purchaseOrderId) {
+        PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
+
+        if (purchaseOrder.getOrderStatus() != OrderStatus.SHIPPED) {
+            throw new IllegalStateException("배송 중인 발주만 입고 완료할 수 있습니다. 현재 상태: " + purchaseOrder.getOrderStatus());
+        }
+        
+        // 상태를 COMPLETED로 변경
+        purchaseOrder.changeOrderStatus(OrderStatus.COMPLETED);
+        PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+
+        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+        
+        // 가맹점 재고 증가 이벤트 발송
+        publishInventoryIncreaseEvent(savedOrder, orderDetails);
+
+        return convertToResponseDto(savedOrder, orderDetails);
+    }
+
+     // 가맹점 재고 증가 이벤트 발송
+    private void publishInventoryIncreaseEvent(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        try {
+            // 승인된 수량만 포함한 이벤트 생성 (재고 증가용)
+            PurchaseOrderResponseDto event = convertToCompletedResponseDto(purchaseOrder, orderDetails);
+            
+            purchaseOrderKafkaTemplate.send(PURCHASE_ORDER_COMPLETED_TOPIC, event);
+                
+        } catch (Exception e) {
+            log.error("발주 입고 완료 이벤트 발송 실패: purchaseOrderId={}", purchaseOrder.getId(), e);
+        }
+    }
+
+    /**
+     * 입고 완료용 응답 dto (승인된 수량만 포함)
+     */
+    private PurchaseOrderResponseDto convertToCompletedResponseDto(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto> detailDtos = orderDetails.stream()
+                .filter(detail -> detail.getApprovedQuantity() > 0)
+                .map(detail -> PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
+                        .purchaseOrderDetailId(detail.getId())
+                        .productId(detail.getProductId())
+                        .quantity(detail.getApprovedQuantity()) // 승인된 수량을 재고 증가 수량으로 사용
+                        .approvedQuantity(detail.getApprovedQuantity())
+                        .unitPrice(detail.getUnitPrice())
+                        .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
+                        .build())
+                .collect(Collectors.toList());
+
+        return PurchaseOrderResponseDto.builder()
+                .purchaseOrderId(purchaseOrder.getId())
+                .branchId(purchaseOrder.getBranchId())
+                .orderStatus(purchaseOrder.getOrderStatus())
+                .totalPrice(calculatePartialApprovedTotalPrice(orderDetails))
+                .orderDetails(detailDtos)
+                .createdAt(purchaseOrder.getCreatedAt())
+                .updatedAt(purchaseOrder.getUpdatedAt())
+                .build();
     }
 }
