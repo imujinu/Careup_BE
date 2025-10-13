@@ -69,5 +69,10 @@ public class BranchProduct {
     public void increaseStock(Long quantity) {
         this.stockQuantity += quantity;
     }
+    
+    // 안전재고 설정
+    public void updateSafetyStock(Long safetyStock) {
+        this.safetystock = safetyStock;
+    }
 
 }
