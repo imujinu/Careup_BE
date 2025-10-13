@@ -1,6 +1,6 @@
 package com.careup.branch.domain.branch.repository;
 
-import com.careup.branch.domain.branch.entity.KPI;
+import com.careup.branch.domain.branch.entity.kpi.KPI;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

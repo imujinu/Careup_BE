@@ -1,12 +1,11 @@
 package com.careup.branch.domain.branch.dto.kpi;
 
-import com.careup.branch.domain.branch.entity.KPI;
+import com.careup.branch.domain.branch.entity.kpi.KPI;
+import com.careup.branch.domain.branch.entity.kpi.PeriodType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
-import java.math.BigDecimal;
 
 @Data
 @NoArgsConstructor
@@ -15,15 +14,19 @@ import java.math.BigDecimal;
 public class KpiCreateReqDto {
 
     private String name;
-    private BigDecimal goal;
-    private BigDecimal progress;
+    private String description;
+    private String category;
+    private PeriodType periodType;
+    private String calculationFormula;
 
     // Entity -> DTO
     public static KpiCreateReqDto fromEntity(KPI kpi) {
         return KpiCreateReqDto.builder()
                 .name(kpi.getName())
-                .goal(kpi.getGoal())
-                .progress(kpi.getProgress())
+                .description(kpi.getDescription())
+                .category(kpi.getCategory())
+                .periodType(kpi.getPeriodType())
+                .calculationFormula(kpi.getCalculationFormula())
                 .build();
     }
 }
