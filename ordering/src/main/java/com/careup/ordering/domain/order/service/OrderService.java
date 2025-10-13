@@ -7,8 +7,10 @@ import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.entity.OrderedItem;
 import com.careup.ordering.domain.order.repository.OrderRepository;
 import com.careup.ordering.domain.order.repository.OrderedItemRepository;
-import com.careup.ordering.domain.product.entity.Product;
-import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.careup.ordering.domain.product.entity.BranchProduct;
+import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
+import com.careup.ordering.domain.product.repository.BranchProductRepository;
+import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -26,7 +28,8 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderedItemRepository orderedItemRepository;
     private final MemberRepository memberRepository;
-    private final ProductRepository productRepository;
+    private final BranchProductRepository branchProductRepository;
+    private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
 
     /**
      * 주문 생성
@@ -41,9 +44,14 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다. ID: " + requestDto.getMemberId()));
 
         // 2. 총 금액 계산
-        Long totalAmount = requestDto.getOrderItems().stream()
-                .mapToLong(item -> item.getUnitPrice() * item.getQuantity())
-                .sum();
+        Long totalAmount = 0L;
+        for (OrderItemRequestDto itemDto : requestDto.getOrderItems()) {
+            BranchProduct branchProduct = branchProductRepository.findById(itemDto.getBranchProductId())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "존재하지 않는 지점 상품입니다. ID: " + itemDto.getBranchProductId()));
+            
+            totalAmount += branchProduct.getPrice() * itemDto.getQuantity();
+        }
 
         // 3. 주문 생성
         Order order = Order.builder()
@@ -56,19 +64,51 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("주문 생성 완료 - orderId: {}", savedOrder.getId());
 
-        // 4. 주문 상품 생성
+        // 4. 주문 상품 생성 (✅ 커스텀 Builder - totalPrice 자동 계산)
         List<OrderedItem> orderedItems = requestDto.getOrderItems().stream()
                 .map(itemDto -> {
-                    Product product = productRepository.findById(itemDto.getProductId())
+                    BranchProduct branchProduct = branchProductRepository.findById(itemDto.getBranchProductId())
                             .orElseThrow(() -> new IllegalArgumentException(
-                                    "존재하지 않는 상품입니다. ID: " + itemDto.getProductId()));
+                                    "존재하지 않는 지점 상품입니다. ID: " + itemDto.getBranchProductId()));
 
+                    // 재고 확인
+                    if (branchProduct.getStockQuantity() < itemDto.getQuantity()) {
+                        throw new IllegalStateException(
+                                String.format("재고가 부족합니다. 상품: %s, 현재 재고: %d, 주문 수량: %d",
+                                        branchProduct.getProduct().getName(),
+                                        branchProduct.getStockQuantity(),
+                                        itemDto.getQuantity()));
+                    }
+
+                    // 재고 감소
+                    branchProduct.decreaseStock(itemDto.getQuantity());
+                    log.info("재고 감소 - branchProductId: {}, 감소량: {}, 남은 재고: {}",
+                            branchProduct.getId(), itemDto.getQuantity(), branchProduct.getStockQuantity());
+
+                    // 재고 이력 생성
+                    InventoryFlowDetail flowDetail = InventoryFlowDetail.builder()
+                            .branchProduct(branchProduct)
+                            .outQuantity(itemDto.getQuantity())
+                            .remark("주문 ID: " + savedOrder.getId())
+                            .build();
+                    inventoryFlowDetailRepository.save(flowDetail);
+
+                    // 안전 재고 체크
+                    if (branchProduct.getStockQuantity() < branchProduct.getSafetystock()) {
+                        log.warn("⚠️ 안전 재고 미만 - branchProductId: {}, 상품명: {}, 현재 재고: {}, 안전 재고: {}",
+                                branchProduct.getId(),
+                                branchProduct.getProduct().getName(),
+                                branchProduct.getStockQuantity(),
+                                branchProduct.getSafetystock());
+                    }
+
+                    // ✅ 커스텀 Builder 사용 (totalPrice는 자동 계산됨!)
                     return OrderedItem.builder()
                             .order(savedOrder)
-                            .product(product)
+                            .branchProduct(branchProduct)
                             .quantity(itemDto.getQuantity())
-                            .unitPrice(itemDto.getUnitPrice())
-                            .build();
+                            .unitPrice(branchProduct.getPrice())
+                            .build();  // totalPrice는 생성자에서 자동 계산!
                 })
                 .collect(Collectors.toList());
 
@@ -82,7 +122,6 @@ public class OrderService {
      * 주문 상세 조회
      */
     public OrderResponseDto getOrderById(Long orderId) {
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
@@ -95,7 +134,6 @@ public class OrderService {
      * 회원별 주문 목록 조회
      */
     public List<OrderResponseDto> getOrdersByMember(Long memberId) {
-
         List<Order> orders = orderRepository.findByMemberId(memberId);
 
         return orders.stream()
@@ -110,7 +148,6 @@ public class OrderService {
      * 지점별 주문 목록 조회
      */
     public List<OrderResponseDto> getOrdersByBranch(Long branchId) {
-
         List<Order> orders = orderRepository.findByBranchId(branchId);
 
         return orders.stream()
@@ -126,7 +163,6 @@ public class OrderService {
      */
     @Transactional
     public OrderResponseDto approveOrder(Long orderId, Long approvedBy) {
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
@@ -142,13 +178,27 @@ public class OrderService {
      */
     @Transactional
     public OrderResponseDto rejectOrder(Long orderId, String reason) {
-
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
         order.reject(reason);
 
+        // 주문 거부 시 재고 복구
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
+        for (OrderedItem item : items) {
+            BranchProduct branchProduct = item.getBranchProduct();
+            branchProduct.increaseStock(item.getQuantity());
+            
+            InventoryFlowDetail flowDetail = InventoryFlowDetail.builder()
+                    .branchProduct(branchProduct)
+                    .inQuantity(item.getQuantity())
+                    .remark("주문 거부 - 주문 ID: " + orderId)
+                    .build();
+            inventoryFlowDetailRepository.save(flowDetail);
+            
+            log.info("재고 복구 - branchProductId: {}, 복구량: {}", 
+                    branchProduct.getId(), item.getQuantity());
+        }
 
         return convertToResponseDto(order, items);
     }
@@ -162,16 +212,37 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
         order.cancel();
+
+        // 주문 취소 시 재고 복구
+        List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
+        for (OrderedItem item : items) {
+            BranchProduct branchProduct = item.getBranchProduct();
+            branchProduct.increaseStock(item.getQuantity());
+            
+            InventoryFlowDetail flowDetail = InventoryFlowDetail.builder()
+                    .branchProduct(branchProduct)
+                    .inQuantity(item.getQuantity())
+                    .remark("주문 취소 - 주문 ID: " + orderId)
+                    .build();
+            inventoryFlowDetailRepository.save(flowDetail);
+            
+            log.info("재고 복구 - branchProductId: {}, 복구량: {}", 
+                    branchProduct.getId(), item.getQuantity());
+        }
     }
 
-//    TODO:  convertToResponseDto 분리할것.
+    /**
+     * Entity -> DTO 변환
+     */
     private OrderResponseDto convertToResponseDto(Order order, List<OrderedItem> orderedItems) {
         List<OrderItemResponseDto> orderItemDtos = orderedItems.stream()
                 .map(item -> OrderItemResponseDto.builder()
                         .orderItemId(item.getId())
                         .orderId(order.getId())
-                        .productId(item.getProduct().getId())
-                        .productName(item.getProduct().getName())
+                        .branchProductId(item.getBranchProduct().getId())
+                        .productId(item.getBranchProduct().getProduct().getId())
+                        .productName(item.getBranchProduct().getProduct().getName())
+                        .branchId(item.getBranchProduct().getBranchId())
                         .quantity(item.getQuantity())
                         .unitPrice(item.getUnitPrice())
                         .totalPrice(item.getTotalPrice())

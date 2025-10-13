@@ -7,12 +7,15 @@ import com.careup.ordering.domain.payment.entity.Payment;
 import com.careup.ordering.domain.payment.repository.PaymentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
@@ -26,110 +29,128 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private final RestTemplate restTemplate = new RestTemplate();
 
     @Value("${payment.toss.secret-key}")
-    private String widgetSecretKey;
+    private String tossSecretKey;
 
     /**
-     * 결제 승인
+     * 결제 승인 (토스페이먼츠 공식 샘플 코드 기반)
      */
     @Transactional
-    public Map<String, Object> confirmPayment(PaymentConfirmRequest request) {
-        log.info("결제 승인 시작 - orderId: {}, amount: {}", request.getOrderId(), request.getAmount());
+    public Map<String, Object> confirmPayment(PaymentConfirmRequest request) throws Exception {
+        log.info("결제 승인 시작 - orderId: {}, paymentKey: {}, amount: {}", 
+                request.getOrderId(), request.getPaymentKey(), request.getAmount());
 
         // 1. 주문 조회 및 금액 검증
         Order order = orderRepository.findById(Long.parseLong(request.getOrderId()))
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다."));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 주문입니다. orderId: " + request.getOrderId()));
 
         if (!order.getTotalAmount().equals(request.getAmount())) {
-            throw new IllegalArgumentException("결제 금액이 일치하지 않습니다.");
+            throw new IllegalArgumentException(
+                    String.format("결제 금액이 일치하지 않습니다. 주문금액: %d, 결제금액: %d", 
+                            order.getTotalAmount(), request.getAmount()));
         }
 
-        // 2. 토스페이먼츠 API 호출
-        Map<String, Object> tossResponse = callTossPaymentsApi(request);
+        // 2. 토스페이먼츠 API 호출 (공식 샘플 코드 방식)
+        JSONObject responseData = callTossPaymentsApi(request);
 
-        // 3. Payment 저장
-        savePayment(order, request, tossResponse);
+        // 3. Payment 엔티티 저장
+        Payment payment = Payment.builder()
+                .order(order)
+                .amount(request.getAmount())
+                .build();
 
-        log.info("결제 승인 완료 - orderId: {}", request.getOrderId());
-
-        return tossResponse;
-    }
-
-    /**
-     * 토스페이먼츠 API 호출
-     */
-    private Map<String, Object> callTossPaymentsApi(PaymentConfirmRequest request) {
-        try {
-            // Authorization 헤더 생성
-            String encodedAuth = Base64.getEncoder()
-                    .encodeToString((widgetSecretKey + ":").getBytes(StandardCharsets.UTF_8));
-
-            // 헤더 설정
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Basic " + encodedAuth);
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            // 요청 바디
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("paymentKey", request.getPaymentKey());
-            requestBody.put("orderId", request.getOrderId());
-            requestBody.put("amount", request.getAmount());
-
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-            // 토스 API 호출
-            ResponseEntity<Map> response = restTemplate.exchange(
-                    "https://api.tosspayments.com/v1/payments/confirm",
-                    HttpMethod.POST,
-                    entity,
-                    Map.class
-            );
-
-            if (response.getStatusCode() != HttpStatus.OK) {
-                throw new RuntimeException("토스페이먼츠 API 호출 실패");
-            }
-
-            return response.getBody();
-
-        } catch (Exception e) {
-            log.error("토스페이먼츠 API 호출 실패", e);
-            throw new RuntimeException("결제 승인 실패: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Payment 저장
-     */
-    private void savePayment(Order order, PaymentConfirmRequest request, Map<String, Object> tossResponse) {
-        Payment payment = paymentRepository.findByOrderId(order.getId())
-                .orElseGet(() -> Payment.builder()
-                        .order(order)
-                        .amount(request.getAmount())
-                        .build());
-
-        payment.confirm(
-                request.getPaymentKey(),
-                (String) tossResponse.get("transactionKey")
-        );
-
+        payment.confirm(request.getPaymentKey(), (String) responseData.get("transactionKey"));
         paymentRepository.save(payment);
+
+        log.info("결제 승인 완료 - paymentId: {}, orderId: {}", payment.getId(), order.getId());
+
+        // 4. 응답 데이터 변환
+        Map<String, Object> result = new HashMap<>();
+        result.put("paymentId", payment.getId());
+        result.put("orderId", order.getId());
+        result.put("amount", payment.getAmount());
+        result.put("paymentKey", payment.getPaymentKey());
+        result.put("status", payment.getPaymentStatus().name());
+        result.put("tossResponse", responseData);
+
+        return result;
     }
 
     /**
-     * 결제 조회
+     * 토스페이먼츠 API 호출 (공식 샘플 코드)
+     */
+    private JSONObject callTossPaymentsApi(PaymentConfirmRequest request) throws Exception {
+        // 요청 데이터 생성
+        JSONObject requestData = new JSONObject();
+        requestData.put("orderId", request.getOrderId());
+        requestData.put("amount", request.getAmount());
+        requestData.put("paymentKey", request.getPaymentKey());
+
+        // Authorization 헤더 생성 (Basic Auth)
+        Base64.Encoder encoder = Base64.getEncoder();
+        byte[] encodedBytes = encoder.encode((tossSecretKey + ":").getBytes(StandardCharsets.UTF_8));
+        String authorization = "Basic " + new String(encodedBytes, StandardCharsets.UTF_8);
+
+        // HTTP 연결 설정
+        URL url = new URL("https://api.tosspayments.com/v1/payments/confirm");
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setRequestProperty("Authorization", authorization);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestMethod("POST");
+        connection.setDoOutput(true);
+
+        // 요청 바디 전송
+        try (OutputStream outputStream = connection.getOutputStream()) {
+            outputStream.write(requestData.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
+        // 응답 처리
+        int responseCode = connection.getResponseCode();
+        boolean isSuccess = (responseCode == 200);
+
+        InputStream responseStream = isSuccess ? 
+                connection.getInputStream() : connection.getErrorStream();
+
+        // JSON 파싱
+        JSONParser parser = new JSONParser();
+        JSONObject responseData;
+        try (Reader reader = new InputStreamReader(responseStream, StandardCharsets.UTF_8)) {
+            responseData = (JSONObject) parser.parse(reader);
+        }
+
+        // 에러 처리
+        if (!isSuccess) {
+            String errorCode = (String) responseData.get("code");
+            String errorMessage = (String) responseData.get("message");
+            log.error("토스페이먼츠 API 에러 - code: {}, message: {}", errorCode, errorMessage);
+            throw new RuntimeException("결제 승인 실패: " + errorMessage);
+        }
+
+        log.info("토스페이먼츠 API 호출 성공 - responseCode: {}", responseCode);
+        return responseData;
+    }
+
+    /**
+     * Payment 단건 조회
      */
     public Payment getPaymentById(Long paymentId) {
         return paymentRepository.findById(paymentId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 결제입니다."));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 결제입니다. ID: " + paymentId));
     }
 
     /**
-     * 주문별 결제 조회
+     * 주문별 Payment 조회
      */
     public Payment getPaymentByOrderId(Long orderId) {
-        return paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 주문의 결제 정보가 없습니다."));
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "존재하지 않는 주문입니다. ID: " + orderId));
+
+        return paymentRepository.findByOrder(order)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "해당 주문의 결제 정보가 없습니다. orderId: " + orderId));
     }
 }

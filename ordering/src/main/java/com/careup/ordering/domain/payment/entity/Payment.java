@@ -36,27 +36,45 @@ public class Payment {
     @Column(name = "payment_status", nullable = false)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
+    // 토스페이먼츠에서 발급한 결제 키
     @Column(name = "payment_key", length = 200)
     private String paymentKey;
 
+    // 토스페이먼츠 거래 고유 번호
     @Column(name = "pg_transaction_id", length = 100)
     private String pgTransactionId;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @Builder
-    public Payment(Order order, Long amount) {
-        this.order = order;
-        this.amount = amount;
-        this.paymentStatus = PaymentStatus.PENDING;
-        this.createdAt = LocalDateTime.now();
+    @Column(name = "approved_at")
+    private LocalDateTime approvedAt;
+
+    @Column(name = "canceled_at")
+    private LocalDateTime canceledAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAt == null) {
+            this.createdAt = LocalDateTime.now();
+        }
     }
 
-    // 결제 승인
+    /**
+     * 결제 승인
+     */
     public void confirm(String paymentKey, String pgTransactionId) {
         this.paymentKey = paymentKey;
         this.pgTransactionId = pgTransactionId;
         this.paymentStatus = PaymentStatus.COMPLETED;
+        this.approvedAt = LocalDateTime.now();
+    }
+
+    /**
+     * 결제 취소
+     */
+    public void cancel() {
+        this.paymentStatus = PaymentStatus.CANCELLED;
+        this.canceledAt = LocalDateTime.now();
     }
 }

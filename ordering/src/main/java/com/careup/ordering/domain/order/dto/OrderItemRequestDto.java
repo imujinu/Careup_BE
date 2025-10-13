@@ -12,13 +12,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderItemRequestDto {
-    @NotNull(message = "상품ID는 필수입니다")
-    private Long productId;
+    @NotNull(message = "지점 상품 ID는 필수입니다")
+    private Long branchProductId;
 
     @Min(value = 1, message = "수량은 1개 이상이어야 합니다")
     @NotNull(message = "수량은 필수입니다")
     private Long quantity;
 
-    @NotNull(message = "단가는 필수입니다")
-    private Long unitPrice;
 }

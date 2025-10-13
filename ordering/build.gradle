@@ -38,6 +38,9 @@ dependencies {
 	//    eureka client의존성 추가
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
 
+	// ✅ JSON Simple 라이브러리 추가 (토스페이먼츠 API용)
+	implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+
 }
 
 dependencyManagement{
