@@ -1,10 +1,9 @@
 package com.careup.ordering.domain.product.service;
 
-import com.careup.ordering.domain.product.dto.ProductRequestDto;
-import com.careup.ordering.domain.product.dto.ProductResponseDto;
+import com.careup.ordering.domain.product.dto.ProductDto;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Product;
-import com.careup.ordering.domain.product.entity.ProductStatus;
+import com.careup.ordering.domain.product.entity.Visibility;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,118 +14,100 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+@Transactional
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
-    /**
-     * 상품 등록
-     */
-    @Transactional
-    public ProductResponseDto createProduct(ProductRequestDto requestDto) {
-        log.info("상품 등록 시작 - name: {}, categoryId: {}", 
-                requestDto.getName(), requestDto.getCategoryId());
-
+    // 상품 등록
+    public ProductDto.Response createProduct(ProductDto.Request request) {
         // 카테고리 조회
-        Category category = categoryRepository.findById(requestDto.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 카테고리입니다. ID: " + requestDto.getCategoryId()));
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
 
-        // 상품 생성
+        Visibility visibilityEnum = Visibility.ALL;
+        if (request.getVisibility() != null) {
+            try {
+                visibilityEnum = Visibility.valueOf(request.getVisibility().toUpperCase());
+            } catch (IllegalArgumentException e) {
+            }
+        }
+
         Product product = Product.builder()
                 .category(category)
-                .name(requestDto.getName())
-                .description(requestDto.getDescription())
-                .supplyPrice(requestDto.getSupplyPrice())  // 공급가 추가
-                .minPrice(requestDto.getMinPrice())
-                .maxPrice(requestDto.getMaxPrice())
-                .imageUrl(requestDto.getImageUrl())
+                .name(request.getName())
+                .description(request.getDescription())
+                .supplyPrice(request.getSupplyPrice())
+                .minPrice(request.getMinPrice())
+                .maxPrice(request.getMaxPrice())
+                .imageUrl(request.getImageUrl())
+                .visibility(visibilityEnum)
                 .build();
 
         Product savedProduct = productRepository.save(product);
-        log.info("상품 등록 완료 - productId: {}, supplyPrice: {}", 
-                savedProduct.getId(), savedProduct.getSupplyPrice());
-
-        return ProductResponseDto.from(savedProduct);
+        return convertToProductResponse(savedProduct);
     }
 
-    /**
-     * 상품 단건 조회
-     */
-    public ProductResponseDto getProductById(Long productId) {
-        log.info("상품 조회 - productId: {}", productId);
+    // 상품 목록 조회
+    @Transactional(readOnly = true)
+    public List<ProductDto.Response> getAllProducts() {
+        List<Product> products = productRepository.findAll();
+        return products.stream()
+                .map(this::convertToProductResponse)
+                .collect(Collectors.toList());
+    }
 
+    // 상품 상세 조회
+    @Transactional(readOnly = true)
+    public ProductDto.Response getProduct(Long productId) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 상품입니다. ID: " + productId));
-
-        return ProductResponseDto.from(product);
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
+        return convertToProductResponse(product);
     }
 
-    /**
-     * 전체 상품 조회 (활성 상품만)
-     */
-    public List<ProductResponseDto> getAllProducts() {
-        log.info("전체 상품 조회");
+    // 상품 수정
+    public ProductDto.Response updateProduct(Long productId, ProductDto.Request request) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
 
-        List<Product> products = productRepository.findByStatusAndIsDelYn(
-                ProductStatus.ACTIVE, "N");
+        // 상품 정보 업데이트
+        product.updateInfo(
+                request.getName(),
+                request.getDescription(),
+                request.getSupplyPrice(),
+                request.getMinPrice(),
+                request.getMaxPrice(),
+                request.getImageUrl()
+        );
 
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
+        Product updatedProduct = productRepository.save(product);
+        return convertToProductResponse(updatedProduct);
     }
 
-    /**
-     * 카테고리별 상품 조회
-     */
-    public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
-        log.info("카테고리별 상품 조회 - categoryId: {}", categoryId);
-
-        // 카테고리 존재 확인
-        if (!categoryRepository.existsById(categoryId)) {
-            throw new IllegalArgumentException("존재하지 않는 카테고리입니다. ID: " + categoryId);
-        }
-
-        List<Product> products = productRepository.findByCategoryIdAndStatusAndIsDelYn(
-                categoryId, ProductStatus.ACTIVE, "N");
-
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 상품 검색 (상품명)
-     */
-    public List<ProductResponseDto> searchProducts(String keyword) {
-        log.info("상품 검색 - keyword: {}", keyword);
-
-        List<Product> products = productRepository.findByNameContainingAndStatusAndIsDelYn(
-                keyword, ProductStatus.ACTIVE, "N");
-
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 상품 삭제 (소프트 삭제)
-     */
-    @Transactional
+    // 상품 삭제
     public void deleteProduct(Long productId) {
-        log.info("상품 삭제 - productId: {}", productId);
-
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "존재하지 않는 상품입니다. ID: " + productId));
-
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
         product.delete();
-        log.info("상품 삭제 완료 - productId: {}", productId);
+        productRepository.save(product);
+    }
+
+    // dto 변환 메서드
+    private ProductDto.Response convertToProductResponse(Product product) {
+        return new ProductDto.Response(
+                product.getId(),
+                product.getName(),
+                product.getDescription(),
+                product.getSupplyPrice(),
+                product.getMinPrice(),
+                product.getMaxPrice(),
+                product.getImageUrl(),
+                product.getStatus().toString(),
+                product.getVisibility().toString()
+        );
     }
 }
