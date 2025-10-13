@@ -1,6 +1,7 @@
 package com.careup.ordering.domain.product.service;
 
-import com.careup.ordering.domain.product.dto.CategoryDto;
+import com.careup.ordering.domain.product.dto.CategoryRequestDto;
+import com.careup.ordering.domain.product.dto.CategoryResponseDto;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,7 @@ public class CategoryService {
 
 
     // 카테고리 등록
-    public CategoryDto.Response createCategory(CategoryDto.Request request) {
+    public CategoryResponseDto createCategory(CategoryRequestDto request) {
         Category category = Category.builder()
                 .name(request.getName())
                 .description(request.getDescription())
@@ -31,7 +32,7 @@ public class CategoryService {
 
     // 카테고리 목록 조회
     @Transactional(readOnly = true)
-    public List<CategoryDto.Response> getAllCategories() {
+    public List<CategoryResponseDto> getAllCategories() {
         List<Category> categories = categoryRepository.findAll();
         return categories.stream()
                 .map(this::convertToCategoryResponse)
@@ -39,8 +40,8 @@ public class CategoryService {
     }
 
     // dto 변환 메서드
-    private CategoryDto.Response convertToCategoryResponse(Category category) {
-        return new CategoryDto.Response(
+    private CategoryResponseDto convertToCategoryResponse(Category category) {
+        return new CategoryResponseDto(
                 category.getId(),
                 category.getName(),
                 category.getDescription()
