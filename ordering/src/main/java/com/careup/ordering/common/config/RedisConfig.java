@@ -50,7 +50,7 @@ public class RedisConfig {
         RedisStandaloneConfiguration conf = new RedisStandaloneConfiguration();
         conf.setHostName(host);
         conf.setPort(port);
-        conf.setDatabase(2);
+        conf.setDatabase(1);
         return new LettuceConnectionFactory(conf);
     }
 
