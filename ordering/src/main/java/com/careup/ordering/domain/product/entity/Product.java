@@ -7,16 +7,15 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name= "product")
+@Table(name= "products")
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
-// BaseTimeEntity 추가예정
+@Builder
 public class Product extends BaseTimeEntity {
 
     @Id
@@ -24,27 +23,30 @@ public class Product extends BaseTimeEntity {
     @Column(name = "product_id")
     private Long id;
 
-    @ManyToOne(fetch =  FetchType.LAZY)
-    @JoinColumn(name = "category_id",nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
-    @Column(name = "name",nullable = false,length = 100)
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(name = "description",nullable = false,columnDefinition = "TEXT")
+    @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "min_price",nullable = false)
-    private Long minPrice;
+    @Column(name = "supply_price", nullable = false)
+    private Long supplyPrice;  // 본사 공급가 추가!
+
+    @Column(name = "min_price", nullable = false)
+    private Long minPrice;  // 권장 최소 판매가
 
     @Column(name = "max_price")
-    private Long maxPrice;
+    private Long maxPrice;  // 권장 최대 판매가
 
-    @Column(name = "image_url",nullable = false,length = 255)
+    @Column(name = "image_url", nullable = false, length = 255)
     private String imageUrl;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status",nullable = false)
+    @Column(name = "status", nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
 
     @Column(name = "is_del_yn", nullable = false, length = 1)
@@ -52,26 +54,13 @@ public class Product extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "visibility", nullable = false)
-    private Visibility visibility;
+    private Visibility visibility = Visibility.ALL;
 
-    @OneToMany(mappedBy = "product",cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
     private List<ProductAttribute> attributes = new ArrayList<>();
-
-    @Builder
-    public Product(Category category, String name, String description,
-                   Long minPrice, Long maxPrice, String imageUrl) {
-        this.category = category;
-        this.name = name;
-        this.description = description;
-        this.minPrice = minPrice;
-        this.maxPrice = maxPrice;
-        this.imageUrl = imageUrl;
-    }
 
     // 삭제 메서드
     public void delete() {
         this.isDelYn = "Y";
     }
-
-
 }

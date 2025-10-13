@@ -20,11 +20,15 @@ public class ProductRequestDto {
     @NotBlank(message = "상품 설명은 필수입니다")
     private String description;
 
+    @NotNull(message = "공급가는 필수입니다")
+    @Positive(message = "공급가는 0보다 커야 합니다")
+    private Long supplyPrice;  // 본사 공급가
+
     @NotNull(message = "최소 가격은 필수입니다")
     @Positive(message = "최소 가격은 0보다 커야 합니다")
-    private Long minPrice;
+    private Long minPrice;  // 권장 최소 판매가
 
-    private Long maxPrice;
+    private Long maxPrice;  // 권장 최대 판매가
 
     @NotBlank(message = "이미지 URL은 필수입니다")
     private String imageUrl;
