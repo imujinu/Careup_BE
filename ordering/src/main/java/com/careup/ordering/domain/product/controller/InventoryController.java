@@ -1,7 +1,11 @@
 package com.careup.ordering.domain.product.controller;
 
-import com.careup.ordering.domain.product.dto.BranchProductDto;
-import com.careup.ordering.domain.product.dto.InventoryFlowDto;
+import com.careup.ordering.domain.product.dto.BranchProductRequestDto;
+import com.careup.ordering.domain.product.dto.BranchProductResponseDto;
+import com.careup.ordering.domain.product.dto.InventoryFlowRequestDto;
+import com.careup.ordering.domain.product.dto.InventoryFlowResponseDto;
+import com.careup.ordering.domain.product.dto.SafetyStockRequestDto;
+import com.careup.ordering.domain.product.dto.StockAdjustRequestDto;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.service.InventoryService;
@@ -23,7 +27,7 @@ public class InventoryController {
 
     // 지점별 상품 등록 (BranchProduct 생성)
     @PostMapping("/branch-products")
-    public ResponseEntity<BranchProductDto.Response> createBranchProduct(@RequestBody BranchProductDto.Request request) {
+    public ResponseEntity<BranchProductResponseDto> createBranchProduct(@RequestBody BranchProductRequestDto request) {
         BranchProduct branchProduct = inventoryService.createBranchProduct(
                 request.getProductId(),
                 request.getBranchId(),
@@ -37,9 +41,9 @@ public class InventoryController {
     
     // 지점별 재고 조회
     @GetMapping("/branch/{branchId}")
-    public ResponseEntity<List<BranchProductDto.Response>> getBranchProducts(@PathVariable Long branchId) {
+    public ResponseEntity<List<BranchProductResponseDto>> getBranchProducts(@PathVariable Long branchId) {
         List<BranchProduct> branchProducts = inventoryService.getBranchProducts(branchId);
-        List<BranchProductDto.Response> response = branchProducts.stream()
+        List<BranchProductResponseDto> response = branchProducts.stream()
                 .map(this::convertToBranchProductResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(response);
@@ -47,7 +51,7 @@ public class InventoryController {
 
     // 특정 상품의 지점별 재고 조회
     @GetMapping("/branch/{branchId}/product/{productId}")
-    public ResponseEntity<BranchProductDto.Response> getBranchProduct(
+    public ResponseEntity<BranchProductResponseDto> getBranchProduct(
             @PathVariable Long branchId,
             @PathVariable Long productId) {
         BranchProduct branchProduct = inventoryService.getBranchProduct(branchId, productId);
@@ -56,14 +60,14 @@ public class InventoryController {
 
     // 안전재고 설정
     @PostMapping("/safety-stock")
-    public ResponseEntity<Void> updateSafetyStock(@RequestBody InventoryFlowDto.SafetyStockRequest request) {
+    public ResponseEntity<Void> updateSafetyStock(@RequestBody SafetyStockRequestDto request) {
         inventoryService.updateSafetyStock(request.getBranchProductId(), request.getSafetyStock());
         return ResponseEntity.ok().build();
     }
 
     // 재고 증감
     @PostMapping("/adjust")
-    public ResponseEntity<Void> adjustStock(@RequestBody InventoryFlowDto.StockAdjustRequest request) {
+    public ResponseEntity<Void> adjustStock(@RequestBody StockAdjustRequestDto request) {
         inventoryService.adjustStock(
                 request.getBranchProductId(),
                 request.getQuantity(),
@@ -77,12 +81,12 @@ public class InventoryController {
     
     // 입출고 기록 조회
     @GetMapping("/flow")
-    public ResponseEntity<List<InventoryFlowDto.Response>> getInventoryFlows(
+    public ResponseEntity<List<InventoryFlowResponseDto>> getInventoryFlows(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) Long productId) {
         
         List<InventoryFlowDetail> flows = inventoryService.getInventoryFlows(branchId, productId);
-        List<InventoryFlowDto.Response> response = flows.stream()
+        List<InventoryFlowResponseDto> response = flows.stream()
                 .map(this::convertToInventoryFlowResponse)
                 .collect(Collectors.toList());
         
@@ -91,7 +95,7 @@ public class InventoryController {
 
     // 입출고 기록 등록
     @PostMapping("/flow")
-    public ResponseEntity<InventoryFlowDto.Response> createInventoryFlow(@RequestBody InventoryFlowDto.Request request) {
+    public ResponseEntity<InventoryFlowResponseDto> createInventoryFlow(@RequestBody InventoryFlowRequestDto request) {
         InventoryFlowDetail flow = inventoryService.createInventoryFlow(
                 request.getBranchProductId(),
                 request.getInQuantity(),
@@ -111,12 +115,12 @@ public class InventoryController {
 
     // 재고 조절 내역 조회 (불량/폐기 포함)
     @GetMapping("/adjustment-history")
-    public ResponseEntity<List<InventoryFlowDto.Response>> getAdjustmentHistory(
+    public ResponseEntity<List<InventoryFlowResponseDto>> getAdjustmentHistory(
             @RequestParam(required = false) Long branchId,
             @RequestParam(required = false) String reason) {
         
         List<InventoryFlowDetail> flows = inventoryService.getAdjustmentHistory(branchId, reason);
-        List<InventoryFlowDto.Response> response = flows.stream()
+        List<InventoryFlowResponseDto> response = flows.stream()
                 .map(this::convertToInventoryFlowResponse)
                 .collect(Collectors.toList());
         
@@ -125,8 +129,8 @@ public class InventoryController {
     
     // ==================== DTO 변환 메서드 ====================
     
-    private BranchProductDto.Response convertToBranchProductResponse(BranchProduct branchProduct) {
-        return new BranchProductDto.Response(
+    private BranchProductResponseDto convertToBranchProductResponse(BranchProduct branchProduct) {
+        return new BranchProductResponseDto(
                 branchProduct.getId(),
                 branchProduct.getProduct().getId(),
                 branchProduct.getBranchId(),
@@ -139,8 +143,8 @@ public class InventoryController {
         );
     }
 
-    private InventoryFlowDto.Response convertToInventoryFlowResponse(InventoryFlowDetail flow) {
-        return new InventoryFlowDto.Response(
+    private InventoryFlowResponseDto convertToInventoryFlowResponse(InventoryFlowDetail flow) {
+        return new InventoryFlowResponseDto(
                 flow.getId(),
                 flow.getBranchProduct().getId(),
                 flow.getBranchProduct().getProduct().getId(),

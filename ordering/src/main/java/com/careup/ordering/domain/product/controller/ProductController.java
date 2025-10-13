@@ -1,7 +1,9 @@
 package com.careup.ordering.domain.product.controller;
 
-import com.careup.ordering.domain.product.dto.CategoryDto;
-import com.careup.ordering.domain.product.dto.ProductDto;
+import com.careup.ordering.domain.product.dto.CategoryRequestDto;
+import com.careup.ordering.domain.product.dto.CategoryResponseDto;
+import com.careup.ordering.domain.product.dto.ProductRequestDto;
+import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.service.CategoryService;
 import com.careup.ordering.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
@@ -21,15 +23,15 @@ public class ProductController {
 
     // 카테고리 등록
     @PostMapping("/categories")
-    public ResponseEntity<CategoryDto.Response> createCategory(@RequestBody CategoryDto.Request request) {
-        CategoryDto.Response response = categoryService.createCategory(request);
+    public ResponseEntity<CategoryResponseDto> createCategory(@RequestBody CategoryRequestDto request) {
+        CategoryResponseDto response = categoryService.createCategory(request);
         return ResponseEntity.ok(response);
     }
 
     // 카테고리 목록 조회
     @GetMapping("/categories")
-    public ResponseEntity<List<CategoryDto.Response>> getCategories() {
-        List<CategoryDto.Response> response = categoryService.getAllCategories();
+    public ResponseEntity<List<CategoryResponseDto>> getCategories() {
+        List<CategoryResponseDto> response = categoryService.getAllCategories();
         return ResponseEntity.ok(response);
     }
     
@@ -37,31 +39,31 @@ public class ProductController {
 
     // 상품 목록 조회
     @GetMapping("/products")
-    public ResponseEntity<List<ProductDto.Response>> getProducts() {
-        List<ProductDto.Response> response = productService.getAllProducts();
+    public ResponseEntity<List<ProductResponseDto>> getProducts() {
+        List<ProductResponseDto> response = productService.getAllProducts();
         return ResponseEntity.ok(response);
     }
 
     // 상품 상세 조회
     @GetMapping("/products/{productId}")
-    public ResponseEntity<ProductDto.Response> getProduct(@PathVariable Long productId) {
-        ProductDto.Response response = productService.getProduct(productId);
+    public ResponseEntity<ProductResponseDto> getProduct(@PathVariable Long productId) {
+        ProductResponseDto response = productService.getProduct(productId);
         return ResponseEntity.ok(response);
     }
 
      // 상품 등록
     @PostMapping("/products")
-    public ResponseEntity<ProductDto.Response> createProduct(@RequestBody ProductDto.Request request) {
-        ProductDto.Response response = productService.createProduct(request);
+    public ResponseEntity<ProductResponseDto> createProduct(@RequestBody ProductRequestDto request) {
+        ProductResponseDto response = productService.createProduct(request);
         return ResponseEntity.ok(response);
     }
 
      // 상품 수정
     @PutMapping("/products/{productId}")
-    public ResponseEntity<ProductDto.Response> updateProduct(
+    public ResponseEntity<ProductResponseDto> updateProduct(
             @PathVariable Long productId,
-            @RequestBody ProductDto.Request request) {
-        ProductDto.Response response = productService.updateProduct(productId, request);
+            @RequestBody ProductRequestDto request) {
+        ProductResponseDto response = productService.updateProduct(productId, request);
         return ResponseEntity.ok(response);
     }
 

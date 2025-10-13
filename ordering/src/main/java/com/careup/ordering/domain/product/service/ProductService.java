@@ -1,6 +1,7 @@
 package com.careup.ordering.domain.product.service;
 
-import com.careup.ordering.domain.product.dto.ProductDto;
+import com.careup.ordering.domain.product.dto.ProductRequestDto;
+import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.Visibility;
@@ -24,7 +25,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
 
     // 상품 등록
-    public ProductDto.Response createProduct(ProductDto.Request request) {
+    public ProductResponseDto createProduct(ProductRequestDto request) {
         // 카테고리 조회
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
@@ -54,7 +55,7 @@ public class ProductService {
 
     // 상품 목록 조회
     @Transactional(readOnly = true)
-    public List<ProductDto.Response> getAllProducts() {
+    public List<ProductResponseDto> getAllProducts() {
         List<Product> products = productRepository.findAll();
         return products.stream()
                 .map(this::convertToProductResponse)
@@ -63,14 +64,14 @@ public class ProductService {
 
     // 상품 상세 조회
     @Transactional(readOnly = true)
-    public ProductDto.Response getProduct(Long productId) {
+    public ProductResponseDto getProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
         return convertToProductResponse(product);
     }
 
     // 상품 수정
-    public ProductDto.Response updateProduct(Long productId, ProductDto.Request request) {
+    public ProductResponseDto updateProduct(Long productId, ProductRequestDto request) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
         
@@ -97,8 +98,8 @@ public class ProductService {
     }
 
     // dto 변환 메서드
-    private ProductDto.Response convertToProductResponse(Product product) {
-        return new ProductDto.Response(
+    private ProductResponseDto convertToProductResponse(Product product) {
+        return new ProductResponseDto(
                 product.getId(),
                 product.getName(),
                 product.getDescription(),
