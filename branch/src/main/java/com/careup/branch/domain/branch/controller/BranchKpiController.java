@@ -89,10 +89,10 @@ public class BranchKpiController {
     @PatchMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody BranchKpiCreateReqDto request) {
         try {
-            BranchKpiCreateResDto res = branchKpiService.updateBranchKpi(id, request);
+            BranchKpiCreateResDto result = branchKpiService.updateBranchKpi(id, request);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
-                            .result(res)
+                            .result(result)
                             .status_code(HttpStatus.OK.value())
                             .status_message("지점별 KPI 수정 성공")
                             .build()
