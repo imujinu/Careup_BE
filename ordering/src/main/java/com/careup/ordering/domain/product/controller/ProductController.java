@@ -56,6 +56,29 @@ public class ProductController {
         return ResponseEntity.ok(response);
     }
 
+    // 카테고리별 상품 조회
+    @GetMapping("/products/category/{categoryId}")
+    public ResponseEntity<List<ProductDto.Response>> getProductsByCategory(@PathVariable Long categoryId) {
+        List<ProductDto.Response> response = productService.getProductsByCategory(categoryId);
+        return ResponseEntity.ok(response);
+    }
+
+    // 상품 검색
+    @GetMapping("/products/search")
+    public ResponseEntity<List<ProductDto.Response>> searchProducts(@RequestParam String keyword) {
+        List<ProductDto.Response> response = productService.searchProducts(keyword);
+        return ResponseEntity.ok(response);
+    }
+
+    // 카테고리 + 검색 (옵션)
+    @GetMapping("/products/search/category/{categoryId}")
+    public ResponseEntity<List<ProductDto.Response>> searchProductsByCategory(
+            @PathVariable Long categoryId,
+            @RequestParam String keyword) {
+        List<ProductDto.Response> response = productService.searchProductsByCategoryAndKeyword(categoryId, keyword);
+        return ResponseEntity.ok(response);
+    }
+
      // 상품 수정
     @PutMapping("/products/{productId}")
     public ResponseEntity<ProductDto.Response> updateProduct(

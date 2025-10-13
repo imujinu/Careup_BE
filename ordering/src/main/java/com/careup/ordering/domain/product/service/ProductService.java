@@ -69,6 +69,33 @@ public class ProductService {
         return convertToProductResponse(product);
     }
 
+    // 카테고리별 상품 조회
+    @Transactional(readOnly = true)
+    public List<ProductDto.Response> getProductsByCategory(Long categoryId) {
+        List<Product> products = productRepository.findByCategoryId(categoryId);
+        return products.stream()
+                .map(this::convertToProductResponse)
+                .collect(Collectors.toList());
+    }
+
+    // 상품 검색
+    @Transactional(readOnly = true)
+    public List<ProductDto.Response> searchProducts(String keyword) {
+        List<Product> products = productRepository.searchByKeyword(keyword);
+        return products.stream()
+                .map(this::convertToProductResponse)
+                .collect(Collectors.toList());
+    }
+
+    // 카테고리 + 검색
+    @Transactional(readOnly = true)
+    public List<ProductDto.Response> searchProductsByCategoryAndKeyword(Long categoryId, String keyword) {
+        List<Product> products = productRepository.searchByCategoryAndKeyword(categoryId, keyword);
+        return products.stream()
+                .map(this::convertToProductResponse)
+                .collect(Collectors.toList());
+    }
+
     // 상품 수정
     public ProductDto.Response updateProduct(Long productId, ProductDto.Request request) {
         Product product = productRepository.findById(productId)

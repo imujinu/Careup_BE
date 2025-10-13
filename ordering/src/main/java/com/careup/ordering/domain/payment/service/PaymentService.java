@@ -19,6 +19,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -152,5 +153,20 @@ public class PaymentService {
         return paymentRepository.findByOrder(order)
                 .orElseThrow(() -> new IllegalArgumentException(
                         "해당 주문의 결제 정보가 없습니다. orderId: " + orderId));
+    }
+    // 회원별 결제 목록 조회
+    @Transactional(readOnly = true)
+    public List<Payment> getPaymentsByMemberId(Long memberId) {
+        return paymentRepository.findByOrder_Member_Id(memberId);
+    }
+
+    // 결제 삭제 (취소)
+    @Transactional
+    public void deletePayment(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 결제입니다. ID: " + paymentId));
+
+        paymentRepository.delete(payment);
+        log.info("결제 삭제 완료 - paymentId: {}", paymentId);
     }
 }

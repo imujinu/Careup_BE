@@ -2,6 +2,7 @@ package com.careup.ordering.domain.payment.controller;
 
 import com.careup.ordering.common.dto.ResponseDto;
 import com.careup.ordering.domain.payment.dto.PaymentConfirmRequest;
+import com.careup.ordering.domain.payment.entity.Payment;
 import com.careup.ordering.domain.payment.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -83,5 +85,32 @@ public class PaymentController {
                 ResponseDto.ok(failInfo, HttpStatus.OK), 
                 HttpStatus.OK
         );
+    }
+    // 결제 단건 조회
+    @GetMapping("/{paymentId}")
+    public ResponseEntity<ResponseDto<Payment>> getPayment(@PathVariable Long paymentId) {
+        Payment payment = paymentService.getPaymentById(paymentId);
+        return new ResponseEntity<>(ResponseDto.ok(payment, HttpStatus.OK), HttpStatus.OK);
+    }
+
+    // 주문별 결제 조회
+    @GetMapping("/order/{orderId}")
+    public ResponseEntity<ResponseDto<Payment>> getPaymentByOrder(@PathVariable Long orderId) {
+        Payment payment = paymentService.getPaymentByOrderId(orderId);
+        return new ResponseEntity<>(ResponseDto.ok(payment, HttpStatus.OK), HttpStatus.OK);
+    }
+
+    // 회원별 결제 목록 조회
+    @GetMapping("/member/{memberId}")
+    public ResponseEntity<ResponseDto<List<Payment>>> getPaymentsByMember(@PathVariable Long memberId) {
+        List<Payment> payments = paymentService.getPaymentsByMemberId(memberId);
+        return new ResponseEntity<>(ResponseDto.ok(payments, HttpStatus.OK), HttpStatus.OK);
+    }
+
+    // 결제 삭제
+    @DeleteMapping("/{paymentId}")
+    public ResponseEntity<ResponseDto<Void>> deletePayment(@PathVariable Long paymentId) {
+        paymentService.deletePayment(paymentId);
+        return new ResponseEntity<>(ResponseDto.ok(null, HttpStatus.OK), HttpStatus.OK);
     }
 }
