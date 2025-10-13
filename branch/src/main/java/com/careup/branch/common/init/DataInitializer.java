@@ -1,6 +1,6 @@
 package com.careup.branch.common.init;
 
-import com.careup.branch.domain.branch.dto.BranchRegisterReqDto;
+import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.OwnershipType;
 import com.careup.branch.domain.branch.repository.BranchRepository;
