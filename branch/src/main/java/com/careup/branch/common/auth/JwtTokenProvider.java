@@ -39,11 +39,8 @@ public class JwtTokenProvider {
         this.rtKey = Keys.hmacShaKeyFor(rtBytes);
     }
 
-    private static String rtKey(Long employeeId) {
-        return "RT:EMP:" + employeeId;
-    }
+    private static String rtKey(Long employeeId) { return "RT:EMP:" + employeeId; }
 
-    /** subject = employeeId 문자열 */
     public String createAccessToken(Long employeeId, String role) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
@@ -60,12 +57,11 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    /** rememberMe=false면 RT 미발급(null 반환). rememberMe=true면 단일 슬롯 저장 */
     public String createRefreshToken(Long employeeId, boolean rememberMe) {
-        if (!rememberMe) return null; // ★ 핵심
+        if (!rememberMe) return null;
 
         Date now = new Date();
-        int days = props.getRefreshTokenExpiryDaysPersistent(); // 자동 로그인 전용 만료
+        int days = props.getRefreshTokenExpiryDaysPersistent();
         long rtMillis = Duration.ofDays(days).toMillis();
 
         Claims claims = Jwts.claims().setSubject(String.valueOf(employeeId));
@@ -77,26 +73,18 @@ public class JwtTokenProvider {
                 .signWith(rtKey, SignatureAlgorithm.HS512)
                 .compact();
 
-        // 계정 당 단일 슬롯
         redis.opsForValue().set(rtKey(employeeId), rt, Duration.ofMillis(rtMillis));
         return rt;
     }
 
     public Claims parseAccessToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(atKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        return Jwts.parserBuilder().setSigningKey(atKey).build()
+                .parseClaimsJws(token).getBody();
     }
 
-    /** RT 서명/만료 검증 + Redis 저장 RT 일치 확인 */
     public Claims validateRefreshToken(String refreshToken) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(rtKey)
-                .build()
-                .parseClaimsJws(refreshToken)
-                .getBody();
+        Claims claims = Jwts.parserBuilder().setSigningKey(rtKey).build()
+                .parseClaimsJws(refreshToken).getBody();
 
         Long employeeId = Long.valueOf(claims.getSubject());
         String saved = redis.opsForValue().get(rtKey(employeeId));
@@ -106,7 +94,6 @@ public class JwtTokenProvider {
         return claims;
     }
 
-    /** 로그아웃(계정 단위) */
     public void revokeRefreshToken(Long employeeId) {
         redis.delete(rtKey(employeeId));
     }

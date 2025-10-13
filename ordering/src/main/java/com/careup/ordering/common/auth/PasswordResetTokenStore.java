@@ -19,9 +19,7 @@ public class PasswordResetTokenStore {
         this.redis = redis;
     }
 
-    private static String key(String email) {
-        return "ORDERING:PWRESET:" + email; // BRANCH → ORDERING 으로 변경
-    }
+    private static String key(String email) { return "ORDERING:PWRESET:" + email; }
 
     public String issue(String email) {
         String token = generateToken();
@@ -33,9 +31,7 @@ public class PasswordResetTokenStore {
         return Optional.ofNullable(redis.opsForValue().get(key(email)));
     }
 
-    public void delete(String email) {
-        redis.delete(key(email));
-    }
+    public void delete(String email) { redis.delete(key(email)); }
 
     private static String generateToken() {
         byte[] buf = new byte[18];

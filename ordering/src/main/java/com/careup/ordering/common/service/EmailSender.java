@@ -20,7 +20,7 @@ public class EmailSender {
     @Value("${spring.mail.from:no-reply@careup.com}")
     private String from;
 
-    // 고객용 기본 링크로 변경(환경에 맞춰 교체 가능)
+    // 고객(주문/프론트)용 비밀번호 재설정 링크 베이스 URL
     @Value("${careup.mail.customer.reset-base-url:https://ordering.careup.com/reset-password}")
     private String resetBaseUrl;
 
@@ -40,13 +40,13 @@ public class EmailSender {
         }
     }
 
-    /** [Care-Up] 고객 계정 비밀번호 재설정 메일 (링크 포함) */
+    /** [Care-Up][고객] 비밀번호 재설정 메일 (링크 포함) */
     public void sendPasswordReset(String toEmail, String token) {
         String encEmail = URLEncoder.encode(toEmail, StandardCharsets.UTF_8);
         String encToken = URLEncoder.encode(token, StandardCharsets.UTF_8);
         String link = resetBaseUrl + "?email=" + encEmail + "&token=" + encToken;
 
-        String subject = "[Care-Up] 고객 계정 비밀번호 재설정 안내 (15분 내 유효)";
+        String subject = "[Care-Up] 비밀번호 재설정 안내 (15분 내 유효)";
         String body = """
                 안녕하세요.
 
@@ -57,6 +57,21 @@ public class EmailSender {
 
                 만약 본인이 요청하지 않았다면 이 메일을 무시하셔도 됩니다.
                 """.formatted(link);
+
+        send(toEmail, subject, body);
+    }
+
+    /** [Care-Up][고객] 회원가입 환영 메일 */
+    public void sendWelcomeEmail(String toEmail, String name) {
+        String subject = "[Care-Up] 회원가입이 완료되었습니다";
+        String body = """
+                안녕하세요, %s님.
+
+                Care-Up 고객 회원가입이 정상적으로 완료되었습니다.
+                지금 바로 서비스를 이용해 보세요.
+
+                감사합니다.
+                """.formatted(name == null ? "" : name);
 
         send(toEmail, subject, body);
     }

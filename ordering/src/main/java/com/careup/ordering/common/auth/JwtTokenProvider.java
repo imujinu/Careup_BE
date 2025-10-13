@@ -18,9 +18,6 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    /// 고객 전용 영역(Realm)
-    public enum AuthRealm { CUS }
-
     private final JwtProperties props;
     private final RedisTemplate<String, String> redis;
 
@@ -43,19 +40,15 @@ public class JwtTokenProvider {
         this.rtKey = Keys.hmacShaKeyFor(rtBytes);
     }
 
-    private static String rtKey(AuthRealm realm, Long id) {
-        return "RT:" + realm.name() + ":" + id; // RT:CUS:{memberId}
-    }
+    private static String rtKey(Long memberId) { return "RT:CUS:" + memberId; }
 
-    /** Access Token 생성 (sub = "CUS:{memberId}") */
-    public String createAccessToken(AuthRealm realm, Long memberId, String role) {
+    public String createAccessToken(Long memberId, String role) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
 
-        Claims claims = Jwts.claims().setSubject(realm.name() + ":" + memberId);
-        claims.put("realm", realm.name()); // CUS
-        claims.put("id", memberId);        // 고객 ID
-        claims.put("role", role);          // CUSTOMER
+        Claims claims = Jwts.claims().setSubject(String.valueOf(memberId));
+        claims.put("role", role);
+        claims.put("memberId", memberId);
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -65,57 +58,43 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    /** rememberMe=false면 RT 미발급(null) */
-    public String createRefreshToken(AuthRealm realm, Long memberId, boolean rememberMe) {
+    public String createRefreshToken(Long memberId, boolean rememberMe) {
         if (!rememberMe) return null;
 
         Date now = new Date();
         long rtMillis = Duration.ofDays(props.getRefreshTokenExpiryDaysPersistent()).toMillis();
 
+        Claims claims = Jwts.claims().setSubject(String.valueOf(memberId));
+
         String rt = Jwts.builder()
-                .setSubject(realm.name() + ":" + memberId) // "CUS:{id}"
+                .setClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(new Date(now.getTime() + rtMillis))
                 .signWith(rtKey, SignatureAlgorithm.HS512)
                 .compact();
 
-        // 계정 당 단일 슬롯
-        redis.opsForValue().set(rtKey(realm, memberId), rt, Duration.ofMillis(rtMillis));
+        redis.opsForValue().set(rtKey(memberId), rt, Duration.ofMillis(rtMillis));
         return rt;
     }
 
-    /** AT 서명/만료 검증 + 클레임 */
     public Claims parseAccessToken(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(atKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+        return Jwts.parserBuilder().setSigningKey(atKey).build()
+                .parseClaimsJws(token).getBody();
     }
 
-    /** RT 서명/만료 + Redis 저장본 일치 검증 */
     public Claims validateRefreshToken(String refreshToken) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(rtKey)
-                .build()
-                .parseClaimsJws(refreshToken)
-                .getBody();
+        Claims claims = Jwts.parserBuilder().setSigningKey(rtKey).build()
+                .parseClaimsJws(refreshToken).getBody();
 
-        String[] parts = claims.getSubject().split(":"); // CUS:{id}
-        if (parts.length != 2 || !"CUS".equals(parts[0])) {
-            throw new JwtException("유효하지 않은 토큰입니다.");
-        }
-        Long memberId = Long.valueOf(parts[1]);
-
-        String saved = redis.opsForValue().get(rtKey(AuthRealm.CUS, memberId));
+        Long memberId = Long.valueOf(claims.getSubject());
+        String saved = redis.opsForValue().get(rtKey(memberId));
         if (saved == null || !saved.equals(refreshToken)) {
             throw new JwtException("유효하지 않은 토큰입니다.");
         }
         return claims;
     }
 
-    /** 로그아웃(고객 단위) → RT 폐기 */
     public void revokeRefreshToken(Long memberId) {
-        redis.delete(rtKey(AuthRealm.CUS, memberId));
+        redis.delete(rtKey(memberId));
     }
 }

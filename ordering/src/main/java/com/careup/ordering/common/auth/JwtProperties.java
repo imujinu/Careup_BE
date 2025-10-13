@@ -7,11 +7,12 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "jwt")
 public class JwtProperties {
 
-    private int accessTokenExpiryMinutes;             /// AT 만료(분)
-    private int refreshTokenExpiryDaysPersistent;     /// RT 만료(일, 자동로그인 ON)
-    private int refreshTokenExpiryDaysNonPersistent;  /// RT 만료(일, 자동로그인 OFF)
-    private String secretKeyAt;                       /// AT 서명키(Base64, HS512)
-    private String secretKeyRt;                       /// RT 서명키(Base64, HS512)
+    private int accessTokenExpiryMinutes;
+    private int refreshTokenExpiryDaysPersistent;
+    private int refreshTokenExpiryDaysNonPersistent;
+
+    private String secretKeyAt;
+    private String secretKeyRt;
 
     public int getAccessTokenExpiryMinutes() { return accessTokenExpiryMinutes; }
     public void setAccessTokenExpiryMinutes(int v) { this.accessTokenExpiryMinutes = v; }
