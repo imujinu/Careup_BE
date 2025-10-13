@@ -7,14 +7,15 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class BranchProductResponseDto {
+public class InventoryFlowResponseDto {
+    private Long flowId;
     private Long branchProductId;
     private Long productId;
-    private Long branchId;
-    private String serialNumber;
-    private Long stockQuantity;
-    private Long safetyStock;
-    private Long price;
     private String productName;
-    private String productDescription;
+    private Long branchId;
+    private Long inQuantity;
+    private Long outQuantity;
+    private String remark;
+    private String createdAt;
 }
+
