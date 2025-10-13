@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.service;
 
+import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.common.util.PhoneUtils;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
@@ -24,6 +25,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -39,9 +41,13 @@ public class EmployeeService {
     private final BranchRepository branchRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AwsS3Uploader awsS3Uploader;
+
+    private static final String DEFAULT_PROFILE_URL =
+            "https://beyond-16-care-up.s3.ap-northeast-2.amazonaws.com/image/employee/profile/default/default_user.png";
 
     @Transactional
-    public EmployeeDetailDto create(EmployeeCreateDto dto) {
+    public EmployeeDetailDto create(EmployeeCreateDto dto, MultipartFile image) {
         dto.setMobile(PhoneUtils.normalize(dto.getMobile()));
         dto.setEmergencyTel(PhoneUtils.normalize(dto.getEmergencyTel()));
         validateDuplicateOnCreate(dto);
@@ -64,6 +70,10 @@ public class EmployeeService {
                     .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
         }
 
+        String initialUrl = (dto.getProfileImageUrl() != null && !dto.getProfileImageUrl().isBlank())
+                ? dto.getProfileImageUrl()
+                : DEFAULT_PROFILE_URL;
+
         Employee employee = Employee.builder()
                 .employeeNumber(dto.getEmployeeNumber())
                 .name(dto.getName())
@@ -83,19 +93,26 @@ public class EmployeeService {
                 .authorityType(dto.getAuthorityType())
                 .employmentStatus(dto.getEmploymentStatus())
                 .employmentType(dto.getEmploymentType())
-                .profileImageUrl(dto.getProfileImageUrl())
+                .profileImageUrl(initialUrl)
                 .remark(dto.getRemark())
                 .passwordHash(passwordEncoder.encode(dto.getRawPassword()))
                 .enabled(true)
                 .build();
 
         Employee saved = employeeRepository.save(employee);
+
+        if (image != null && !image.isEmpty()) {
+            String dir = "employee/profile";
+            String uploadedUrl = awsS3Uploader.uploadFile(dir, saved.getId(), image);
+            saved.changeProfileImageUrl(uploadedUrl);
+        }
+
         List<EmployeeDispatchDto> dispatchDtos = saveAllDispatches(saved, dto.getDispatches());
         return EmployeeDetailDto.fromEntity(saved, dispatchDtos);
     }
 
     @Transactional
-    public EmployeeDetailDto update(Long id, EmployeeUpdateDto dto) {
+    public EmployeeDetailDto update(Long id, EmployeeUpdateDto dto, MultipartFile image) {
         Employee target = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
 
@@ -125,20 +142,37 @@ public class EmployeeService {
                     .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
         }
 
+        String oldUrl = target.getProfileImageUrl();
+        String newUrl = null;
+
+        if (image != null && !image.isEmpty()) {
+            String dir = "employee/profile";
+            newUrl = awsS3Uploader.uploadFile(dir, target.getId(), image);
+            dto.setProfileImageUrl(newUrl);
+        } else {
+            String keep = (dto.getProfileImageUrl() != null && !dto.getProfileImageUrl().isBlank())
+                    ? dto.getProfileImageUrl()
+                    : target.getProfileImageUrl();
+            dto.setProfileImageUrl(keep);
+        }
+
         target.updateFromDto(dto, jobGrade);
+
+        if (newUrl != null && !isDefaultImage(oldUrl) && !Objects.equals(oldUrl, newUrl)) {
+            safeDeleteOldImage(oldUrl);
+        }
 
         if (dto.getRawPassword() != null && !dto.getRawPassword().isBlank()) {
             target.changePasswordHash(passwordEncoder.encode(dto.getRawPassword()));
         }
 
-        // 기존 배치 전량 삭제 후 재저장
         dispatchStatusRepository.deleteByEmployee(target);
         List<EmployeeDispatchDto> dispatchDtos = saveAllDispatches(target, dto.getDispatches());
         return EmployeeDetailDto.fromEntity(target, dispatchDtos);
     }
 
     @Transactional
-    public void delete(Long id) {
+    public void deactivate(Long id) {
         Employee target = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
 
@@ -153,11 +187,82 @@ public class EmployeeService {
             ensureTargetBelongsToMyBranches(target, actor, "삭제");
         }
 
+        target.deactivate(LocalDate.now());
+    }
+
+    @Transactional
+    public EmployeeDetailDto rehire(Long id) {
+        Employee target = employeeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
+
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Claims c = (Claims) auth.getDetails();
+        String role = String.valueOf(c.get("role"));
+        Long actorId = c.get("employeeId", Long.class);
+
+        if (!"HQ_ADMIN".equals(role)) {
+            Employee actor = employeeRepository.findById(actorId)
+                    .orElseThrow(() -> new EntityNotFoundException("권한을 확인할 수 없습니다."));
+            ensureRehirePermission(target, actor);
+        }
+
+        target.rehire(LocalDate.now());
+
+        List<DispatchStatus> actives = dispatchStatusRepository
+                .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+                        target, "N", LocalDate.now(), LocalDate.now()
+                );
+        List<EmployeeDispatchDto> dispatchDtos = actives.stream()
+                .map(EmployeeDispatchDto::fromEntity)
+                .toList();
+
+        return EmployeeDetailDto.fromEntity(target, dispatchDtos);
+    }
+
+    private void ensureRehirePermission(Employee target, Employee actor) {
+        LocalDate today = LocalDate.now();
+
+        List<Branch> myBranches = dispatchStatusRepository
+                .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(actor, "N", today, today)
+                .stream()
+                .map(DispatchStatus::getBranch)
+                .distinct()
+                .toList();
+
+        if (myBranches.isEmpty()) {
+            throw new IllegalArgumentException("권한이 없습니다.");
+        }
+
+        Optional<DispatchStatus> current = dispatchStatusRepository
+                .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
+                        target, "N", today, today
+                );
+
+        Branch baseBranch = current
+                .map(DispatchStatus::getBranch)
+                .orElseGet(() -> {
+                    List<DispatchStatus> history = dispatchStatusRepository.findAllByEmployeeOrderByAssignedFromDesc(target);
+                    return history.isEmpty() ? null : history.get(0).getBranch();
+                });
+
+        if (baseBranch == null) {
+            throw new IllegalArgumentException("권한이 없습니다.");
+        }
+
+        Set<Long> allowed = myBranches.stream().map(Branch::getId).collect(Collectors.toSet());
+        if (!allowed.contains(baseBranch.getId())) {
+            throw new IllegalArgumentException("권한이 없습니다.");
+        }
+    }
+
+    private boolean isDefaultImage(String url) {
+        return url != null && url.equals(DEFAULT_PROFILE_URL);
+    }
+
+    private void safeDeleteOldImage(String url) {
         try {
-            employeeRepository.delete(target);
-            employeeRepository.flush();
-        } catch (DataIntegrityViolationException ex) {
-            throw new EntityExistsException("해당 직원과 연관된 배치/근태/기록이 있어 삭제할 수 없습니다.");
+            awsS3Uploader.deleteByUrl(url);
+        } catch (Exception e) {
         }
     }
 
@@ -215,7 +320,7 @@ public class EmployeeService {
             validateDispatchDates(d.getAssignedFrom(), d.getAssignedTo());
 
             Branch branch = branchRepository.findById(d.getBranchId())
-                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("지점을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
 
             String placementYn = (d.getPlacementYn() == null || d.getPlacementYn().isBlank()) ? "N" : d.getPlacementYn();
 
