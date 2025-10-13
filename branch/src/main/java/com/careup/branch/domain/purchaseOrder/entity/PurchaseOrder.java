@@ -1,18 +1,21 @@
 package com.careup.branch.domain.purchaseOrder.entity;
 
+import com.careup.branch.common.domain.BaseTimeEntity;
+import com.careup.branch.domain.branch.entity.Branch;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "purchase_order")
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class PurchaseOrder {
+@Getter
+public class PurchaseOrder extends BaseTimeEntity{
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,17 +26,20 @@ public class PurchaseOrder {
 //    @JoinColumn(name = "branch_id", nullable = false)
 //     private Branch branch;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
+    @Column(name = "branch_id", nullable = false)
+    private Long branchId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "order_status", nullable = false)
     private OrderStatus orderStatus;
 
     @Column(name = "price", nullable = false)
-    private long price;
+    private Long price;
+
+    // 주문 상태 변경 메서드
+    public void changeOrderStatus(OrderStatus orderStatus) {
+        this.orderStatus = orderStatus;
+    }
 
 }
