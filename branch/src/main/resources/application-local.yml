@@ -1,4 +1,3 @@
-
 server:
   port: 8081
 
@@ -38,24 +37,34 @@ spring:
     bootstrap-servers: localhost:9092
     consumer:
       group-id: test-topic-group-01
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USER}
+    password: ${MAIL_PW}
+    from: no-reply@careup.com
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
 
 cloud:
   aws:
     credentials:
-      access-key: xxxxxxxxxxxxx
-      secret-key: yyyyyyyyyyyyyy
+      access-key: ${ACCESS_KEY}
+      secret-key: ${SECRET_KEY}
     region:
       static: ap-northeast-2
     s3:
-      bucket: xxxxxxxxxxxxx
+      bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 30 # 30분
-  secretKeyAt: ${accessToken}
-  #  refreshTokenExpiryDays: 180 # 180일
-  refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
-  refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
-  secretKeyRt: ${refreshToken}
+  accessTokenExpiryMinutes: 1   # 테스트용: 1분
+  refreshTokenExpiryDaysPersistent: 180
+  refreshTokenExpiryDaysNonPersistent: 1
+  secretKeyAt: ${ACCESS_TOKEN}
+  secretKeyRt: ${REFRESH_TOKEN}
 
 security:
   csrf:
@@ -63,8 +72,11 @@ security:
       - "http://localhost:3000"
     skip-paths:
       - "/health"
-      -
+
+careup:
+  mail:
+    reset-base-url: "http://localhost:3000/reset-password"  # 비밀번호 재설정 링크 프론트 URL
+
 logging:
   level:
     root: info
-

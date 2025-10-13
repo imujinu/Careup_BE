@@ -16,20 +16,20 @@ public class JwtProperties {
 
     /// 위에 적은 accessTokenExpiryMinutes 값을 코드에서 읽을 때 사용
     public int getAccessTokenExpiryMinutes()
-        { return accessTokenExpiryMinutes; }
+    { return accessTokenExpiryMinutes; }
     /// 스프링이 yml에 적힌 값을 여기에 넣어줄 때 사용
     public void setAccessTokenExpiryMinutes(int accessTokenExpiryMinutes)
-        { this.accessTokenExpiryMinutes = accessTokenExpiryMinutes; }
+    { this.accessTokenExpiryMinutes = accessTokenExpiryMinutes; }
 
     public int getRefreshTokenExpiryDaysPersistent()
-        { return refreshTokenExpiryDaysPersistent; }
+    { return refreshTokenExpiryDaysPersistent; }
     public void setRefreshTokenExpiryDaysPersistent(int refreshTokenExpiryDaysPersistent)
-        { this.refreshTokenExpiryDaysPersistent = refreshTokenExpiryDaysPersistent; }
+    { this.refreshTokenExpiryDaysPersistent = refreshTokenExpiryDaysPersistent; }
 
     public int getRefreshTokenExpiryDaysNonPersistent()
-        { return refreshTokenExpiryDaysNonPersistent; }
+    { return refreshTokenExpiryDaysNonPersistent; }
     public void setRefreshTokenExpiryDaysNonPersistent(int refreshTokenExpiryDaysNonPersistent)
-        { this.refreshTokenExpiryDaysNonPersistent = refreshTokenExpiryDaysNonPersistent; }
+    { this.refreshTokenExpiryDaysNonPersistent = refreshTokenExpiryDaysNonPersistent; }
 
     /// AT 서명 비밀키(Base64)를 코드에서 읽을 때 사용
     public String getSecretKeyAt() { return secretKeyAt; }
