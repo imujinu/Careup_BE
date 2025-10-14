@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.auth.service;
 
+import com.careup.ordering.common.auth.CustomerRevokeStore;
 import com.careup.ordering.common.auth.JwtProperties;
 import com.careup.ordering.common.auth.JwtTokenProvider;
 import com.careup.ordering.common.auth.PasswordResetTokenStore;
@@ -36,8 +37,8 @@ public class AuthService {
     private final JwtProperties jwtProps;
     private final PasswordResetTokenStore resetTokenStore;
     private final EmailSender emailSender;
+    private final CustomerRevokeStore revokeStore;
 
-    /** 회원가입 (커밋 이후 환영 메일 전송) */
     @Transactional
     public SignUpResponse signUp(SignUpRequest req) {
         String email = req.getEmail().trim();
@@ -84,7 +85,6 @@ public class AuthService {
                 .build();
     }
 
-    /** 로그인(이메일 or 휴대폰) → CUSTOMER AT/RT 발급 */
     public AuthLoginResponse login(AuthLoginRequest req) {
         if (req.getId() == null || req.getId().isBlank())
             throw new IllegalArgumentException("아이디(이메일 또는 휴대폰 번호)는 필수입니다.");
@@ -100,7 +100,7 @@ public class AuthService {
                 : memberRepository.findByPhone(PhoneUtils.normalize(rawId))
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 휴대폰 번호입니다."));
 
-        if (!member.getIsDelYn().equals("N")) {
+        if (!"N".equals(member.getIsDelYn())) {
             throw new IllegalArgumentException("비활성화된 계정입니다.");
         }
         if (!passwordEncoder.matches(req.getPassword(), member.getPassword())) {
@@ -127,10 +127,13 @@ public class AuthService {
                 .build();
     }
 
-    /** 자동로그인: RT로 AT 재발급 */
     public AuthRefreshResponse refresh(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
         Long memberId = Long.valueOf(claims.getSubject());
+
+        if (revokeStore.readCutoverAt(memberId).isPresent()) {
+            throw new IllegalArgumentException("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
+        }
 
         Member m = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
@@ -150,7 +153,6 @@ public class AuthService {
                 .build();
     }
 
-    /** 로그아웃: RT 폐기 */
     @Transactional
     public AuthLogoutResponse logout(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
@@ -170,7 +172,6 @@ public class AuthService {
                 .build();
     }
 
-    /** 비밀번호 재설정 메일 발송: 이메일+휴대폰 모두 일치해야 함 */
     @Transactional
     public void issueResetTokenByIdentity(String email, String mobile) {
         String normalizedMobile = PhoneUtils.normalize(mobile);
@@ -186,7 +187,6 @@ public class AuthService {
         emailSender.sendPasswordReset(email, token);
     }
 
-    /** 토큰으로 비밀번호 재설정: 확인값 검증 */
     @Transactional
     public void resetPassword(String email, String token, String newPassword, String confirmPassword) {
         if (!newPassword.equals(confirmPassword)) {
@@ -206,6 +206,10 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
 
         m.changePassword(passwordEncoder.encode(newPassword));
+
+        revokeStore.scheduleCutoverAfterSeconds(m.getId(), 10);
+        jwt.revokeRefreshToken(m.getId());
+
         resetTokenStore.delete(email);
     }
 

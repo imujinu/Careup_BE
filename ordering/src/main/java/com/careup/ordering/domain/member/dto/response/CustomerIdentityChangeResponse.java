@@ -1,4 +1,4 @@
-package com.careup.ordering.domain.auth.dto.response;
+package com.careup.ordering.domain.member.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -6,11 +6,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Getter
-@Builder
-@AllArgsConstructor
 @NoArgsConstructor
-public class SignUpResponse {
-    private Long memberId;
+@AllArgsConstructor
+@Builder
+public class CustomerIdentityChangeResponse {
     private String email;
-    private String nickname;
+    private String phone;
 }

@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -23,11 +24,14 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwt;
     private final BranchTokenIntrospectionClient branchIntrospectionClient;
+    private final CustomerRevokeStore customerRevokeStore;
 
     public JwtTokenFilter(JwtTokenProvider jwt,
-                          BranchTokenIntrospectionClient branchIntrospectionClient) {
+                          BranchTokenIntrospectionClient branchIntrospectionClient,
+                          CustomerRevokeStore customerRevokeStore) {
         this.jwt = jwt;
         this.branchIntrospectionClient = branchIntrospectionClient;
+        this.customerRevokeStore = customerRevokeStore;
     }
 
     @Override
@@ -38,7 +42,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         if (bearer != null && bearer.startsWith("Bearer ")) {
             String token = bearer.substring(7);
 
-            boolean ok = tryAuthenticateOrderingCustomer(token);
+            boolean ok = tryAuthenticateOrderingCustomer(token, response);
             if (!ok) {
                 tryAuthenticateBranchEmployee(token);
             }
@@ -47,14 +51,25 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    private boolean tryAuthenticateOrderingCustomer(String token) {
+    private boolean tryAuthenticateOrderingCustomer(String token, HttpServletResponse response) throws IOException {
         try {
             Claims c = jwt.parseAccessToken(token);
+
+            Date iat = c.getIssuedAt();
+            long iatMs = (iat != null) ? iat.getTime() : 0L;
+
+            Long memberId = Long.valueOf(String.valueOf(c.get("memberId")));
+            if (memberId != null && customerRevokeStore.isTokenObsolete(memberId, iatMs)) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"status_code\":401,\"status_message\":\"세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.\"}");
+                return false;
+            }
+
             String role = (c.get("role") == null || String.valueOf(c.get("role")).isBlank())
                     ? "CUSTOMER" : String.valueOf(c.get("role"));
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
-            Long memberId = Long.valueOf(String.valueOf(c.get("memberId")));
             var auth = new UsernamePasswordAuthenticationToken(memberId, null, authorities);
             auth.setDetails(c);
             SecurityContextHolder.getContext().setAuthentication(auth);
@@ -71,7 +86,6 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             if (res != null && res.active() && res.employeeId() != null && res.role() != null) {
                 var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + res.role()));
                 var auth = new UsernamePasswordAuthenticationToken(res.employeeId(), null, authorities);
-                // 직원 토큰임을 명확히 구분할 수 있도록 메타 부착
                 auth.setDetails(Map.of(
                         "realm", "EMP",
                         "employeeId", res.employeeId(),
