@@ -1,6 +1,6 @@
-// com.careup.branch.domain.auth.service.AuthService
 package com.careup.branch.domain.auth.service;
 
+import com.careup.branch.common.auth.ForceLogoutStore;
 import com.careup.branch.common.auth.JwtProperties;
 import com.careup.branch.common.auth.JwtTokenProvider;
 import com.careup.branch.common.auth.PasswordResetTokenStore;
@@ -38,7 +38,8 @@ public class AuthService {
     private final PasswordResetTokenStore passwordResetTokenStore;
     private final EmailSender emailSender;
 
-    /** 이메일 또는 휴대폰 로그인 → employeeId 기준 AT/RT 발급 */
+    private final ForceLogoutStore forceLogoutStore;
+
     public AuthLoginResponse login(AuthLoginRequest req) {
         if (req.getId() == null || req.getId().isBlank())
             throw new IllegalArgumentException("아이디(이메일 또는 휴대폰 번호)는 필수입니다.");
@@ -64,11 +65,10 @@ public class AuthService {
         Long employeeId = emp.getId();
 
         String at = jwt.createAccessToken(employeeId, role);
-
-        // rememberMe=false면 RT 미발급을 원하면 아래를 null 처리하세요.
         String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
 
-        // 배치 지점
+        // 전역 컷오프 방식에서는 재로그인 시 clear() 하지 않음
+
         LocalDate today = LocalDate.now();
         Optional<DispatchStatus> active = dispatchStatusRepository
                 .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
@@ -85,7 +85,7 @@ public class AuthService {
         return AuthLoginResponse.builder()
                 .tokenType("Bearer")
                 .accessToken(at)
-                .refreshToken(rt) // rememberMe=false 시 null로 바꾸려면 여기 조정
+                .refreshToken(rt)
                 .expiresInMinutes(jwtProps.getAccessTokenExpiryMinutes())
                 .role(role)
                 .employeeId(employeeId)
@@ -98,10 +98,14 @@ public class AuthService {
                 .build();
     }
 
-    /** 자동로그인: RT로 AT 재발급 */
     public AuthRefreshResponse refresh(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
         Long employeeId = Long.valueOf(claims.getSubject());
+
+        // 컷오프가 존재하면 RT 기반 재발급도 차단
+        if (forceLogoutStore.readCutoverAt(employeeId).isPresent()) {
+            throw new IllegalArgumentException("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
+        }
 
         Employee emp = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
@@ -135,7 +139,6 @@ public class AuthService {
                 .build();
     }
 
-    /** 로그아웃: RT 폐기 */
     @Transactional
     public AuthLogoutResponse logout(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
@@ -170,7 +173,6 @@ public class AuthService {
                 .build();
     }
 
-    /** (NEW) 비밀번호 재설정 메일 발송: 이메일+휴대폰 모두 DB와 일치해야 함 */
     @Transactional
     public void issueResetTokenByIdentity(String email, String mobile) {
         String normalizedMobile = PhoneUtils.normalize(mobile);
@@ -178,19 +180,14 @@ public class AuthService {
         Employee emp = employeeRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalArgumentException("해당 이메일의 계정을 찾을 수 없습니다."));
 
-        // 이메일은 위에서 일치, 휴대폰 일치 추가 확인
         if (!normalizedMobile.equals(PhoneUtils.normalize(emp.getMobile()))) {
             throw new IllegalArgumentException("이메일과 휴대폰 정보가 일치하지 않습니다.");
         }
 
-        // 토큰 발급(키는 email 기준)
         String token = passwordResetTokenStore.issue(email);
-
-        // 메일 발송(링크 포함)
         emailSender.sendPasswordReset(email, token);
     }
 
-    /** (NEW) 토큰으로 비밀번호 재설정: 확인값까지 검증 */
     @Transactional
     public void resetPassword(String email, String token, String newPassword, String confirmPassword) {
         if (!newPassword.equals(confirmPassword)) {
@@ -208,7 +205,10 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
         emp.changePasswordHash(passwordEncoder.encode(newPassword));
 
-        // 토큰 1회성 소진
+        // 10초 후 전역 컷오프 + RT 폐기
+        forceLogoutStore.scheduleCutoverAfterSeconds(emp.getId(), 10);
+        jwt.revokeRefreshToken(emp.getId());
+
         passwordResetTokenStore.delete(email);
     }
 
