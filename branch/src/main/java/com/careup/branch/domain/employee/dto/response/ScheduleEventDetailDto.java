@@ -1,0 +1,44 @@
+package com.careup.branch.domain.employee.dto.response;
+
+import com.careup.branch.domain.employee.entity.AttendanceStatus;
+import com.careup.branch.domain.employee.entity.Schedule;
+import com.careup.branch.domain.employee.entity.ScheduleEvent;
+import lombok.Getter;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class ScheduleEventDetailDto {
+    private Long scheduleId;
+    private Long employeeId;
+    private String employeeName;
+    private LocalDate eventDate;
+    private LocalDateTime clockInAt;
+    private LocalDateTime breakStartAt;
+    private LocalDateTime breakEndAt;
+    private LocalDateTime clockOutAt;
+    private boolean missedCheckout;
+    private AttendanceStatus status;
+
+    public static ScheduleEventDetailDto of(Schedule s, ScheduleEvent e, AttendanceStatus status) {
+        return ScheduleEventDetailDto.builder()
+                .scheduleId(s.getId())
+                .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
+                .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
+                .eventDate(e != null ? e.getEventDate() : null)
+                .clockInAt(e != null ? e.getClockInAt() : null)
+                .breakStartAt(e != null ? e.getBreakStartAt() : null)
+                .breakEndAt(e != null ? e.getBreakEndAt() : null)
+                .clockOutAt(e != null ? e.getClockOutAt() : null)
+                .missedCheckout(e != null && e.isMissedCheckout())
+                .status(status)
+                .build();
+    }
+}

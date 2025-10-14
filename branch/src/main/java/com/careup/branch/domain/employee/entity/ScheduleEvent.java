@@ -1,7 +1,14 @@
 package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -21,42 +28,45 @@ public class ScheduleEvent extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 근태 기록 1:1 근태
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "schedule_id")
+    @JoinColumn(name = "schedule_id", unique = true)
     private Schedule schedule;
 
-    // 실제 날짜
     @Column(name = "event_date")
     private LocalDate eventDate;
 
-    // 실제 출근 시간
     @Column(name = "clock_in_at")
     private LocalDateTime clockInAt;
 
-    // 실제 휴게 시작
     @Column(name = "break_start_at")
     private LocalDateTime breakStartAt;
 
-    // 실제 휴게 종료
     @Column(name = "break_end_at")
     private LocalDateTime breakEndAt;
 
-    // 실제 퇴근 시간
     @Column(name = "clock_out_at")
     private LocalDateTime clockOutAt;
 
-    // 출근 위치 (위도, 경도) - BigDecimal로 정밀도 지정
     @Column(name = "clock_in_lat", precision = 9, scale = 6)
     private BigDecimal clockInLat;
 
     @Column(name = "clock_in_lon", precision = 9, scale = 6)
     private BigDecimal clockInLon;
 
-    // 퇴근 위치 (위도, 경도) - BigDecimal로 정밀도 지정
     @Column(name = "clock_out_lat", precision = 9, scale = 6)
     private BigDecimal clockOutLat;
 
     @Column(name = "clock_out_lon", precision = 9, scale = 6)
     private BigDecimal clockOutLon;
+
+    @Column(name = "missed_checkout", nullable = false)
+    private boolean missedCheckout;
+
+    public void changeEventDate(LocalDate v) { this.eventDate = v; }
+    public void changeClockIn(LocalDateTime v) { this.clockInAt = v; }
+    public void changeBreakStart(LocalDateTime v) { this.breakStartAt = v; }
+    public void changeBreakEnd(LocalDateTime v) { this.breakEndAt = v; }
+    public void changeClockOut(LocalDateTime v) { this.clockOutAt = v; }
+    public void markMissedCheckout() { this.missedCheckout = true; }
+    public void clearMissedCheckout() { this.missedCheckout = false; }
 }
