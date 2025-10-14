@@ -1,11 +1,11 @@
-package com.careup.branch.domain.branch.controller;
+package com.careup.branch.domain.employee.controller;
 
 import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
-import com.careup.branch.domain.branch.dto.document.BranchDocumentDto;
-import com.careup.branch.domain.branch.dto.document.BranchDocumentListResDto;
-import com.careup.branch.domain.branch.dto.document.BranchDocumentCreateReqDto;
-import com.careup.branch.domain.branch.service.BranchDocumentService;
+import com.careup.branch.domain.employee.dto.request.DocumentsCreateReqDto;
+import com.careup.branch.domain.employee.dto.response.DocumentsDto;
+import com.careup.branch.domain.employee.dto.response.DocumentsListResDto;
+import com.careup.branch.domain.employee.service.DocumentsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Pageable;
@@ -21,129 +21,129 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/branch-documents")
 @RequiredArgsConstructor
 @Slf4j
-public class BranchDocumentController {
+public class DocumentsController {
 
-    private final BranchDocumentService branchDocumentService;
+    private final DocumentsService documentsService;
 
-    // 지점 서류 생성 - 특정 지점 하위
+    // 생성 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @PostMapping(value = "/branch/{branchId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> createBranchDocument(
-            @PathVariable Long branchId,
-            @ModelAttribute BranchDocumentCreateReqDto branchDocumentCreateReqDto) {
+    @PostMapping(value = "/employee/{employeeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> createDocument(
+            @PathVariable Long employeeId,
+            @ModelAttribute DocumentsCreateReqDto requestDto) {
         try {
-            BranchDocumentDto branchDocument = branchDocumentService.createBranchDocument(branchId, branchDocumentCreateReqDto);
-            log.info("BranchDocumentDto created: {}", branchDocument.toString());
+            DocumentsDto newDocument = documentsService.createDocuments(employeeId, requestDto);
+            log.info("DocumentsDto created: {}", newDocument.toString());
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
-                            .result(branchDocument)
+                            .result(newDocument)
                             .status_code(HttpStatus.CREATED.value())
-                            .status_message("지점 서류 생성 완료")
+                            .status_message("서류 생성 완료")
                             .build()
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.BAD_REQUEST.value())
-                            .status_message("지정 서류 생성 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .status_message("서류 생성 중 오류가 발생했습니다. error: " + e.getMessage())
                             .build()
             );
         }
     }
 
-    // 지점 서류 조회 (페이지네이션) - 지점별
+    // 서류 조회 (페이지네이션) - 지점별
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @GetMapping("/branch/{branchId}")
-    public ResponseEntity<?> getBranchDocuments(
-            @PathVariable Long branchId,
+    @GetMapping("/employee/{employeeId}")
+    public ResponseEntity<?> getDocumentsList(
+            @PathVariable Long employeeId,
             @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable
             ) {
         try {
-            BranchDocumentListResDto branchDocumentList = branchDocumentService.getBranchDocumentList(branchId, pageable);
+            DocumentsListResDto documentsList = documentsService.getDocumentsList(employeeId, pageable);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
-                            .result(branchDocumentList)
+                            .result(documentsList)
                             .status_code(HttpStatus.OK.value())
-                            .status_message("지점 서류 목록 조회 완료")
+                            .status_message("서류 목록 조회 완료")
                             .build()
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.NOT_FOUND.value())
-                            .status_message("지점 서류 목록 조회 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .status_message("서류 목록 조회 중 오류가 발생했습니다. error: " + e.getMessage())
                             .build()
             );
         }
     }
 
-    // 지점 서류 단건 조회 - 특정 지점 하위
+    // 서류 단건 조회 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @GetMapping("/branch/{branchId}/{id}")
-    public ResponseEntity<?> getBranchDocument(@PathVariable Long branchId, @PathVariable Long id) {
+    @GetMapping("/employee/{employeeId}/{documentId}")
+    public ResponseEntity<?> getDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {
-            BranchDocumentDto findDocument = branchDocumentService.getBranchDocument(branchId, id);
+            DocumentsDto findDocument = documentsService.getDocument(employeeId, documentId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(findDocument)
                             .status_code(HttpStatus.OK.value())
-                            .status_message("지점 서류 단건 조회 완료")
+                            .status_message("서류 단건 조회 완료")
                             .build()
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.NOT_FOUND.value())
-                            .status_message("지점 서류 단건 조회 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .status_message("서류 단건 조회 중 오류가 발생했습니다. error: " + e.getMessage())
                             .build()
             );
         }
     }
 
-    // 지점 서류 수정 - 특정 지점 하위
+    // 서류 수정 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @PatchMapping(value = "/branch/{branchId}/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> updateBranchDocument(
-            @PathVariable Long branchId,
-            @PathVariable Long id,
-            @ModelAttribute BranchDocumentCreateReqDto request) {
+    @PatchMapping(value = "/employee/{employeeId}/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> updateDocument(
+            @PathVariable Long employeeId,
+            @PathVariable Long documentId,
+            @ModelAttribute DocumentsCreateReqDto requestDto) {
         try {
-            BranchDocumentDto result = branchDocumentService.updateBranchDocument(branchId, id, request);
+            DocumentsDto result = documentsService.updateDocuments(employeeId, documentId, requestDto);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(result)
                             .status_code(HttpStatus.OK.value())
-                            .status_message("지점 서류 수정 완료")
+                            .status_message("서류 수정 완료")
                             .build()
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST.value()).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.BAD_REQUEST.value())
-                            .status_message("지점 서류 수정 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .status_message("서류 수정 중 오류가 발생했습니다. error: " + e.getMessage())
                             .build()
             );
         }
     }
 
-    // 지점 서류 삭제 - 특정 지점 하위
+    // 서류 삭제 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @DeleteMapping("/branch/{branchId}/{id}")
-    public ResponseEntity<?> deleteBranchDocument(@PathVariable Long branchId, @PathVariable Long id) {
+    @DeleteMapping("/employee/{employeeId}/{documentId}")
+    public ResponseEntity<?> deleteBranchDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {
-            branchDocumentService.deleteBranchDocument(branchId, id);
+            documentsService.deleteDocuments(employeeId, documentId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
-                            .result(id)
+                            .result(documentId)
                             .status_code(HttpStatus.OK.value())
-                            .status_message("지점 서류 삭제 완료")
+                            .status_message("서류 삭제 완료")
                             .build()
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST.value()).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.BAD_REQUEST.value())
-                            .status_message("지점 서류 삭제 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .status_message("서류 삭제 중 오류가 발생했습니다. error: " + e.getMessage())
                             .build()
             );
         }

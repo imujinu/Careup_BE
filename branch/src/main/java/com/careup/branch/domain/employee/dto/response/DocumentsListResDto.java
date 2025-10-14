@@ -1,4 +1,4 @@
-package com.careup.branch.domain.branch.dto.document;
+package com.careup.branch.domain.employee.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,9 +12,9 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class BranchDocumentListResDto {
+public class DocumentsListResDto {
 
-    private List<BranchDocumentDto> data;
+    private List<DocumentsDto> data;
     private int currentPage;
     private int totalPages;
     private long totalElements;
@@ -22,8 +22,8 @@ public class BranchDocumentListResDto {
     private boolean first;
     private boolean last;
 
-    public static BranchDocumentListResDto fromPage(Page<BranchDocumentDto> page) {
-        return BranchDocumentListResDto.builder()
+    public static DocumentsListResDto fromPage(Page<DocumentsDto> page) {
+        return DocumentsListResDto.builder()
                 .data(page.getContent())
                 .currentPage(page.getNumber())
                 .totalPages(page.getTotalPages())
