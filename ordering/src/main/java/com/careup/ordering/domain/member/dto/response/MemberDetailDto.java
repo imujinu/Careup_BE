@@ -2,7 +2,10 @@ package com.careup.ordering.domain.member.dto.response;
 
 import com.careup.ordering.domain.member.entity.Gender;
 import com.careup.ordering.domain.member.entity.Member;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

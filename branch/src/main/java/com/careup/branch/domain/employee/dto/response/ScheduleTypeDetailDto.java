@@ -1,21 +1,21 @@
 package com.careup.branch.domain.employee.dto.response;
 
-import com.careup.branch.domain.employee.entity.JobGrade;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import com.careup.branch.domain.employee.entity.ScheduleType;
 import lombok.Getter;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class JobGradeOptionDto {
+public class ScheduleTypeDetailDto {
     private Long id;
     private String name;
 
-    public static JobGradeOptionDto fromEntity(JobGrade e) {
-        return JobGradeOptionDto.builder()
+    public static ScheduleTypeDetailDto fromEntity(ScheduleType e) {
+        return ScheduleTypeDetailDto.builder()
                 .id(e.getId())
                 .name(e.getName())
                 .build();

@@ -1,12 +1,14 @@
 package com.careup.ordering.domain.member.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
-@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class FindCustomerIdResponse {
     private String email;
     private String phone;
