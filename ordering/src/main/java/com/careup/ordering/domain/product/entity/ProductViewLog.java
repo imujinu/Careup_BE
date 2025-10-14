@@ -22,7 +22,7 @@ public class ProductViewLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "branch_product_id", nullable = false)
+    @JoinColumn(name = "branch_products_id", nullable = false)
     private BranchProduct branchProduct;
 
     @ManyToOne(fetch = FetchType.LAZY)

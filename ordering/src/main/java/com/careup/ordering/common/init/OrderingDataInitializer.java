@@ -1,0 +1,84 @@
+package com.careup.ordering.common.init;
+
+import com.careup.ordering.common.util.PhoneUtils;
+import com.careup.ordering.domain.member.entity.Gender;
+import com.careup.ordering.domain.member.entity.Member;
+import com.careup.ordering.domain.member.repository.MemberRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+
+@Component
+@RequiredArgsConstructor
+public class OrderingDataInitializer implements CommandLineRunner {
+
+    private final MemberRepository memberRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    @Override
+    @Transactional
+    public void run(String... args) {
+        // 김채원 / 닉네임: 도도독
+        ensureMember(
+                "chaewon.kim@careup.com",
+                "@care1234",
+                "도도독",
+                "김채원",
+                LocalDate.of(2000, 3, 4),
+                "010-1010-1001",
+                Gender.W
+        );
+
+        // 설윤아 / 닉네임: 설장군
+        ensureMember(
+                "yuna.seol@careup.com",
+                "@care1234",
+                "설장군",
+                "설윤아",
+                LocalDate.of(1999, 7, 12),
+                "010-2020-2002",
+                Gender.W
+        );
+
+        // 장원영 / 닉네임: 원영적 사고
+        ensureMember(
+                "wonyoung.jang@careup.com",
+                "@care1234",
+                "원영적 사고",
+                "장원영",
+                LocalDate.of(2002, 8, 31),
+                "010-3030-3003",
+                Gender.W
+        );
+    }
+
+    private void ensureMember(String email,
+                              String rawPassword,
+                              String nickname,
+                              String name,
+                              LocalDate birthday,
+                              String phone,
+                              Gender gender) {
+
+        // 이미 이메일이나 닉네임이 존재하면 생성 스킵
+        if (memberRepository.existsByEmailIgnoreCase(email) || memberRepository.existsByNickname(nickname)) {
+            return;
+        }
+
+        Member m = Member.builder()
+                .email(email)
+                .password(passwordEncoder.encode(rawPassword))
+                .nickname(nickname)
+                .name(name)
+                .birthday(birthday)
+                .phone(PhoneUtils.normalize(phone))
+                .gender(gender)
+                .build();
+
+        memberRepository.save(m);
+    }
+}
