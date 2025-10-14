@@ -27,7 +27,7 @@ public class DocumentsService {
     private final EmployeeRepository employeeRepository;
     private final AwsS3Uploader awsS3Uploader;
 
-    private static final String TABLE_NAME = "branch_documents";
+    private static final String TABLE_NAME = "documents";
 
     // 서류 생성 - 특정 지점 하위로 생성
     public DocumentsDto createDocuments(Long employeeId, DocumentsCreateReqDto requestDto) {
