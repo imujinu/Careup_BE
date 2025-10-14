@@ -106,8 +106,8 @@ public class DocumentsService {
     }
 
     // 서류 삭제 - 특정 지점에 속한 문서만
-    public void deleteDocuments(Long emploueeId, Long id) {
-        Documents deletedDocument = documentsRepository.findByIdAndEmployee_Id(id, emploueeId)
+    public void deleteDocuments(Long employeeId, Long id) {
+        Documents deletedDocument = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
                 .orElseThrow(() -> new EntityNotFoundException("해당 문서가 존재하지 않습니다."));
 
         String url = deletedDocument.getDocumentUrl();
