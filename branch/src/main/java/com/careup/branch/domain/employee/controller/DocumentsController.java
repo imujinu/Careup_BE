@@ -18,7 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/branch-documents")
+@RequestMapping("/documents")
 @RequiredArgsConstructor
 @Slf4j
 public class DocumentsController {
@@ -27,7 +27,7 @@ public class DocumentsController {
 
     // 생성 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @PostMapping(value = "/employee/{employeeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/{employeeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createDocument(
             @PathVariable Long employeeId,
             @ModelAttribute DocumentsCreateReqDto requestDto) {
@@ -53,7 +53,7 @@ public class DocumentsController {
 
     // 서류 조회 (페이지네이션) - 지점별
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @GetMapping("/employee/{employeeId}")
+    @GetMapping("/{employeeId}")
     public ResponseEntity<?> getDocumentsList(
             @PathVariable Long employeeId,
             @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable
@@ -79,7 +79,7 @@ public class DocumentsController {
 
     // 서류 단건 조회 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @GetMapping("/employee/{employeeId}/{documentId}")
+    @GetMapping("/{employeeId}/{documentId}")
     public ResponseEntity<?> getDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {
             DocumentsDto findDocument = documentsService.getDocument(employeeId, documentId);
@@ -102,7 +102,7 @@ public class DocumentsController {
 
     // 서류 수정 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @PatchMapping(value = "/employee/{employeeId}/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping(value = "/{employeeId}/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateDocument(
             @PathVariable Long employeeId,
             @PathVariable Long documentId,
@@ -128,7 +128,7 @@ public class DocumentsController {
 
     // 서류 삭제 - 특정 지점 하위
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @DeleteMapping("/employee/{employeeId}/{documentId}")
+    @DeleteMapping("/{employeeId}/{documentId}")
     public ResponseEntity<?> deleteBranchDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {
             documentsService.deleteDocuments(employeeId, documentId);
