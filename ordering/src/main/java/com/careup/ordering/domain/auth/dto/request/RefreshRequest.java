@@ -1,4 +1,4 @@
-package com.careup.branch.domain.auth.dto.request;
+package com.careup.ordering.domain.auth.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class LogoutRequest {
+public class RefreshRequest {
     @NotBlank
     private String refreshToken;
 }

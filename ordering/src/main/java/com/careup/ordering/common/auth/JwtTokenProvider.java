@@ -1,4 +1,4 @@
-package com.careup.branch.common.auth;
+package com.careup.ordering.common.auth;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -20,6 +20,7 @@ public class JwtTokenProvider {
 
     private final JwtProperties props;
     private final RedisTemplate<String, String> redis;
+
     private Key atKey;
     private Key rtKey;
 
@@ -39,15 +40,15 @@ public class JwtTokenProvider {
         this.rtKey = Keys.hmacShaKeyFor(rtBytes);
     }
 
-    private static String rtKey(Long employeeId) { return "RT:EMP:" + employeeId; }
+    private static String rtKey(Long memberId) { return "RT:CUS:" + memberId; }
 
-    public String createAccessToken(Long employeeId, String role) {
+    public String createAccessToken(Long memberId, String role) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
 
-        Claims claims = Jwts.claims().setSubject(String.valueOf(employeeId));
+        Claims claims = Jwts.claims().setSubject(String.valueOf(memberId));
         claims.put("role", role);
-        claims.put("employeeId", employeeId);
+        claims.put("memberId", memberId);
 
         return Jwts.builder()
                 .setClaims(claims)
@@ -57,14 +58,13 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String createRefreshToken(Long employeeId, boolean rememberMe) {
+    public String createRefreshToken(Long memberId, boolean rememberMe) {
         if (!rememberMe) return null;
 
         Date now = new Date();
-        int days = props.getRefreshTokenExpiryDaysPersistent();
-        long rtMillis = Duration.ofDays(days).toMillis();
+        long rtMillis = Duration.ofDays(props.getRefreshTokenExpiryDaysPersistent()).toMillis();
 
-        Claims claims = Jwts.claims().setSubject(String.valueOf(employeeId));
+        Claims claims = Jwts.claims().setSubject(String.valueOf(memberId));
 
         String rt = Jwts.builder()
                 .setClaims(claims)
@@ -73,7 +73,7 @@ public class JwtTokenProvider {
                 .signWith(rtKey, SignatureAlgorithm.HS512)
                 .compact();
 
-        redis.opsForValue().set(rtKey(employeeId), rt, Duration.ofMillis(rtMillis));
+        redis.opsForValue().set(rtKey(memberId), rt, Duration.ofMillis(rtMillis));
         return rt;
     }
 
@@ -86,15 +86,15 @@ public class JwtTokenProvider {
         Claims claims = Jwts.parserBuilder().setSigningKey(rtKey).build()
                 .parseClaimsJws(refreshToken).getBody();
 
-        Long employeeId = Long.valueOf(claims.getSubject());
-        String saved = redis.opsForValue().get(rtKey(employeeId));
+        Long memberId = Long.valueOf(claims.getSubject());
+        String saved = redis.opsForValue().get(rtKey(memberId));
         if (saved == null || !saved.equals(refreshToken)) {
             throw new JwtException("유효하지 않은 토큰입니다.");
         }
         return claims;
     }
 
-    public void revokeRefreshToken(Long employeeId) {
-        redis.delete(rtKey(employeeId));
+    public void revokeRefreshToken(Long memberId) {
+        redis.delete(rtKey(memberId));
     }
 }

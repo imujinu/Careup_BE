@@ -8,7 +8,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class LogoutRequest {
+public class IntrospectRequest {
     @NotBlank
-    private String refreshToken;
+    private String token;
 }

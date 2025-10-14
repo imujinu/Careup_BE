@@ -23,7 +23,7 @@ public class ProductInquiryAnswer {
     private ProductInquiry inquiry;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "branch_product_id", nullable = false)
+    @JoinColumn(name = "branch_products_id", nullable = false)
     private BranchProduct branchProduct;
 
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")

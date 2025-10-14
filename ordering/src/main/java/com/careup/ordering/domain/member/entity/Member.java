@@ -1,6 +1,5 @@
 package com.careup.ordering.domain.member.entity;
 
-
 import com.careup.ordering.common.domain.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -22,22 +21,22 @@ public class Member extends BaseTimeEntity {
     @Column(name = "member_id")
     private Long id;
 
-    @Column(name = "email",nullable = false,unique = true,length = 50)
+    @Column(name = "email", nullable = false, unique = true, length = 50)
     private String email;
 
-    @Column(name = "pasword", nullable = false, length = 100)
+    @Column(name = "password", nullable = false, length = 100)
     private String password;
 
-    @Column(name = "nickname",nullable = false, unique = true,length = 10)
+    @Column(name = "nickname", nullable = false, unique = true, length = 10)
     private String nickname;
 
-    @Column(name = "name", nullable = false , length = 30)
+    @Column(name = "name", nullable = false, length = 30)
     private String name;
 
     @Column(name= "birthday", nullable = false)
     private LocalDate birthday;
 
-    @Column(name = "phone" , length = 12)
+    @Column(name = "phone", length = 15)
     private String phone;
 
     @Enumerated(EnumType.STRING)
@@ -57,5 +56,9 @@ public class Member extends BaseTimeEntity {
         this.birthday = birthday;
         this.phone = phone;
         this.gender = gender;
+    }
+
+    public void changePassword(String encoded) {
+        this.password = encoded;
     }
 }

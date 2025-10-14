@@ -1,4 +1,4 @@
-package com.careup.branch.common.auth;
+package com.careup.ordering.common.auth;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -19,7 +19,7 @@ public class PasswordResetTokenStore {
         this.redis = redis;
     }
 
-    private static String key(String email) { return "BRANCH:PWRESET:" + email; }
+    private static String key(String email) { return "ORDERING:PWRESET:" + email; }
 
     public String issue(String email) {
         String token = generateToken();

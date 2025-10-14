@@ -1,6 +1,6 @@
-package com.careup.branch.common.auth;
+package com.careup.ordering.common.auth;
 
-import com.careup.branch.common.dto.CommonErrorDto;
+import com.careup.ordering.common.dto.CommonErrorDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

@@ -1,4 +1,4 @@
-package com.careup.branch.common.auth;
+package com.careup.ordering.common.auth;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
@@ -10,6 +10,7 @@ public class JwtProperties {
     private int accessTokenExpiryMinutes;
     private int refreshTokenExpiryDaysPersistent;
     private int refreshTokenExpiryDaysNonPersistent;
+
     private String secretKeyAt;
     private String secretKeyRt;
 

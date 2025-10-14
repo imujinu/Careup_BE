@@ -60,7 +60,7 @@ cloud:
       bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 1   # 테스트용: 1분
+  accessTokenExpiryMinutes: 1   # 테스트용
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
   secretKeyAt: ${ACCESS_TOKEN}
@@ -75,7 +75,7 @@ security:
 
 careup:
   mail:
-    reset-base-url: "http://localhost:3000/reset-password"  # 비밀번호 재설정 링크 프론트 URL
+    reset-base-url: "http://localhost:3000/reset-password"
 
 logging:
   level:
