@@ -1,6 +1,7 @@
 package com.careup.branch.domain.branch.service;
 
 import com.careup.branch.common.file.AwsS3Uploader;
+import com.careup.branch.common.util.AuthenticationUtils;
 import com.careup.branch.domain.branch.dto.branch.BranchDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.BranchUpdateRequest;
@@ -33,19 +34,18 @@ public class BranchManagerService {
     /**
      * 현재 로그인한 관리자(직영점장/가맹점주)의 지점 정보 조회
      */
-    public BranchDto getMyBranch(Long employeeId) {
+    public BranchDto getMyBranch() {
+        Long employeeId = AuthenticationUtils.getAuthenticatedEmployeeId();
         Branch myBranch = findMyBranchByEmployeeId(employeeId);
         return BranchDto.fromEntity(myBranch);
     }
 
     /**
      * 지점 정보(지점명, 프로필 사진) 수정 요청
-     * @param employeeId
-     * @param name
-     * @param profileImageFile
      */
     @Transactional
-    public void requestBranchUpdate(Long employeeId, String name, MultipartFile profileImageFile) {
+    public void requestBranchUpdate(String name, MultipartFile profileImageFile) {
+        Long employeeId = AuthenticationUtils.getAuthenticatedEmployeeId();
         Branch myBranch = findMyBranchByEmployeeId(employeeId);
         Employee requester = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EntityNotFoundException("요청한 직원 정보를 찾을 수 없습니다. ID: " + employeeId));
@@ -76,7 +76,7 @@ public class BranchManagerService {
     }
 
     /**
-     * 직원ID로 현재 관리중인 지점 엔티티를 찿는 매서드
+     * 직원ID로 현재 관리중인 지점 엔티티를 찾는 메서드
      */
     private Branch findMyBranchByEmployeeId(Long employeeId) {
         DispatchStatus activeDispatch = dispatchStatusRepository.findActiveDispatchByEmployeeId(employeeId, LocalDate.now())
