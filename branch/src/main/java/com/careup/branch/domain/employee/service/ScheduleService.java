@@ -45,7 +45,6 @@ public class ScheduleService {
         return query.listAll(auth, from, to);
     }
 
-    /** 내 스케줄 전용 */
     public List<ScheduleListDto> listMine(LocalDate from, LocalDate to) {
         var auth = authz.readAuth();
         return query.listMine(auth, from, to);

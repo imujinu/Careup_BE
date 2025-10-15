@@ -39,14 +39,15 @@ public class OptionController {
             @RequestParam(required = false) List<Long> branchIds,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
-            @RequestParam(required = false) String keyword
+            @RequestParam(required = false) String keyword,
+            @RequestParam(name = "all", defaultValue = "false") boolean all
     ) {
-        List<EmployeeOptionDto> result = optionQueryService.employeeOptions(branchIds, from, to, keyword);
+        List<EmployeeOptionDto> result = optionQueryService.employeeOptions(branchIds, from, to, keyword, all);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
                         .result(result)
                         .status_code(HttpStatus.OK.value())
-                        .status_message("직원 옵션 조회 완료")
+                        .status_message(all ? "직원 옵션(전사) 조회 완료" : "직원 옵션 조회 완료")
                         .build()
         );
     }

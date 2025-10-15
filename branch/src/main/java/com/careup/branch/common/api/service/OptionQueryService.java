@@ -10,6 +10,7 @@ import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,14 +47,10 @@ public class OptionQueryService {
         Long employeeId = c.get("employeeId", Long.class);
         String rawRole = String.valueOf(c.get("role"));
         if (employeeId == null || rawRole == null) throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
-
-        // ROLE_ 프리픽스 제거
         String role = rawRole.startsWith("ROLE_") ? rawRole.substring(5) : rawRole;
-
         return new Auth(employeeId, role);
     }
 
-    // ==== 지점 옵션 ====
     public List<BranchOptionDto> branchOptions(String keyword) {
         List<Branch> branches = searchBranches(keyword);
         return branches.stream()
@@ -63,7 +60,6 @@ public class OptionQueryService {
 
     private List<Branch> searchBranches(String keyword) {
         var auth = readAuth();
-
         if (auth.isHqAdmin()) {
             return (keyword == null || keyword.isBlank())
                     ? branchRepository.findAll()
@@ -79,7 +75,6 @@ public class OptionQueryService {
                     .map(DispatchStatus::getBranch)
                     .distinct()
                     .toList();
-
             if (keyword == null || keyword.isBlank()) return myBranches;
             String k = keyword.trim();
             return myBranches.stream().filter(b -> b.getName().contains(k)).toList();
@@ -87,11 +82,8 @@ public class OptionQueryService {
         return List.of();
     }
 
-    // ==== 직원 옵션 ====
-    public List<EmployeeOptionDto> employeeOptions(Collection<Long> branchIds, LocalDate from, LocalDate to, String keyword) {
-        List<Employee> list = searchEmployees(branchIds, from, to, keyword);
-
-        // 배치 지점명 태그(오늘 기준) – 프론트 표시용
+    public List<EmployeeOptionDto> employeeOptions(Collection<Long> branchIds, LocalDate from, LocalDate to, String keyword, boolean all) {
+        List<Employee> list = searchEmployees(branchIds, from, to, keyword, all);
         var today = LocalDate.now();
         return list.stream()
                 .map(e -> {
@@ -103,7 +95,6 @@ public class OptionQueryService {
                             .map(Branch::getName)
                             .distinct()
                             .toList();
-
                     return EmployeeOptionDto.builder()
                             .id(e.getId())
                             .name(e.getName())
@@ -115,10 +106,23 @@ public class OptionQueryService {
                 .toList();
     }
 
-    private List<Employee> searchEmployees(Collection<Long> branchIds, LocalDate from, LocalDate to, String keyword) {
+    private List<Employee> searchEmployees(Collection<Long> branchIds, LocalDate from, LocalDate to, String keyword, boolean all) {
         var auth = readAuth();
         if (from == null) from = LocalDate.now();
         if (to == null) to = from;
+
+        if (auth.isHqAdmin() && all) {
+            List<Employee> base = employeeRepository.findByEnabledTrue(Pageable.unpaged()).getContent();
+            if (keyword != null && !keyword.isBlank()) {
+                String k = keyword.trim().toLowerCase();
+                base = base.stream().filter(e ->
+                        (e.getName() != null && e.getName().toLowerCase().contains(k)) ||
+                                (e.getEmployeeNumber() != null && e.getEmployeeNumber().toLowerCase().contains(k)) ||
+                                (e.getEmail() != null && e.getEmail().toLowerCase().contains(k))
+                ).toList();
+            }
+            return base;
+        }
 
         Collection<Long> allowedBranchIds = branchIds;
 
@@ -132,10 +136,15 @@ public class OptionQueryService {
                     .map(DispatchStatus::getBranch)
                     .map(Branch::getId)
                     .collect(Collectors.toSet());
-
             allowedBranchIds = (branchIds == null || branchIds.isEmpty())
                     ? myBranchIds
                     : branchIds.stream().filter(myBranchIds::contains).toList();
+        }
+
+        if (auth.isHqAdmin() && (allowedBranchIds == null || allowedBranchIds.isEmpty())) {
+            var allBranchIds = branchRepository.findAll().stream().map(Branch::getId).toList();
+            if (allBranchIds.isEmpty()) return List.of();
+            allowedBranchIds = allBranchIds;
         }
 
         if (allowedBranchIds == null || allowedBranchIds.isEmpty()) return List.of();

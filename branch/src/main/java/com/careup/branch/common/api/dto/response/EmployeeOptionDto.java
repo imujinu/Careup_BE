@@ -14,7 +14,7 @@ import java.util.List;
 public class EmployeeOptionDto {
     private Long id;
     private String name;
-    private String employeeNumber;    // 모달 subtitle(사번)
-    private String jobGradeName;      // 직급명(선택)
-    private List<String> branchNames; // 배치 지점명 리스트(선택)
+    private String employeeNumber;
+    private String jobGradeName;
+    private List<String> branchNames;
 }

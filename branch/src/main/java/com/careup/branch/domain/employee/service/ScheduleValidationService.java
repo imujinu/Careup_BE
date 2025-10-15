@@ -14,7 +14,6 @@ import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
 import com.careup.branch.domain.employee.repository.ScheduleTypeRepository;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +35,9 @@ public class ScheduleValidationService {
     private final BranchRepository branchRepository;
     private final ScheduleTimeService time;
 
+    private static final boolean ALLOW_NIGHT_AFTER_LEAVE = true;
+    public static final LocalTime LEAVE_END_CUTOFF = LocalTime.of(18, 0);
+
     public void validateNoConflictOnSave(Employee employee,
                                          LocalDate date,
                                          Long branchId,
@@ -48,12 +50,13 @@ public class ScheduleValidationService {
                 employee, List.of(date.minusDays(1), date, date.plusDays(1))
         );
 
-        ScheduleTimeService.Interval newIv = toInterval(category, in, out);
+        ScheduleTimeService.Interval newIv = toInterval(date, category, in, out);
 
         for (Schedule ex : existed) {
             if (selfId != null && Objects.equals(ex.getId(), selfId)) continue;
 
             ScheduleTimeService.Interval exIv = toInterval(
+                    ex.getRegisteredDate(),
                     ex.getScheduleType().getCategory(),
                     ex.getRegisteredClockIn(),
                     ex.getRegisteredClockOut()
@@ -68,9 +71,6 @@ public class ScheduleValidationService {
         }
     }
 
-    /**
-     * 대량 등록 사전 검증(권한 제외)
-     */
     public Map<String, Object> massValidate(ScheduleMassCreateDto dto) {
         record Entry(Long employeeId, Long branchId, Long scheduleTypeId, Long attendanceTemplateId,
                      LocalDate date, LocalTime in, LocalTime bs, LocalTime be, LocalTime out, int index) {}
@@ -102,7 +102,6 @@ public class ScheduleValidationService {
         }
         if (entries.isEmpty()) throw new IllegalArgumentException("검증할 항목이 없습니다.");
 
-        // 필요한 모든 엔티티를 한 번에 로드하여 매핑
         Set<Long> employeeIds = entries.stream().map(Entry::employeeId).collect(Collectors.toSet());
         Set<Long> branchIds   = entries.stream().map(Entry::branchId).collect(Collectors.toSet());
         Set<Long> typeIds     = entries.stream().map(Entry::scheduleTypeId).collect(Collectors.toSet());
@@ -120,7 +119,6 @@ public class ScheduleValidationService {
 
         List<Map<String, Object>> errors = new ArrayList<>();
 
-        // 존재성 검증
         for (Entry e : entries) {
             if (!employeeMap.containsKey(e.employeeId())) errors.add(err(e.index(), "INVALID_EMPLOYEE"));
             if (!branchMap.containsKey(e.branchId())) errors.add(err(e.index(), "INVALID_BRANCH"));
@@ -135,7 +133,6 @@ public class ScheduleValidationService {
             return res;
         }
 
-        // 기존/요청 내 중복·겹침 검증
         Set<LocalDate> datesWithNeighbors = new HashSet<>(dates);
         dates.forEach(d -> {
             datesWithNeighbors.add(d.minusDays(1));
@@ -157,13 +154,19 @@ public class ScheduleValidationService {
 
             LocalDateTime in, out;
             if (tp.getCategory() == ScheduleTypeCategory.LEAVE) {
-                in = out = null;
+                in = e.date().atStartOfDay();
+                out = e.date().atTime(LEAVE_END_CUTOFF);
             } else {
                 in  = time.coalesce(e.date(), e.in(),  tmpl != null ? tmpl.getDefaultClockIn()  : null);
                 out = time.coalesce(e.date(), e.out(), tmpl != null ? tmpl.getDefaultClockOut() : null);
+                if (in == null && out == null) {
+                    var span = time.daySpan(e.date());
+                    in = span.start();
+                    out = span.end();
+                }
             }
 
-            ScheduleTimeService.Interval newIv = toInterval(tp.getCategory(), in, out);
+            ScheduleTimeService.Interval newIv = time.interval(in, out);
 
             List<Schedule> existedForEmp = existedByEmp.getOrDefault(emp.getId(), List.of()).stream()
                     .filter(s -> {
@@ -174,6 +177,7 @@ public class ScheduleValidationService {
 
             for (Schedule ex : existedForEmp) {
                 ScheduleTimeService.Interval exIv = toInterval(
+                        ex.getRegisteredDate(),
                         ex.getScheduleType().getCategory(),
                         ex.getRegisteredClockIn(),
                         ex.getRegisteredClockOut()
@@ -211,9 +215,18 @@ public class ScheduleValidationService {
         return res;
     }
 
-    private ScheduleTimeService.Interval toInterval(ScheduleTypeCategory category, LocalDateTime in, LocalDateTime out) {
-        if (category == ScheduleTypeCategory.LEAVE) return time.allDay();
-        if (in == null && out == null) return time.allDay();
+    private ScheduleTimeService.Interval toInterval(LocalDate baseDate,
+                                                    ScheduleTypeCategory category,
+                                                    LocalDateTime in,
+                                                    LocalDateTime out) {
+        if (category == ScheduleTypeCategory.LEAVE) {
+            if (ALLOW_NIGHT_AFTER_LEAVE) {
+                return time.interval(baseDate.atStartOfDay(), baseDate.atTime(LEAVE_END_CUTOFF));
+            } else {
+                return time.daySpan(baseDate);
+            }
+        }
+        if (in == null && out == null) return time.daySpan(baseDate);
         if (in == null || out == null) throw new IllegalArgumentException("근무 스케줄은 출근과 퇴근 시간이 모두 필요합니다.");
         return time.interval(in, out);
     }

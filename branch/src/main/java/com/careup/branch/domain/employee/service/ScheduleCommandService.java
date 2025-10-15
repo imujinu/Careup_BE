@@ -144,11 +144,11 @@ public class ScheduleCommandService {
                 .stream().collect(Collectors.toMap(AttendanceTemplate::getId, Function.identity()));
 
         for (Entry e : entries) {
-            if (!employeeMap.containsKey(e.employeeId())) throw new EntityNotFoundException("직원 없음: " + e.employeeId());
-            if (!branchMap.containsKey(e.branchId())) throw new EntityNotFoundException("지점 없음: " + e.branchId());
-            if (!typeMap.containsKey(e.scheduleTypeId())) throw new EntityNotFoundException("스케줄 종류 없음: " + e.scheduleTypeId());
+            if (!employeeMap.containsKey(e.employeeId())) throw new jakarta.persistence.EntityNotFoundException("직원 없음: " + e.employeeId());
+            if (!branchMap.containsKey(e.branchId())) throw new jakarta.persistence.EntityNotFoundException("지점 없음: " + e.branchId());
+            if (!typeMap.containsKey(e.scheduleTypeId())) throw new jakarta.persistence.EntityNotFoundException("스케줄 종류 없음: " + e.scheduleTypeId());
             if (e.attendanceTemplateId() != null && !tmplMap.containsKey(e.attendanceTemplateId()))
-                throw new EntityNotFoundException("템플릿 없음: " + e.attendanceTemplateId());
+                throw new jakarta.persistence.EntityNotFoundException("템플릿 없음: " + e.attendanceTemplateId());
         }
         for (Entry e : entries) {
             Employee emp = employeeMap.get(e.employeeId());
@@ -179,15 +179,23 @@ public class ScheduleCommandService {
 
             LocalDateTime in, bs, be, out;
             if (tp.getCategory() == ScheduleTypeCategory.LEAVE) {
-                in = bs = be = out = null;
+                in = e.date().atStartOfDay();
+                bs = null;
+                be = null;
+                out = e.date().atTime(ScheduleValidationService.LEAVE_END_CUTOFF);
             } else {
                 in  = time.coalesce(e.date(), e.in(),  tmpl != null ? tmpl.getDefaultClockIn()  : null);
                 bs  = time.coalesce(e.date(), e.bs(),  tmpl != null ? tmpl.getDefaultBreakStart() : null);
                 be  = time.coalesce(e.date(), e.be(),  tmpl != null ? tmpl.getDefaultBreakEnd()   : null);
                 out = time.coalesce(e.date(), e.out(), tmpl != null ? tmpl.getDefaultClockOut() : null);
+                if (in == null && out == null) {
+                    var span = time.daySpan(e.date());
+                    in = span.start();
+                    out = span.end();
+                }
             }
 
-            ScheduleTimeService.Interval newIv = toInterval(tp.getCategory(), in, out);
+            ScheduleTimeService.Interval newIv = toInterval(e.date(), tp.getCategory(), in, out);
 
             List<Schedule> existedForEmp = existedByEmp.getOrDefault(emp.getId(), List.of()).stream()
                     .filter(s -> {
@@ -197,7 +205,12 @@ public class ScheduleCommandService {
                     .toList();
 
             for (Schedule ex : existedForEmp) {
-                ScheduleTimeService.Interval exIv = toInterval(ex.getScheduleType().getCategory(), ex.getRegisteredClockIn(), ex.getRegisteredClockOut());
+                ScheduleTimeService.Interval exIv = toInterval(
+                        ex.getRegisteredDate(),
+                        ex.getScheduleType().getCategory(),
+                        ex.getRegisteredClockIn(),
+                        ex.getRegisteredClockOut()
+                );
                 if (time.isExactlySame(exIv, newIv) && Objects.equals(ex.getBranch().getId(), br.getId())) {
                     throw new IllegalStateException("동일 스케줄이 이미 존재합니다.");
                 }
@@ -242,19 +255,19 @@ public class ScheduleCommandService {
     @Transactional
     public ScheduleDetailDto update(ScheduleAuthService.Auth auth, Long scheduleId, ScheduleUpdateDto dto) {
         Schedule target = scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         ensureUpdatable(scheduleId);
 
         Employee employee = target.getEmployee();
         ScheduleType type = scheduleTypeRepository.findById(dto.getScheduleTypeId())
-                .orElseThrow(() -> new EntityNotFoundException("스케줄 종류를 찾을 수 없습니다."));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("스케줄 종류를 찾을 수 없습니다."));
         AttendanceTemplate template = null;
         if (dto.getAttendanceTemplateId() != null) {
             template = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId())
-                    .orElseThrow(() -> new EntityNotFoundException("템플릿을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("템플릿을 찾을 수 없습니다."));
         }
         Branch branch = branchRepository.findById(dto.getBranchId())
-                .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("지점을 찾을 수 없습니다."));
 
         authz.ensurePermissionForWrite(auth, branch, employee, dto.getRegisteredDate());
 
@@ -283,7 +296,7 @@ public class ScheduleCommandService {
     @Transactional
     public void delete(ScheduleAuthService.Auth auth, Long scheduleId) {
         Schedule target = scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("스케줄을 찾을 수 없습니다."));
 
         authz.ensurePermissionForRead(auth, target.getEmployee(), target.getRegisteredDate());
 
@@ -320,9 +333,11 @@ public class ScheduleCommandService {
         if (hasEvent) throw new IllegalStateException("이미 근태 이벤트가 존재합니다. 이벤트 삭제 후 수정하세요.");
     }
 
-    private ScheduleTimeService.Interval toInterval(ScheduleTypeCategory category, LocalDateTime in, LocalDateTime out) {
-        if (category == ScheduleTypeCategory.LEAVE) return time.allDay();
-        if (in == null && out == null) return time.allDay();
+    private ScheduleTimeService.Interval toInterval(LocalDate baseDate, ScheduleTypeCategory category, LocalDateTime in, LocalDateTime out) {
+        if (category == ScheduleTypeCategory.LEAVE) {
+            return time.interval(baseDate.atStartOfDay(), baseDate.atTime(ScheduleValidationService.LEAVE_END_CUTOFF));
+        }
+        if (in == null && out == null) return time.daySpan(baseDate);
         if (in == null || out == null) throw new IllegalArgumentException("근무 스케줄은 출근과 퇴근 시간이 모두 필요합니다.");
         return time.interval(in, out);
     }
