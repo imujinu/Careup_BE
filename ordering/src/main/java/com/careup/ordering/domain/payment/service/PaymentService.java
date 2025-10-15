@@ -82,6 +82,7 @@ public class PaymentService {
     /**
      * 토스페이먼츠 API 호출 (공식 샘플 코드)
      */
+    @SuppressWarnings("unchecked") // 토스 페이먼츠 공식에서 가져왔는데 경고가 떠서 경고문 뜨는거 없어지는 코드
     private JSONObject callTossPaymentsApi(PaymentConfirmRequest request) throws Exception {
         // 요청 데이터 생성
         JSONObject requestData = new JSONObject();
