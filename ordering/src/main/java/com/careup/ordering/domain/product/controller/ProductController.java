@@ -13,27 +13,28 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
+@RequestMapping("/api")
 @RequiredArgsConstructor
 public class ProductController {
 
     private final ProductService productService;
-    private final CategoryService categoryService;
+//    private final CategoryService categoryService;
 
-    // 카테고리
-
-    // 카테고리 등록
-    @PostMapping("/categories")
-    public ResponseEntity<CategoryResponseDto> createCategory(@RequestBody CategoryRequestDto request) {
-        CategoryResponseDto response = categoryService.createCategory(request);
-        return ResponseEntity.ok(response);
-    }
-
-    // 카테고리 목록 조회
-    @GetMapping("/categories")
-    public ResponseEntity<List<CategoryResponseDto>> getCategories() {
-        List<CategoryResponseDto> response = categoryService.getAllCategories();
-        return ResponseEntity.ok(response);
-    }
+//    // 카테고리
+//
+//    // 카테고리 등록
+//    @PostMapping("/categories")
+//    public ResponseEntity<CategoryResponseDto> createCategory(@RequestBody CategoryRequestDto request) {
+//        CategoryResponseDto response = categoryService.createCategory(request);
+//        return ResponseEntity.ok(response);
+//    }
+//
+//    // 카테고리 목록 조회
+//    @GetMapping("/categories")
+//    public ResponseEntity<List<CategoryResponseDto>> getCategories() {
+//        List<CategoryResponseDto> response = categoryService.getAllCategories();
+//        return ResponseEntity.ok(response);
+//    }
 
     // 상품 관리
 
