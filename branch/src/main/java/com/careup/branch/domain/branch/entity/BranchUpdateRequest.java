@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Builder
 @Getter
@@ -38,7 +40,27 @@ public class BranchUpdateRequest extends BaseTimeEntity {
     @Builder.Default
     private RequestStatus status = RequestStatus.PENDING; // 요청 상태 (PENDING, APPROVED, REJECTED)
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approver_id")
+    private Employee approver; // 승인/거부한 관리자
+
+    private LocalDateTime processedAt; // 처리 일시
+
     public enum RequestStatus {
         PENDING, APPROVED, REJECTED
+    }
+
+    // 승인 처리
+    public void approve(Employee approver) {
+        this.status = RequestStatus.APPROVED;
+        this.approver = approver;
+        this.processedAt = LocalDateTime.now();
+    }
+
+    // 거부 처리
+    public void reject(Employee approver) {
+        this.status = RequestStatus.REJECTED;
+        this.approver = approver;
+        this.processedAt = LocalDateTime.now();
     }
 }

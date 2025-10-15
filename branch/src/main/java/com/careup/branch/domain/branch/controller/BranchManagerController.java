@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/manager/branch")
+@RequestMapping("/branch/my-branch")
 @RequiredArgsConstructor
 public class BranchManagerController {
 
@@ -21,7 +21,7 @@ public class BranchManagerController {
 
     // 직영점장/가맹점장 자신의 지점 정보 조회
     @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
-    @GetMapping("/my-branch")
+    @GetMapping()
     public ResponseEntity<?> getMyBranch() {
         try {
             BranchDto myBranch = branchManagerService.getMyBranch();
@@ -44,7 +44,7 @@ public class BranchManagerController {
 
     // 직영점장/가맹점장이 자신의 지점 정보 수정 요청
     @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
-    @PutMapping(value = "/my-branch", consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
+    @PutMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<?> requestBranchUpdate(
             @RequestParam("name") String name,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImageFile
