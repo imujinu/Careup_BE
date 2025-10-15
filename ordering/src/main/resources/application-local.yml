@@ -41,9 +41,18 @@ spring:
       max-file-size: 1000MB
       max-request-size: 1000MB
   kafka:
+    enabled: false  # Kafka 비활성화
     bootstrap-servers: localhost:9092
     consumer:
-      group-id: test-topic-group-02
+      group-id: ordering-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.careup.ordering,com.careup.branch"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -55,21 +64,6 @@ spring:
         smtp:
           auth: true
           starttls.enable: true
-
-  
-  # Kafka 설정 - 비활성화
-  kafka:
-    enabled: false  # ✅ Kafka 비활성화
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: ordering-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        spring.json.trusted.packages: "com.careup.ordering,com.careup.branch"
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
 
 cloud:
   aws:
