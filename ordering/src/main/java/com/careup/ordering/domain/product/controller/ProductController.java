@@ -60,24 +60,24 @@ public class ProductController {
 
     // 카테고리별 상품 조회
     @GetMapping("/products/category/{categoryId}")
-    public ResponseEntity<List<ProductDto.Response>> getProductsByCategory(@PathVariable Long categoryId) {
-        List<ProductDto.Response> response = productService.getProductsByCategory(categoryId);
+    public ResponseEntity<List<ProductResponseDto>> getProductsByCategory(@PathVariable Long categoryId) {
+        List<ProductResponseDto> response = productService.getProductsByCategory(categoryId);
         return ResponseEntity.ok(response);
     }
 
     // 상품 검색
     @GetMapping("/products/search")
-    public ResponseEntity<List<ProductDto.Response>> searchProducts(@RequestParam String keyword) {
-        List<ProductDto.Response> response = productService.searchProducts(keyword);
+    public ResponseEntity<List<ProductResponseDto>> searchProducts(@RequestParam String keyword) {
+        List<ProductResponseDto> response = productService.searchProducts(keyword);
         return ResponseEntity.ok(response);
     }
 
     // 카테고리 + 검색 (옵션)
     @GetMapping("/products/search/category/{categoryId}")
-    public ResponseEntity<List<ProductDto.Response>> searchProductsByCategory(
+    public ResponseEntity<List<ProductResponseDto>> searchProductsByCategory(
             @PathVariable Long categoryId,
             @RequestParam String keyword) {
-        List<ProductDto.Response> response = productService.searchProductsByCategoryAndKeyword(categoryId, keyword);
+        List<ProductResponseDto> response = productService.searchProductsByCategoryAndKeyword(categoryId, keyword);
         return ResponseEntity.ok(response);
     }
 
