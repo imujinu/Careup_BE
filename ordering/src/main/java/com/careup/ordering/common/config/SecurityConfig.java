@@ -43,6 +43,9 @@ public class SecurityConfig {
                         "/auth/customers/password/reset"
                 ).permitAll()
 
+                // 관리자 인증 등록좀 하려고 만듬
+                .requestMatchers("/auth/admin/**").permitAll()
+
                 // 상품/카테고리: 조회는 공개, 쓰기/수정/삭제는 관리자 계열만
                 .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
