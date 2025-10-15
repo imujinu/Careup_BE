@@ -7,13 +7,10 @@ import com.careup.branch.domain.auth.dto.request.ForgotPasswordRequest;
 import com.careup.branch.domain.auth.dto.request.LogoutRequest;
 import com.careup.branch.domain.auth.dto.request.RefreshRequest;
 import com.careup.branch.domain.auth.dto.request.ResetPasswordRequest;
-import com.careup.branch.domain.auth.dto.request.IntrospectRequest; // NEW
 import com.careup.branch.domain.auth.dto.response.AuthLoginResponse;
 import com.careup.branch.domain.auth.dto.response.AuthRefreshResponse;
 import com.careup.branch.domain.auth.dto.response.AuthLogoutResponse;
-import com.careup.branch.domain.auth.dto.response.IntrospectResponse; // NEW
 import com.careup.branch.domain.auth.service.AuthService;
-import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

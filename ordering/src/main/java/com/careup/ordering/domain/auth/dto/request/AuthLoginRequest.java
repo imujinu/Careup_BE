@@ -1,13 +1,15 @@
 package com.careup.ordering.domain.auth.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
-@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class AuthLoginRequest {
     /** 이메일 또는 휴대폰번호(하이픈 무관) */
     @NotBlank

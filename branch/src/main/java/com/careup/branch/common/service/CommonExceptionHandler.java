@@ -1,6 +1,7 @@
 package com.careup.branch.common.service;
 
 import com.careup.branch.common.dto.CommonErrorDto;
+import com.careup.branch.domain.employee.service.MissedCheckoutLockException;
 import io.jsonwebtoken.JwtException;
 import jakarta.persistence.EntityExistsException;
 import jakarta.persistence.EntityNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 @ControllerAdvice
 @Slf4j
 public class CommonExceptionHandler {
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<?> illegalArgumentException(IllegalArgumentException e) {
         log.error("[CAREUP][ERROR] - CommonExceptionHandler/IllegalArgumentException - {}", e.getMessage());
@@ -46,7 +48,6 @@ public class CommonExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleAllException(Exception e) {
         log.error("[CAREUP][ERROR] - CommonExceptionHandler/Exception - {}", e.getMessage());
-        Throwable cause = e.getCause();
         return new ResponseEntity<>(new CommonErrorDto(HttpStatus.INTERNAL_SERVER_ERROR.value(), e.getMessage()), HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
@@ -68,5 +69,18 @@ public class CommonExceptionHandler {
         log.error("[CAREUP][ERROR] - AccessDeniedException - {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(new CommonErrorDto(HttpStatus.FORBIDDEN.value(), "권한이 없습니다."));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<?> illegalStateException(IllegalStateException e) {
+        log.error("[CAREUP][ERROR] - CommonExceptionHandler/IllegalStateException - {}", e.getMessage());
+        return new ResponseEntity<>(new CommonErrorDto(HttpStatus.BAD_REQUEST.value(), e.getMessage()), HttpStatus.BAD_REQUEST);
+    }
+
+    // 추가: 퇴근 누락 락 상황은 409로 통일
+    @ExceptionHandler(MissedCheckoutLockException.class)
+    public ResponseEntity<?> missedCheckoutLock(MissedCheckoutLockException e) {
+        log.warn("[CAREUP][WARN] - CommonExceptionHandler/MissedCheckoutLockException - {}", e.getMessage());
+        return new ResponseEntity<>(new CommonErrorDto(HttpStatus.CONFLICT.value(), e.getMessage()), HttpStatus.CONFLICT);
     }
 }
