@@ -15,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +27,7 @@ public class BranchController {
     private final BranchService branchService;
 
     // 지점 등록 API
+    @PreAuthorize("hasRole('HQ_ADMIN')")
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody BranchRegisterReqDto reqDto) {
         try {
@@ -55,6 +57,7 @@ public class BranchController {
     }
 
     // 지점 목록 조회 API (페이징)
+    @PreAuthorize("hasRole('HQ_ADMIN')")
     @GetMapping
     public ResponseEntity<?> getList(
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -78,6 +81,7 @@ public class BranchController {
     }
 
     // 지점 상세 조회 API
+    @PreAuthorize("hasRole('HQ_ADMIN')")
     @GetMapping("/{branchId}")
     public ResponseEntity<?> getBranch(@PathVariable Long branchId) {
         try {
@@ -100,6 +104,7 @@ public class BranchController {
     }
 
     // 지점 수정 API
+    @PreAuthorize("hasRole('HQ_ADMIN')")
     @PatchMapping("/{branchId}")
     public ResponseEntity<?> update(@PathVariable Long branchId, @Validated @RequestBody BranchUpdateDto request) {
         try {
@@ -121,6 +126,7 @@ public class BranchController {
     }
 
     // 지점 삭제 API
+    @PreAuthorize("hasRole('HQ_ADMIN')")
     @DeleteMapping("/{branchId}")
     public ResponseEntity<?> delete(@PathVariable Long branchId) {
         try {

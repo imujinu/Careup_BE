@@ -3,8 +3,10 @@ package com.careup.branch.domain.employee.repository;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
+import io.lettuce.core.dynamic.annotation.Param;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDate;
 import java.util.Collection;
@@ -48,4 +50,16 @@ public interface DispatchStatusRepository extends JpaRepository<DispatchStatus, 
 
     /// 업데이트 시 기존 배치 전량 삭제
     void deleteByEmployee(Employee employee);
+
+    /**
+     * 직원 ID와 현재 날짜를 기준으로 유효한(배치중인) 지점 정보 조회
+     */
+    @Query("select ds from DispatchStatus ds " +
+        "where ds.employee.id = :employeeId " +
+        "and ds.placementYn = 'N' " +
+        "and :currentDate between ds.assignedFrom and ds.assignedTo")
+    Optional<DispatchStatus> findActiveDispatchByEmployeeId(
+            @Param("employeeId") Long employeeId,
+            @Param("currentDate") LocalDate currentDate
+    );
 }

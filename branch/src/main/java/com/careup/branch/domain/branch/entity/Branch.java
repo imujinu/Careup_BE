@@ -99,4 +99,29 @@ public class Branch extends BaseTimeEntity {
         this.geofenceRadius = request.getGeofenceRadius();
         this.remark = request.getRemark();
     }
+
+    // --- 자기수정(HQ 승인 후 적용)용 보조 메서드 ---
+    public void changeName(String name) {
+        this.name = name;
+    }
+
+    public void changeProfileImageUrl(String profileImageUrl) {
+        this.profileImageUrl = profileImageUrl;
+    }
+
+    // 자기수정 승인요청 메모 누적용 보조 메서드
+    public void appendRemark(String note) {
+        if (note == null || note.isBlank()) return;
+        String combined;
+        if (this.remark == null || this.remark.isBlank()) {
+            combined = note;
+        } else {
+            combined = this.remark + "\n" + note;
+        }
+        // remark 컬럼 길이(200) 제한 보호: 뒤에서부터 최대 200자 유지
+        if (combined.length() > 200) {
+            combined = combined.substring(combined.length() - 200);
+        }
+        this.remark = combined;
+    }
 }
