@@ -1,5 +1,6 @@
 package com.careup.branch.domain.branch.service;
 
+import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.domain.branch.dto.branch.BranchDto;
 import com.careup.branch.domain.branch.dto.branch.BranchListResDto;
 import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -21,9 +23,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class BranchService {
 
     private final BranchRepository branchRepository;
+    private final AwsS3Uploader awsS3Uploader;
 
     // 지점 등록
-    public Branch registerBranch(BranchRegisterReqDto dto) {
+    public Branch registerBranch(BranchRegisterReqDto dto, MultipartFile profileImage) {
         if (branchRepository.existsByName(dto.getName())) {
             throw new IllegalArgumentException("이미 등록된 지점명입니다.");
         }
@@ -33,10 +36,22 @@ public class BranchService {
         if (branchRepository.existsByPhone(dto.getPhone())) {
             throw new IllegalArgumentException("이미 등록된 전화번호입니다.");
         }
-        Branch branch = dto.toEntity();
-        log.info("지점 등록 정보: {}", branch);
 
-        return branchRepository.save(branch);
+        Branch branch = dto.toEntity();
+
+        // 임시 저장하여 ID 생성
+        Branch savedBranch = branchRepository.save(branch);
+
+        // 프로필 이미지 업로드
+        if (profileImage != null && !profileImage.isEmpty()) {
+            String imageUrl = awsS3Uploader.uploadFile("branch", savedBranch.getId(), profileImage);
+            savedBranch.changeProfileImageUrl(imageUrl);
+            log.info("지점 프로필 이미지 업로드 완료: {}", imageUrl);
+        }
+
+        log.info("지점 등록 정보: {}", savedBranch);
+
+        return savedBranch;
     }
 
     // 지점 상세 조회
@@ -66,7 +81,7 @@ public class BranchService {
     }
 
     // 지점 수정
-    public Branch updateBranch(Long branchId, @Valid BranchUpdateDto request) {
+    public Branch updateBranch(Long branchId, @Valid BranchUpdateDto request, MultipartFile profileImage) {
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
 
@@ -89,6 +104,24 @@ public class BranchService {
 
         log.info("지점 변경 전: {}", branch);
 
+        // 프로필 이미지 업데이트
+        if (profileImage != null && !profileImage.isEmpty()) {
+            // 기존 이미지 삭제
+            if (branch.getProfileImageUrl() != null && !branch.getProfileImageUrl().isEmpty()) {
+                try {
+                    awsS3Uploader.deleteByUrl(branch.getProfileImageUrl());
+                    log.info("기존 지점 프로필 이미지 삭제 완료: {}", branch.getProfileImageUrl());
+                } catch (Exception e) {
+                    log.warn("기존 이미지 삭제 실패 (계속 진행): {}", e.getMessage());
+                }
+            }
+
+            // 새 이미지 업로드
+            String newImageUrl = awsS3Uploader.uploadFile("branch", branchId, profileImage);
+            branch.changeProfileImageUrl(newImageUrl);
+            log.info("새 지점 프로필 이미지 업로드 완료: {}", newImageUrl);
+        }
+
         branch.updateBranch(request);
         branchRepository.save(branch);
 
@@ -104,8 +137,16 @@ public class BranchService {
 
         log.info("지점 삭제: {}", branch);
 
+        // 프로필 이미지 삭제
+        if (branch.getProfileImageUrl() != null && !branch.getProfileImageUrl().isEmpty()) {
+            try {
+                awsS3Uploader.deleteByUrl(branch.getProfileImageUrl());
+                log.info("지점 프로필 이미지 삭제 완료: {}", branch.getProfileImageUrl());
+            } catch (Exception e) {
+                log.warn("프로필 이미지 삭제 실패 (계속 진행): {}", e.getMessage());
+            }
+        }
+
         branchRepository.delete(branch);
     }
-
-
 }

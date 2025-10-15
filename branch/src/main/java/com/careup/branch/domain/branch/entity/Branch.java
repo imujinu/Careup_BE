@@ -93,7 +93,6 @@ public class Branch extends BaseTimeEntity {
         this.address = request.getAddress();
         this.addressDetail = request.getAddressDetail();
         this.phone = request.getPhone();
-        this.profileImageUrl = request.getProfileImageUrl();
         this.email = request.getEmail();
         this.location = request.getLocation();
         this.geofenceRadius = request.getGeofenceRadius();

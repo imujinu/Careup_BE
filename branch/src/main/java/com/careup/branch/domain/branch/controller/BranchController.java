@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/branch")
@@ -28,10 +29,12 @@ public class BranchController {
 
     // 지점 등록 API
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody BranchRegisterReqDto reqDto) {
+    @PostMapping(value = "/register", consumes = "multipart/form-data")
+    public ResponseEntity<?> register(
+            @Valid @ModelAttribute BranchRegisterReqDto reqDto,
+            @RequestPart(value = "profileImage", required = false) MultipartFile profileImage) {
         try {
-            Branch branch = branchService.registerBranch(reqDto);
+            Branch branch = branchService.registerBranch(reqDto, profileImage);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(branch.getId())
@@ -105,10 +108,13 @@ public class BranchController {
 
     // 지점 수정 API
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    @PatchMapping("/{branchId}")
-    public ResponseEntity<?> update(@PathVariable Long branchId, @Validated @RequestBody BranchUpdateDto request) {
+    @PatchMapping(value = "/{branchId}", consumes = "multipart/form-data")
+    public ResponseEntity<?> update(
+            @PathVariable Long branchId,
+            @Validated @ModelAttribute BranchUpdateDto request,
+            @RequestPart(value = "profileImage", required = false) MultipartFile profileImage) {
         try {
-            Branch updatedBranch = branchService.updateBranch(branchId, request);
+            Branch updatedBranch = branchService.updateBranch(branchId, request, profileImage);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(updatedBranch)

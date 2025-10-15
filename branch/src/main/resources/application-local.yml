@@ -60,7 +60,7 @@ cloud:
       bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 1   # 테스트용: 1분
+  accessTokenExpiryMinutes: 60   # 테스트용: 1분
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
   secretKeyAt: ${ACCESS_TOKEN}
