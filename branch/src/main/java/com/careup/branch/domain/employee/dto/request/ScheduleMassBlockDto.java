@@ -16,17 +16,26 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScheduleMassBlockDto {
+
     @NotNull
     private Long branchId;
+
     @NotNull
     private Long scheduleTypeId;
+
     private Long attendanceTemplateId;
+
     @NotEmpty
     private List<Long> employeeIds;
+
     @NotEmpty
     private List<LocalDate> dates;
+
     private LocalTime registeredClockInTime;
+
     private LocalTime registeredBreakStartTime;
+
     private LocalTime registeredBreakEndTime;
+
     private LocalTime registeredClockOutTime;
 }

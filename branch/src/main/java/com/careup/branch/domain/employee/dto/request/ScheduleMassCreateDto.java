@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.dto.request;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -12,6 +13,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScheduleMassCreateDto {
+
+    @Valid
     private List<ScheduleMassBlockDto> blocks;
+
+    @Valid
     private List<ScheduleMassItemDto> items;
 }

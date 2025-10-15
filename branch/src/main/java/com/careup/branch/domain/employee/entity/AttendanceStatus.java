@@ -8,5 +8,6 @@ public enum AttendanceStatus {
     EARLY_LEAVE,
     CLOCKED_OUT,
     OVERTIME,
-    MISSED_CHECKOUT
+    MISSED_CHECKOUT,
+    LEAVE
 }

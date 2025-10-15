@@ -2,10 +2,10 @@ package com.careup.branch.domain.employee.dto.response;
 
 import com.careup.branch.domain.employee.entity.ScheduleType;
 import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
-import lombok.Getter;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @Builder

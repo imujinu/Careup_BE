@@ -62,6 +62,12 @@ public class ScheduleEvent extends BaseTimeEntity {
     @Column(name = "missed_checkout", nullable = false)
     private boolean missedCheckout;
 
+    @Column(name = "total_work_minutes", nullable = false)
+    private int totalWorkMinutes;
+
+    @Column(name = "total_break_minutes", nullable = false)
+    private int totalBreakMinutes;
+
     public void changeEventDate(LocalDate v) { this.eventDate = v; }
     public void changeClockIn(LocalDateTime v) { this.clockInAt = v; }
     public void changeBreakStart(LocalDateTime v) { this.breakStartAt = v; }
@@ -69,4 +75,6 @@ public class ScheduleEvent extends BaseTimeEntity {
     public void changeClockOut(LocalDateTime v) { this.clockOutAt = v; }
     public void markMissedCheckout() { this.missedCheckout = true; }
     public void clearMissedCheckout() { this.missedCheckout = false; }
+    public void changeTotalWorkMinutes(int v) { this.totalWorkMinutes = Math.max(v, 0); }
+    public void changeTotalBreakMinutes(int v) { this.totalBreakMinutes = Math.max(v, 0); }
 }

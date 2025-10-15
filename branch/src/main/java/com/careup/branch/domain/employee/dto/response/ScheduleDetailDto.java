@@ -3,10 +3,10 @@ package com.careup.branch.domain.employee.dto.response;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
 import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
-import lombok.Getter;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -17,18 +17,30 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ScheduleDetailDto {
     private Long id;
+
+    // 직원
     private Long employeeId;
     private String employeeName;
+
+    // 지점 (추가)
+    private Long branchId;
+    private String branchName;
+
+    // 스케줄 타입/템플릿
     private Long scheduleTypeId;
     private String scheduleTypeName;
     private ScheduleTypeCategory scheduleTypeCategory;
     private Long attendanceTemplateId;
     private String attendanceTemplateName;
+
+    // 계획(등록) 시간
     private LocalDate registeredDate;
     private LocalDateTime registeredClockIn;
     private LocalDateTime registeredBreakStart;
     private LocalDateTime registeredBreakEnd;
     private LocalDateTime registeredClockOut;
+
+    // 실제(이벤트) 시간
     private LocalDateTime actualClockIn;
     private LocalDateTime actualBreakStart;
     private LocalDateTime actualBreakEnd;
@@ -39,6 +51,8 @@ public class ScheduleDetailDto {
                 .id(s.getId())
                 .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
                 .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
+                .branchId(s.getBranch() != null ? s.getBranch().getId() : null)                 // 추가
+                .branchName(s.getBranch() != null ? s.getBranch().getName() : null)             // 추가
                 .scheduleTypeId(s.getScheduleType() != null ? s.getScheduleType().getId() : null)
                 .scheduleTypeName(s.getScheduleType() != null ? s.getScheduleType().getName() : null)
                 .scheduleTypeCategory(s.getScheduleType() != null ? s.getScheduleType().getCategory() : null)

@@ -3,10 +3,10 @@ package com.careup.branch.domain.employee.dto.response;
 import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
-import lombok.Getter;
-import lombok.Builder;
-import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

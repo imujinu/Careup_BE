@@ -9,28 +9,25 @@ import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
 import com.careup.branch.domain.employee.service.ScheduleService;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/schedule")
 @RequiredArgsConstructor
+@Validated
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
@@ -100,6 +97,19 @@ public class ScheduleController {
         );
     }
 
+    @PostMapping("/delete-many")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
+    public ResponseEntity<CommonSuccessDto> deleteMany(@RequestBody @NotEmpty List<@NotNull Long> scheduleIds) {
+        scheduleService.deleteMany(scheduleIds);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result("ok")
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("스케줄 일괄 삭제 완료")
+                        .build()
+        );
+    }
+
     @GetMapping("/detail/{id}")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> detail(@PathVariable Long id) {
@@ -113,19 +123,48 @@ public class ScheduleController {
         );
     }
 
+    /** 전사(권한 범위 내 전체 직원) 목록 — STAFF 제외 */
     @GetMapping("/list")
-    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> list(
-            @RequestParam Long employeeId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        List<ScheduleListDto> result = scheduleService.list(employeeId, from, to);
+        LocalDate today = LocalDate.now();
+        LocalDate resolvedFrom = (from == null) ? today : from;
+        LocalDate resolvedTo   = (to == null) ? resolvedFrom : to;
+        if (resolvedFrom.isAfter(resolvedTo)) {
+            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
+        }
+        List<ScheduleListDto> result = scheduleService.listAll(resolvedFrom, resolvedTo);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
                         .result(result)
                         .status_code(HttpStatus.OK.value())
-                        .status_message("스케줄 목록 조회 완료")
+                        .status_message("스케줄 목록(전사) 조회 완료")
+                        .build()
+        );
+    }
+
+    /** 내 스케줄 전용 — 모든 역할 허용 */
+    @GetMapping("/my-schedule")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    public ResponseEntity<CommonSuccessDto> mySchedule(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        LocalDate today = LocalDate.now();
+        LocalDate resolvedFrom = (from == null) ? today : from;
+        LocalDate resolvedTo   = (to == null) ? resolvedFrom : to;
+        if (resolvedFrom.isAfter(resolvedTo)) {
+            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
+        }
+        List<ScheduleListDto> result = scheduleService.listMine(resolvedFrom, resolvedTo);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result(result)
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("내 스케줄 목록 조회 완료")
                         .build()
         );
     }
@@ -133,10 +172,10 @@ public class ScheduleController {
     @GetMapping("/calendar")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> calendar(
-            @RequestParam Long employeeId,
-            @RequestParam @DateTimeFormat(pattern = "yyyy-MM") String yearMonth
+            @RequestParam @NotNull Long employeeId,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM") @NotNull YearMonth yearMonth
     ) {
-        List<ScheduleCalendarDto> result = scheduleService.calendar(employeeId, yearMonth);
+        List<ScheduleCalendarDto> result = scheduleService.calendar(employeeId, yearMonth.toString());
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
                         .result(result)

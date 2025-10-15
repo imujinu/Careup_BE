@@ -14,17 +14,26 @@ import java.time.LocalTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ScheduleMassItemDto {
+
     @NotNull
     private Long employeeId;
+
     @NotNull
     private Long branchId;
+
     @NotNull
     private Long scheduleTypeId;
+
     private Long attendanceTemplateId;
+
     @NotNull
     private LocalDate date;
+
     private LocalTime registeredClockInTime;
+
     private LocalTime registeredBreakStartTime;
+
     private LocalTime registeredBreakEndTime;
+
     private LocalTime registeredClockOutTime;
 }

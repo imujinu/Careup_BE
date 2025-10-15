@@ -17,4 +17,7 @@ public interface ScheduleEventRepository extends JpaRepository<ScheduleEvent, Lo
     Optional<ScheduleEvent> findByScheduleId(Long scheduleId);
 
     long countByScheduleIdIn(Collection<Long> scheduleIds);
+
+    // 경량 존재 확인(선택적 개선)
+    boolean existsByScheduleId(Long scheduleId);
 }

@@ -4,6 +4,8 @@ import com.careup.branch.domain.branch.entity.Branch;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface BranchRepository extends JpaRepository<Branch, Long> {
     boolean existsByName(String name);
@@ -11,4 +13,7 @@ public interface BranchRepository extends JpaRepository<Branch, Long> {
     boolean existsByCorporationNumber(String corporationNumber);
     boolean existsByPhone(String phone);
     boolean existsByEmail(String email);
+
+    /// 추후 지점 검색 드롭다운 메뉴에서 사용 예정
+    List<Branch> findByNameContaining(String keyword);
 }

@@ -3,6 +3,8 @@ package com.careup.branch.domain.employee.service;
 import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -10,17 +12,27 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Component
+@RequiredArgsConstructor
 public class AttendanceStatusResolver {
 
     private static final long LATE_MINUTES_THRESHOLD = 1;
     private static final long EARLY_MINUTES_THRESHOLD = 1;
 
+    private final ScheduleTimeService time;
+
     public AttendanceStatus resolve(Schedule s, ScheduleEvent e, LocalDateTime now) {
+        // 0) 휴가/휴무 스케줄은 즉시 처리
+        if (s.getScheduleType() != null
+                && s.getScheduleType().getCategory() == ScheduleTypeCategory.LEAVE) {
+            // 기획에 맞게 상태가 다르면 여기서 변경
+            return AttendanceStatus.LEAVE;
+        }
+
         LocalDateTime regInRaw  = s.getRegisteredClockIn();
         LocalDateTime regOutRaw = s.getRegisteredClockOut();
 
         LocalDateTime regIn  = regInRaw;
-        LocalDateTime regOut = normalizeOut(regInRaw, regOutRaw);
+        LocalDateTime regOut = time.normalizeOut(regInRaw, regOutRaw);
 
         LocalDateTime in  = e != null ? e.getClockInAt()   : null;
         LocalDateTime brS = e != null ? e.getBreakStartAt(): null;
@@ -51,8 +63,7 @@ public class AttendanceStatusResolver {
             return AttendanceStatus.CLOCKED_IN;
         }
 
-        LocalDateTime nowRef = now;
-        if (regOut != null && nowRef.isBefore(regOut)) {
+        if (regOut != null && now.isBefore(regOut)) {
             return AttendanceStatus.PLANNED;
         }
 
@@ -62,12 +73,5 @@ public class AttendanceStatusResolver {
         }
 
         return AttendanceStatus.PLANNED;
-    }
-
-    private LocalDateTime normalizeOut(LocalDateTime in, LocalDateTime out) {
-        if (out == null) return null;
-        if (in == null) return out;
-        if (out.isAfter(in)) return out;
-        return out.plusDays(1);
     }
 }

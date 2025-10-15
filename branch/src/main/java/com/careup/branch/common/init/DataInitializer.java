@@ -8,17 +8,26 @@ import com.careup.branch.domain.branch.service.BranchService;
 import com.careup.branch.domain.employee.dto.request.DispatchAssignmentDto;
 import com.careup.branch.domain.employee.dto.request.EmployeeCreateDto;
 import com.careup.branch.domain.employee.dto.request.JobGradeCreateDto;
+import com.careup.branch.domain.employee.dto.request.ScheduleCreateDto;
+import com.careup.branch.domain.employee.dto.request.ScheduleMassBlockDto;
+import com.careup.branch.domain.employee.dto.request.ScheduleMassCreateDto;
 import com.careup.branch.domain.employee.dto.response.JobGradeListDto;
 import com.careup.branch.domain.employee.entity.AuthorityType;
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.EmploymentStatus;
 import com.careup.branch.domain.employee.entity.EmploymentType;
 import com.careup.branch.domain.employee.entity.Gender;
 import com.careup.branch.domain.employee.entity.JobGrade;
 import com.careup.branch.domain.employee.entity.Relationship;
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.JobGradeRepository;
+import com.careup.branch.domain.employee.repository.ScheduleTypeRepository;
 import com.careup.branch.domain.employee.service.EmployeeService;
 import com.careup.branch.domain.employee.service.JobGradeService;
+import com.careup.branch.domain.employee.service.ScheduleService;
+import com.careup.branch.domain.employee.service.ScheduleTypeService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import jakarta.transaction.Transactional;
@@ -30,10 +39,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.*;
 
 @Component
 @RequiredArgsConstructor
@@ -46,6 +54,12 @@ public class DataInitializer implements CommandLineRunner {
     private final JobGradeService jobGradeService;
     private final JobGradeRepository jobGradeRepository;
 
+    // 스케줄 관련 추가 의존성
+    private final ScheduleService scheduleService;
+    private final ScheduleTypeService scheduleTypeService;
+    private final ScheduleTypeRepository scheduleTypeRepository;
+    private final AttendanceTemplateRepository attendanceTemplateRepository;
+
     private static final String DEFAULT_PROFILE_URL =
             "https://beyond-16-care-up.s3.ap-northeast-2.amazonaws.com/image/employee/profile/default/default_user.png";
 
@@ -53,6 +67,7 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         runAsSystem(() -> {
+            // 1) 지점 보장
             Long hqId = ensureBranch(
                     "본점", OwnershipType.NO, "101-10-00001", "110101-1000001",
                     "서울특별시 중구 을지로 100", "본관 15층",
@@ -75,10 +90,12 @@ public class DataInitializer implements CommandLineRunner {
                     "37.4924,126.9237", 250, "공원 상권, 주말 패밀리 비중 높음"
             );
 
+            // 2) 직급 보장
             Map<String, Long> gradeIds = ensureJobGradesInTable(List.of(
                     "바리스타", "시프트 슈퍼바이저", "부점장", "점장", "지역매니저", "본사매니저"
             ));
 
+            // 3) 직원 보장
             createEmployee(
                     "H2025001", "이승지", "dev.s3lim@gmail.com", "010-2331-4132", Gender.FEMALE,
                     gradeIds.get("본사매니저"),
@@ -154,8 +171,25 @@ public class DataInitializer implements CommandLineRunner {
                             .placementYn("N")
                             .build())
             );
+
+            // 4) 스케줄 종류 / 템플릿 보장
+            Map<String, Long> scheduleTypeIds = ensureScheduleTypes(Map.of(
+                    "일반근무", ScheduleTypeCategory.WORK,
+                    "야간근무", ScheduleTypeCategory.WORK,
+                    "연차",   ScheduleTypeCategory.LEAVE
+            ));
+            Map<String, Long> templateIds = ensureAttendanceTemplates(List.of(
+                    tmpl("주간", LocalTime.of(9,0),  null, null, LocalTime.of(18,0)),
+                    tmpl("석간", LocalTime.of(14,0), null, null, LocalTime.of(22,0)),
+                    tmpl("야간", LocalTime.of(22,0), null, null, LocalTime.of(6,0))
+            ));
+
+            // 5) 여러 경우의 수 스케줄 생성
+            seedSchedules(hqId, dongjakId, boramaeId, scheduleTypeIds, templateIds);
         });
     }
+
+    /* ----------------------------- 권한 컨텍스트 ----------------------------- */
 
     private void runAsSystem(Runnable task) {
         Claims claims = Jwts.claims().setSubject("system@careup.com");
@@ -179,6 +213,8 @@ public class DataInitializer implements CommandLineRunner {
             else SecurityContextHolder.clearContext();
         }
     }
+
+    /* ----------------------------- 지점/직급/직원 보장 ----------------------------- */
 
     private Long ensureBranch(String name,
                               OwnershipType ownershipType,
@@ -292,5 +328,188 @@ public class DataInitializer implements CommandLineRunner {
         if (address.contains("영등포구")) return "07200";
         if (address.contains("관악구")) return "08700";
         return "04000";
+    }
+
+    /* ----------------------------- 스케줄 종류 / 템플릿 보장 ----------------------------- */
+
+    private Map<String, Long> ensureScheduleTypes(Map<String, ScheduleTypeCategory> nameToCategory) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        var all = scheduleTypeRepository.findAll();
+        for (var e : nameToCategory.entrySet()) {
+            String name = e.getKey();
+            ScheduleTypeCategory cat = e.getValue();
+
+            Long id = all.stream()
+                    .filter(st -> st.getName().equals(name))
+                    .map(st -> st.getId())
+                    .findFirst()
+                    .orElseGet(() -> scheduleTypeService.create(
+                            com.careup.branch.domain.employee.dto.request.ScheduleTypeCreateDto.builder()
+                                    .name(name)
+                                    .category(cat)
+                                    .build()
+                    ).getId());
+            result.put(name, id);
+        }
+        return result;
+    }
+
+    private static AttendanceTemplateSeed tmpl(String name, LocalTime in, LocalTime bs, LocalTime be, LocalTime out) {
+        return new AttendanceTemplateSeed(name, in, bs, be, out);
+    }
+
+    private record AttendanceTemplateSeed(String name, LocalTime in, LocalTime bs, LocalTime be, LocalTime out) {}
+
+    private Map<String, Long> ensureAttendanceTemplates(List<AttendanceTemplateSeed> templates) {
+        Map<String, Long> result = new LinkedHashMap<>();
+        List<AttendanceTemplate> all = attendanceTemplateRepository.findAll();
+
+        for (AttendanceTemplateSeed t : templates) {
+            Optional<AttendanceTemplate> existing = all.stream()
+                    .filter(x -> x.getName().equals(t.name()))
+                    .findFirst();
+
+            Long id = existing.map(AttendanceTemplate::getId).orElseGet(() -> {
+                AttendanceTemplate saved = attendanceTemplateRepository.save(
+                        AttendanceTemplate.builder()
+                                .name(t.name())
+                                .defaultClockIn(t.in())
+                                .defaultBreakStart(t.bs())
+                                .defaultBreakEnd(t.be())
+                                .defaultClockOut(t.out())
+                                .build()
+                );
+                return saved.getId();
+            });
+            result.put(t.name(), id);
+        }
+        return result;
+    }
+
+    /* ----------------------------- 스케줄 생성 (여러 케이스) ----------------------------- */
+
+    private void seedSchedules(Long hqId,
+                               Long dongjakId,
+                               Long boramaeId,
+                               Map<String, Long> scheduleTypeIds,
+                               Map<String, Long> templateIds) {
+
+        LocalDate today = LocalDate.now();
+        LocalDate yesterday = today.minusDays(1);
+        LocalDate tomorrow = today.plusDays(1);
+
+        // 직원/지점 ID
+        Long empHQ   = employeeRepository.findByEmployeeNumber("H2025001").orElseThrow().getId(); // HQ 관리자
+        Long empDJ   = employeeRepository.findByEmployeeNumber("S2025004").orElseThrow().getId(); // 동작 직원
+        Long empBR   = employeeRepository.findByEmployeeNumber("S2025005").orElseThrow().getId(); // 보라매 직원
+
+        Long stWork  = scheduleTypeIds.get("일반근무");
+        Long stNight = scheduleTypeIds.get("야간근무");
+        Long stLeave = scheduleTypeIds.get("연차");
+
+        Long tplDay  = templateIds.get("주간");
+        Long tplEve  = templateIds.get("석간");
+        Long tplNight= templateIds.get("야간");
+
+        /* 1) 단건 등록: 본점 HQ 관리자 - 오늘 09:00~18:00 (주간 템플릿, 등록 값은 LocalDateTime 사용)
+              - 단건 create/update는 "퇴근 > 출근"이어야 하므로 당일 09->18 로 입력 */
+        scheduleService.create(
+                ScheduleCreateDto.builder()
+                        .employeeId(empHQ)
+                        .scheduleTypeId(stWork)
+                        .attendanceTemplateId(tplDay)
+                        .branchId(hqId)
+                        .registeredDate(today)
+                        .registeredClockIn(LocalDateTime.of(today, LocalTime.of(9,0)))
+                        .registeredBreakStart(null)
+                        .registeredBreakEnd(null)
+                        .registeredClockOut(LocalDateTime.of(today, LocalTime.of(18,0)))
+                        .build()
+        );
+
+        /* 2) 단건 등록(크로스데이): 동작 직원 - 어제 22:00 ~ 오늘 06:00 (야간)
+              - 단건은 LocalDateTime 비교에서 out > in 이어야 하므로 out을 "익일 06:00"로 명시 */
+        scheduleService.create(
+                ScheduleCreateDto.builder()
+                        .employeeId(empDJ)
+                        .scheduleTypeId(stNight)
+                        .attendanceTemplateId(tplNight)
+                        .branchId(dongjakId)
+                        .registeredDate(yesterday)
+                        .registeredClockIn(LocalDateTime.of(yesterday, LocalTime.of(22,0)))
+                        .registeredBreakStart(null)
+                        .registeredBreakEnd(null)
+                        .registeredClockOut(LocalDateTime.of(today, LocalTime.of(6,0))) // 익일 06:00
+                        .build()
+        );
+
+        /* 3) 단건 등록: 보라매 직원 - 내일 연차(종일) */
+        scheduleService.create(
+                ScheduleCreateDto.builder()
+                        .employeeId(empBR)
+                        .scheduleTypeId(stLeave)
+                        .attendanceTemplateId(null)
+                        .branchId(boramaeId)
+                        .registeredDate(tomorrow)
+                        .registeredClockIn(null)   // LEAVE는 all-day로 처리
+                        .registeredBreakStart(null)
+                        .registeredBreakEnd(null)
+                        .registeredClockOut(null)
+                        .build()
+        );
+
+        /* 4) 대량 등록(Block): 동작 직원에게 모레/그다음날 "석간(14~22)" 두 건
+              - mass-create에서는 LocalTime만 넘겨도 크로스데이 자동 정규화 지원(우리 로직)
+              - 여기선 당일 내(14~22)라 정규화 이슈 없음 */
+        ScheduleMassCreateDto mass1 = ScheduleMassCreateDto.builder()
+                .blocks(List.of(
+                        ScheduleMassBlockDto.builder()
+                                .branchId(dongjakId)
+                                .scheduleTypeId(stWork)
+                                .attendanceTemplateId(tplEve)
+                                .employeeIds(List.of(empDJ))
+                                .dates(List.of(today.plusDays(2), today.plusDays(3)))
+                                .registeredClockInTime(LocalTime.of(14, 0))
+                                .registeredBreakStartTime(null)
+                                .registeredBreakEndTime(null)
+                                .registeredClockOutTime(LocalTime.of(22, 0))
+                                .build()
+                ))
+                .items(null)
+                .build();
+        scheduleService.massCreate(mass1);
+
+        /* 5) 대량 등록(Item): 동작 직원 야간 2건(22:00~06:00; 자동 익일 정규화)
+              - mass-create는 출근>퇴근 시간 형태(21:00→06:00 등) 허용, 내부에서 익일로 정규화 */
+        ScheduleMassCreateDto mass2 = ScheduleMassCreateDto.builder()
+                .blocks(null)
+                .items(List.of(
+                        // 모레
+                        com.careup.branch.domain.employee.dto.request.ScheduleMassItemDto.builder()
+                                .employeeId(empDJ)
+                                .branchId(dongjakId)
+                                .scheduleTypeId(stNight)
+                                .attendanceTemplateId(tplNight)
+                                .date(today.plusDays(4))
+                                .registeredClockInTime(LocalTime.of(22, 0))
+                                .registeredBreakStartTime(null)
+                                .registeredBreakEndTime(null)
+                                .registeredClockOutTime(LocalTime.of(6, 0))
+                                .build(),
+                        // 그다음날
+                        com.careup.branch.domain.employee.dto.request.ScheduleMassItemDto.builder()
+                                .employeeId(empDJ)
+                                .branchId(dongjakId)
+                                .scheduleTypeId(stNight)
+                                .attendanceTemplateId(tplNight)
+                                .date(today.plusDays(5))
+                                .registeredClockInTime(LocalTime.of(22, 0))
+                                .registeredBreakStartTime(null)
+                                .registeredBreakEndTime(null)
+                                .registeredClockOutTime(LocalTime.of(6, 0))
+                                .build()
+                ))
+                .build();
+        scheduleService.massCreate(mass2);
     }
 }
