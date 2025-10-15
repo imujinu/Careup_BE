@@ -9,6 +9,8 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
@@ -30,4 +32,7 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     int detachJobGradeById(@Param("jobGradeId") Long jobGradeId);
 
     boolean existsByJobGradeId(Long jobGradeId);
+
+    // 리팩토링: 유니크 키 포함(단일 결과)
+    Optional<Employee> findByNameAndDateOfBirthAndEmployeeNumber(String name, LocalDate dateOfBirth, String employeeNumber);
 }

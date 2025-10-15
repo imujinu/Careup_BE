@@ -2,7 +2,10 @@ package com.careup.branch.domain.employee.dto.response;
 
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 

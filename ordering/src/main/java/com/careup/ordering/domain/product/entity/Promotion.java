@@ -22,7 +22,7 @@ public class Promotion {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "branch_producs_id", nullable = false)
+    @JoinColumn(name = "branch_products_id", nullable = false)
     private BranchProduct branchProduct;
 
     @Column(name = "discount_rate", nullable = false, precision = 5, scale = 2)

@@ -40,6 +40,21 @@ spring:
       enabled: true
       max-file-size: 1000MB
       max-request-size: 1000MB
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: test-topic-group-02
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USER}
+    password: ${MAIL_PW}
+    from: no-reply@careup.com
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls.enable: true
 
   
   # Kafka 설정 - 비활성화
@@ -59,12 +74,12 @@ spring:
 cloud:
   aws:
     credentials:
-      access-key: xxxxxxxxxxxxx
-      secret-key: yyyyyyyyyyyyyy
+      access-key: ${ACCESS_KEY}
+      secret-key: ${SECRET_KEY}
     region:
       static: ap-northeast-2
     s3:
-      bucket: xxxxxxxxxxxxx
+      bucket: ${S3_BUCKET}
 
 payment:
   toss:
@@ -72,12 +87,11 @@ payment:
 
 
 jwt:
-  accessTokenExpiryMinutes: 30 # 30분
-  secretKeyAt: YmV5b25kYWNjZXNzdG9rZW5zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2tlbnNlY3JldGtleWJleW9uZGFjY2Vzc3Rva2Vuc2VjcmV0a2V5
-  #  refreshTokenExpiryDays: 180 # 180일
-  refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
-  refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
-  secretKeyRt: YmV5b25kYWNjZXNzdG9rZW5zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2tlbnNlY3JldGtleWJleW9uZGFjY2Vzc3Rva2Vuc2VjcmV0a2V5
+  accessTokenExpiryMinutes: 1   # 테스트용: 1분
+  refreshTokenExpiryDaysPersistent: 180
+  refreshTokenExpiryDaysNonPersistent: 1
+  secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
+  secretKeyRt: ${REFRESH_TOKEN_CUSTOMER}
 
 security:
   csrf:
@@ -85,7 +99,12 @@ security:
       - "http://localhost:3000"
     skip-paths:
       - "/health"
-      -
+
+careup:
+  mail:
+    customer:
+      reset-base-url: "http://localhost:3000/reset-password"
+
 logging:
   level:
     root: info

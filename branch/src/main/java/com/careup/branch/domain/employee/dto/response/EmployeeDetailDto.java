@@ -1,7 +1,10 @@
 package com.careup.branch.domain.employee.dto.response;
 
 import com.careup.branch.domain.employee.entity.Employee;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;

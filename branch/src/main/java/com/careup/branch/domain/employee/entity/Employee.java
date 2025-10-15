@@ -141,4 +141,8 @@ public class Employee extends BaseTimeEntity {
         this.hireDate = newHireDate;
         this.enabled = true;
     }
+
+    public void changeEmail(String email) { this.email = email; }
+
+    public void changeMobile(String mobile) { this.mobile = mobile; }
 }

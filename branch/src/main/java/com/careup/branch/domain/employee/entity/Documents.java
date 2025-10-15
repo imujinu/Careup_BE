@@ -28,4 +28,14 @@ public class Documents extends BaseTimeEntity {
 
     @Column(name = "document_url", columnDefinition = "TEXT", nullable = false)
     private String documentUrl;
+
+    public void update(
+            Long id, Employee findEmployee, DocumentType documentType, String title, String documentUrl
+    ) {
+        this.id = id;
+        this.employee = findEmployee;
+        this.documentType = documentType;
+        this.title = title;
+        this.documentUrl = documentUrl;
+    }
 }
