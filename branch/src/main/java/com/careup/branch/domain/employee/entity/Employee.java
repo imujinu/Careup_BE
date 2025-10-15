@@ -15,6 +15,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @Getter
+@Table(name = "employee")
 public class Employee extends BaseTimeEntity {
 
     @Id
@@ -28,7 +29,11 @@ public class Employee extends BaseTimeEntity {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = true)
-    @JoinColumn(name = "job_grade_id", nullable = true, foreignKey = @ForeignKey(name = "fk_employee_job_grade"))
+    @JoinColumn(
+            name = "job_grade_id",
+            nullable = true,
+            foreignKey = @ForeignKey(name = "fk_employee_job_grade")
+    )
     private JobGrade jobGrade;
 
     @Column(nullable = false)
@@ -121,13 +126,8 @@ public class Employee extends BaseTimeEntity {
         this.remark = dto.getRemark();
     }
 
-    public void changePasswordHash(String encoded) {
-        this.passwordHash = encoded;
-    }
-
-    public void changeProfileImageUrl(String url) {
-        this.profileImageUrl = url;
-    }
+    public void changePasswordHash(String encoded) { this.passwordHash = encoded; }
+    public void changeProfileImageUrl(String url)   { this.profileImageUrl = url; }
 
     public void deactivate(LocalDate terminatedAt) {
         this.employmentStatus = EmploymentStatus.TERMINATED;
@@ -141,4 +141,7 @@ public class Employee extends BaseTimeEntity {
         this.hireDate = newHireDate;
         this.enabled = true;
     }
+
+    public void changeEmail(String email)   { this.email = email; }
+    public void changeMobile(String mobile) { this.mobile = mobile; }
 }

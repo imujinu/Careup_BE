@@ -1,15 +1,17 @@
 package com.careup.branch.domain.employee.dto.response;
 
 import com.careup.branch.domain.employee.entity.JobGrade;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 
 @Getter
-@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class JobGradeListDto {
     private Long id;
     private String name;

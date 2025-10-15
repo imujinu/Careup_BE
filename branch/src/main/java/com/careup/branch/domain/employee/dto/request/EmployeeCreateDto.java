@@ -3,16 +3,18 @@ package com.careup.branch.domain.employee.dto.request;
 import com.careup.branch.domain.employee.entity.*;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Getter
-@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class EmployeeCreateDto {
 
     @NotBlank

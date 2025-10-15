@@ -1,19 +1,22 @@
-// com.careup.branch.domain.auth.controller.AuthController
 package com.careup.branch.domain.auth.controller;
 
 import com.careup.branch.common.dto.CommonSuccessDto;
-import com.careup.branch.domain.auth.dto.request.*;
+import com.careup.branch.common.auth.JwtTokenProvider;
+import com.careup.branch.domain.auth.dto.request.AuthLoginRequest;
+import com.careup.branch.domain.auth.dto.request.ForgotPasswordRequest;
+import com.careup.branch.domain.auth.dto.request.LogoutRequest;
+import com.careup.branch.domain.auth.dto.request.RefreshRequest;
+import com.careup.branch.domain.auth.dto.request.ResetPasswordRequest;
 import com.careup.branch.domain.auth.dto.response.AuthLoginResponse;
 import com.careup.branch.domain.auth.dto.response.AuthRefreshResponse;
 import com.careup.branch.domain.auth.dto.response.AuthLogoutResponse;
 import com.careup.branch.domain.auth.service.AuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/auth")
@@ -21,6 +24,7 @@ import jakarta.validation.Valid;
 public class AuthController {
 
     private final AuthService authService;
+    private final JwtTokenProvider jwt; // NEW
 
     @PostMapping("/login")
     public ResponseEntity<CommonSuccessDto> login(@RequestBody AuthLoginRequest req) {
@@ -74,7 +78,7 @@ public class AuthController {
         );
     }
 
-    /** (NEW) 비밀번호 재설정 메일 요청: 이메일+휴대폰 모두 필요 */
+    /** 비밀번호 재설정 메일 요청 */
     @PostMapping("/password/forgot")
     public ResponseEntity<CommonSuccessDto> forgot(@RequestBody @Valid ForgotPasswordRequest req) {
         authService.issueResetTokenByIdentity(req.getEmail().trim(), req.getMobile().trim());
@@ -87,7 +91,7 @@ public class AuthController {
         );
     }
 
-    /** (NEW) 비밀번호 재설정 완료 */
+    /** 비밀번호 재설정 완료 */
     @PostMapping("/password/reset")
     public ResponseEntity<CommonSuccessDto> reset(@RequestBody @Valid ResetPasswordRequest req) {
         authService.resetPassword(

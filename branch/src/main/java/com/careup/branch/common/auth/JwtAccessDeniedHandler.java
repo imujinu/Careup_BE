@@ -15,10 +15,9 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class JwtAccessDeniedHandler implements AccessDeniedHandler {
 
-    /// 권한 부족이 발생했을 때 호출되는 메서드
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response,
-                       AccessDeniedException accessDeniedException) throws IOException {
+                       AccessDeniedException ex) throws IOException {
         response.setStatus(HttpStatus.FORBIDDEN.value());
         response.setContentType("application/json");
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
