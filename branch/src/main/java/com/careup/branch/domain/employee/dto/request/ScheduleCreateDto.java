@@ -1,13 +1,13 @@
 package com.careup.branch.domain.employee.dto.request;
 
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Builder
@@ -19,12 +19,16 @@ public class ScheduleCreateDto {
     private Long employeeId;
 
     @NotNull
-    private Long scheduleTypeId;
-
-    private Long attendanceTemplateId;
+    private Long branchId;
 
     @NotNull
-    private Long branchId;
+    private ScheduleTypeCategory category;
+
+    private Long workTypeId;
+
+    private Long leaveTypeId;
+
+    private Long attendanceTemplateId;
 
     @NotNull
     private LocalDate registeredDate;

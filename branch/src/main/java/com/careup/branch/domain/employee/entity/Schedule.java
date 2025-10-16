@@ -2,11 +2,25 @@ package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
 import com.careup.branch.domain.branch.entity.Branch;
-import jakarta.persistence.*;
-import lombok.*;
-
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Getter
@@ -42,13 +56,23 @@ public class Schedule extends BaseTimeEntity {
     )
     private Employee employee;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 10, nullable = false)
+    private ScheduleTypeCategory category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
-            name ="schedule_type_id",
-            nullable = false,
-            foreignKey = @ForeignKey(name = "fk_schedule_type")
+            name ="work_type_id",
+            foreignKey = @ForeignKey(name = "fk_schedule_work_type")
     )
-    private ScheduleType scheduleType;
+    private WorkType workType;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name ="leave_type_id",
+            foreignKey = @ForeignKey(name = "fk_schedule_leave_type")
+    )
+    private LeaveType leaveType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(
@@ -72,10 +96,11 @@ public class Schedule extends BaseTimeEntity {
     @Column(name = "registered_clock_out")
     private LocalDateTime registeredClockOut;
 
-    /** 지점 포함 전체 변경 */
     public void change(
             Branch branch,
-            ScheduleType type,
+            ScheduleTypeCategory category,
+            WorkType workType,
+            LeaveType leaveType,
             AttendanceTemplate template,
             LocalDate date,
             LocalDateTime in,
@@ -84,7 +109,9 @@ public class Schedule extends BaseTimeEntity {
             LocalDateTime out
     ) {
         this.branch = branch;
-        this.scheduleType = type;
+        this.category = category;
+        this.workType = workType;
+        this.leaveType = leaveType;
         this.attendanceTemplate = template;
         this.registeredDate = date;
         this.registeredClockIn = in;

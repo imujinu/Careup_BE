@@ -36,6 +36,9 @@ public class BranchService {
         if (branchRepository.existsByPhone(dto.getPhone())) {
             throw new IllegalArgumentException("이미 등록된 전화번호입니다.");
         }
+        if (branchRepository.existsByEmail(dto.getEmail())) {
+            throw new IllegalArgumentException("이미 등록된 이메일입니다.");
+        }
 
         Branch branch = dto.toEntity();
 
@@ -55,6 +58,7 @@ public class BranchService {
     }
 
     // 지점 상세 조회
+    @Transactional(readOnly = true)
     public BranchDto getBranch(Long branchId) {
         Branch findBranch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
@@ -93,13 +97,13 @@ public class BranchService {
         if (!branch.getBusinessNumber().equals(request.getBusinessNumber()) && branchRepository.existsByBusinessNumber(request.getBusinessNumber())) {
             throw new IllegalArgumentException("이미 등록된 사업자등록번호입니다.");
         }
-        // 법인등록번호 중복 체크
-        if (!branch.getCorporationNumber().equals(request.getCorporationNumber()) && branchRepository.existsByCorporationNumber(request.getCorporationNumber())) {
-            throw new IllegalArgumentException("이미 등록된 법인등록번호입니다.");
-        }
         // 전화번호 중복 체크
         if (!branch.getPhone().equals(request.getPhone()) && branchRepository.existsByPhone(request.getPhone())) {
             throw new IllegalArgumentException("이미 등록된 전화번호입니다.");
+        }
+        if (!branch.getEmail().equalsIgnoreCase(request.getEmail()) &&
+                branchRepository.existsByEmail(request.getEmail())) {
+            throw new IllegalArgumentException("이미 등록된 이메일입니다.");
         }
 
         log.info("지점 변경 전: {}", branch);
@@ -149,4 +153,6 @@ public class BranchService {
 
         branchRepository.delete(branch);
     }
+
+
 }

@@ -4,6 +4,7 @@ import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.employee.dto.response.ScheduleCalendarDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
+import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.entity.Schedule;
@@ -14,10 +15,6 @@ import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleEventRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -25,6 +22,9 @@ import java.time.YearMonth;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +38,8 @@ public class ScheduleQueryService {
 
     private final ScheduleAuthService authz;
     private final ScheduleTimeService time;
+    private final AttendanceStatusResolver statusResolver;
+    private final AttendanceBadgeResolver badgeResolver;
 
     public ScheduleDetailDto detail(ScheduleAuthService.Auth auth, Long scheduleId) {
         Schedule s = scheduleRepository.findById(scheduleId)
@@ -150,10 +152,12 @@ public class ScheduleQueryService {
 
         for (Schedule s : schedules) {
             ScheduleEvent e = evMap.get(s.getId());
-            boolean isLeave = s.getScheduleType() != null
-                    && s.getScheduleType().getCategory() == ScheduleTypeCategory.LEAVE;
+            boolean isLeave = s.getCategory() == ScheduleTypeCategory.LEAVE;
 
-            String title = s.getScheduleType() != null ? s.getScheduleType().getName() : "Schedule";
+            String title = isLeave
+                    ? (s.getLeaveType() != null ? s.getLeaveType().getName() : "Leave")
+                    : (s.getWorkType()  != null ? s.getWorkType().getName()  : "Work");
+
             String timeSource;
             LocalDateTime start = null;
             LocalDateTime end = null;
@@ -164,7 +168,7 @@ public class ScheduleQueryService {
                 boolean hasIn = e != null && e.getClockInAt() != null;
                 boolean hasOut = e != null && e.getClockOutAt() != null;
                 start = hasIn ? e.getClockInAt() : s.getRegisteredClockIn();
-                end = hasOut ? e.getClockOutAt() : s.getRegisteredClockOut();
+                end   = hasOut ? e.getClockOutAt() : s.getRegisteredClockOut();
                 if (start != null && end != null && !end.isAfter(start)) {
                     end = end.plusDays(1);
                 }
@@ -190,11 +194,11 @@ public class ScheduleQueryService {
                 } else {
                     if (start != null && end != null) {
                         LocalDateTime cellStart = LocalDateTime.of(cell, LocalTime.MIN);
-                        LocalDateTime cellEnd = LocalDateTime.of(cell.plusDays(1), LocalTime.MIDNIGHT);
+                        LocalDateTime cellEnd   = LocalDateTime.of(cell.plusDays(1), LocalTime.MIDNIGHT);
                         boolean overlaps = start.isBefore(cellEnd) && cellStart.isBefore(end);
                         if (overlaps) {
                             LocalDateTime clippedStart = start.isBefore(cellStart) ? cellStart : start;
-                            LocalDateTime clippedEnd = end.isAfter(cellEnd) ? cellEnd : end;
+                            LocalDateTime clippedEnd   = end.isAfter(cellEnd) ? cellEnd : end;
                             result.add(ScheduleCalendarDto.builder()
                                     .id(s.getId())
                                     .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
@@ -222,6 +226,8 @@ public class ScheduleQueryService {
         return result;
     }
 
+    // ===== 내부 유틸 =====
+
     private Map<Long, ScheduleEvent> toEventMap(List<Schedule> candidates) {
         return scheduleEventRepository
                 .findByScheduleIdIn(candidates.stream().map(Schedule::getId).toList())
@@ -232,10 +238,10 @@ public class ScheduleQueryService {
     private boolean overlapsRange(Schedule s, ScheduleEvent e, LocalDate from, LocalDate to) {
         Interval iv = toInterval(s, e);
         LocalDateTime rangeStart = LocalDateTime.of(from, LocalTime.MIN);
-        LocalDateTime rangeEnd = LocalDateTime.of(to.plusDays(1), LocalTime.MIDNIGHT);
+        LocalDateTime rangeEnd   = LocalDateTime.of(to.plusDays(1), LocalTime.MIDNIGHT);
         if (iv.allDay) {
             LocalDateTime dStart = LocalDateTime.of(s.getRegisteredDate(), LocalTime.MIN);
-            LocalDateTime dEnd = LocalDateTime.of(s.getRegisteredDate().plusDays(1), LocalTime.MIDNIGHT);
+            LocalDateTime dEnd   = LocalDateTime.of(s.getRegisteredDate().plusDays(1), LocalTime.MIDNIGHT);
             return dStart.isBefore(rangeEnd) && rangeStart.isBefore(dEnd);
         }
         return iv.start.isBefore(rangeEnd) && rangeStart.isBefore(iv.end);
@@ -244,20 +250,18 @@ public class ScheduleQueryService {
     private boolean overlapsDay(Schedule s, ScheduleEvent e, LocalDate d) {
         Interval iv = toInterval(s, e);
         LocalDateTime dayStart = LocalDateTime.of(d, LocalTime.MIN);
-        LocalDateTime dayEnd = LocalDateTime.of(d.plusDays(1), LocalTime.MIDNIGHT);
+        LocalDateTime dayEnd   = LocalDateTime.of(d.plusDays(1), LocalTime.MIDNIGHT);
         if (iv.allDay) {
             LocalDateTime dStart = LocalDateTime.of(s.getRegisteredDate(), LocalTime.MIN);
-            LocalDateTime dEnd = LocalDateTime.of(s.getRegisteredDate().plusDays(1), LocalTime.MIDNIGHT);
+            LocalDateTime dEnd   = LocalDateTime.of(s.getRegisteredDate().plusDays(1), LocalTime.MIDNIGHT);
             return dStart.isBefore(dayEnd) && dayStart.isBefore(dEnd);
         }
         return iv.start.isBefore(dayEnd) && dayStart.isBefore(iv.end);
     }
 
     private Interval toInterval(Schedule s, ScheduleEvent e) {
-        if (s.getScheduleType() != null && s.getScheduleType().getCategory() == ScheduleTypeCategory.LEAVE) {
-            return Interval.allDay();
-        }
-        LocalDateTime in = e != null && e.getClockInAt() != null ? e.getClockInAt() : s.getRegisteredClockIn();
+        if (s.getCategory() == ScheduleTypeCategory.LEAVE) return Interval.allDay();
+        LocalDateTime in  = e != null && e.getClockInAt()  != null ? e.getClockInAt()  : s.getRegisteredClockIn();
         LocalDateTime out = e != null && e.getClockOutAt() != null ? e.getClockOutAt() : s.getRegisteredClockOut();
         if (in == null && out == null) return Interval.allDay();
         if (in == null || out == null) return Interval.allDay();
@@ -267,20 +271,46 @@ public class ScheduleQueryService {
 
     private ScheduleListDto toListDto(Schedule s, ScheduleEvent e) {
         Totals t = totalsOf(s, e);
-        return ScheduleListDto.of(s, e, t.breakMin(), t.workMin());
+        AttendanceStatus status = statusResolver.resolve(s, e, LocalDateTime.now());
+        String badgeText = badgeResolver.toBadgeText(s, status);
+
+        return ScheduleListDto.builder()
+                .id(s.getId())
+                .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
+                .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
+                .branchId(s.getBranch() != null ? s.getBranch().getId() : null)
+                .branchName(s.getBranch() != null ? s.getBranch().getName() : null)
+                .category(s.getCategory())
+                .workTypeId(s.getWorkType() != null ? s.getWorkType().getId() : null)
+                .workTypeName(s.getWorkType() != null ? s.getWorkType().getName() : null)
+                .leaveTypeId(s.getLeaveType() != null ? s.getLeaveType().getId() : null)
+                .leaveTypeName(s.getLeaveType() != null ? s.getLeaveType().getName() : null)
+                .registeredDate(s.getRegisteredDate())
+                .registeredClockIn(s.getRegisteredClockIn())
+                .registeredBreakStart(s.getRegisteredBreakStart())
+                .registeredBreakEnd(s.getRegisteredBreakEnd())
+                .registeredClockOut(s.getRegisteredClockOut())
+                .actualClockIn(e != null ? e.getClockInAt() : null)
+                .actualBreakStart(e != null ? e.getBreakStartAt() : null)
+                .actualBreakEnd(e != null ? e.getBreakEndAt() : null)
+                .actualClockOut(e != null ? e.getClockOutAt() : null)
+                .totalBreakMinutes(Math.max(t.breakMin(), 0))
+                .totalWorkMinutes(Math.max(t.workMin(), 0))
+                .status(status)
+                .badgeText(badgeText)
+                .build();
     }
 
     private Totals totalsOf(Schedule s, ScheduleEvent e) {
-        if (s.getScheduleType() != null && s.getScheduleType().getCategory() == ScheduleTypeCategory.LEAVE) {
-            return new Totals(0, 0);
-        }
-        LocalDateTime in = e != null && e.getClockInAt() != null ? e.getClockInAt() : s.getRegisteredClockIn();
-        LocalDateTime out = e != null && e.getClockOutAt() != null ? e.getClockOutAt() : s.getRegisteredClockOut();
-        LocalDateTime bs = e != null && e.getBreakStartAt() != null ? e.getBreakStartAt() : s.getRegisteredBreakStart();
-        LocalDateTime be = e != null && e.getBreakEndAt() != null ? e.getBreakEndAt() : s.getRegisteredBreakEnd();
+        if (s.getCategory() == ScheduleTypeCategory.LEAVE) return new Totals(0, 0);
+
+        LocalDateTime in  = e != null && e.getClockInAt()    != null ? e.getClockInAt()    : s.getRegisteredClockIn();
+        LocalDateTime out = e != null && e.getClockOutAt()   != null ? e.getClockOutAt()   : s.getRegisteredClockOut();
+        LocalDateTime bs  = e != null && e.getBreakStartAt() != null ? e.getBreakStartAt() : s.getRegisteredBreakStart();
+        LocalDateTime be  = e != null && e.getBreakEndAt()   != null ? e.getBreakEndAt()   : s.getRegisteredBreakEnd();
 
         long breakMin = time.minutes(bs, be);
-        long workMin = Math.max(0, time.minutes(in, out) - breakMin);
+        long workMin  = Math.max(0, time.minutes(in, out) - breakMin);
 
         if (e != null) {
             int ew = e.getTotalWorkMinutes();
@@ -302,7 +332,6 @@ public class ScheduleQueryService {
             this.start = start;
             this.end = end;
         }
-
         static Interval allDay() { return new Interval(true, null, null); }
         static Interval of(LocalDateTime s, LocalDateTime e) { return new Interval(false, s, e); }
     }

@@ -1,13 +1,8 @@
 package com.careup.branch.domain.branch.dto.branch;
 
 import com.careup.branch.domain.branch.entity.OwnershipType;
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.*;
+import lombok.*;
 
 import java.time.LocalDate;
 
@@ -50,11 +45,17 @@ public class BranchUpdateDto {
     @Email(message = "이메일 형식이 올바르지 않습니다.")
     private String email; // 대표 이메일
 
-    @NotBlank(message = "출퇴근 위치는 필수입니다.")
-    private String location; // 지정된 출퇴근 위치
-
     @NotNull(message = "출퇴근 반경은 필수입니다.")
-    private Integer geofenceRadius; // 출퇴근 가능 반경
+    private Integer geofenceRadius;
 
-    private String remark; // 비고
+    private String remark;
+
+    // 위/경도(선택)
+    @DecimalMin(value = "-90.0", message = "위도는 -90 ~ 90 범위여야 합니다.")
+    @DecimalMax(value = "90.0",  message = "위도는 -90 ~ 90 범위여야 합니다.")
+    private Double latitude;
+
+    @DecimalMin(value = "-180.0", message = "경도는 -180 ~ 180 범위여야 합니다.")
+    @DecimalMax(value = "180.0",  message = "경도는 -180 ~ 180 범위여야 합니다.")
+    private Double longitude;
 }

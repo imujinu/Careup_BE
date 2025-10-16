@@ -19,11 +19,13 @@ public class ForceLogoutStore {
         this.redis = redis;
     }
 
+    /** now + seconds 기준으로 컷오프 시각 저장 */
     public void scheduleCutoverAfterSeconds(Long employeeId, int seconds) {
         long cutoverAtMillis = System.currentTimeMillis() + (seconds * 1000L);
         redis.opsForValue().set(KEY + employeeId, String.valueOf(cutoverAtMillis), TTL);
     }
 
+    /** 저장된 컷오프 시각(ms) 조회 */
     public Optional<Long> readCutoverAt(Long employeeId) {
         String v = redis.opsForValue().get(KEY + employeeId);
         if (v == null) return Optional.empty();
@@ -34,11 +36,18 @@ public class ForceLogoutStore {
         }
     }
 
+    /**
+     * 토큰 무효 판정:
+     *  - 현재시각이 cutoverAt 에 도달(또는 경과)했고
+     *  - 토큰 발급시각(iat)이 cutoverAt 보다 이전이면 무효
+     */
     public boolean isTokenObsolete(Long employeeId, long tokenIssuedAtMillis) {
-        Optional<Long> cutoverAt = readCutoverAt(employeeId);
-        return cutoverAt.map(cut -> tokenIssuedAtMillis < cut).orElse(false);
+        return readCutoverAt(employeeId)
+                .map(cut -> System.currentTimeMillis() >= cut && tokenIssuedAtMillis < cut)
+                .orElse(false);
     }
 
+    /** 특정 사용자 컷오프 클리어 */
     public void clear(Long employeeId) {
         redis.delete(KEY + employeeId);
     }

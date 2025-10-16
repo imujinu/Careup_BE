@@ -101,10 +101,15 @@ public class AuthService {
     public AuthRefreshResponse refresh(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
         Long employeeId = Long.valueOf(claims.getSubject());
+        long rtIatMs = claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : 0L;
 
-        // 컷오프가 존재하면 RT 기반 재발급도 차단
-        if (forceLogoutStore.readCutoverAt(employeeId).isPresent()) {
-            throw new IllegalArgumentException("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
+        // 컷오프 도래 이후 + 컷오프 이전 발급 RT는 차단 (존재만으로 차단하지 않음)
+        Optional<Long> cutOpt = forceLogoutStore.readCutoverAt(employeeId);
+        if (cutOpt.isPresent()) {
+            long cut = cutOpt.get();
+            if (System.currentTimeMillis() >= cut && rtIatMs < cut) {
+                throw new IllegalArgumentException("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
+            }
         }
 
         Employee emp = employeeRepository.findById(employeeId)
