@@ -54,7 +54,15 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 인벤토리: 전부 관리자 계열 전용 (주문/고객용 서비스에서 비공개)
+                // 인벤토리: 본사와 가맹점 권한 분리
+                // 본사 전용: 전체 지점 조회, 전체 입출고 조회 등
+                .requestMatchers("/inventory/flow").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers("/inventory/adjustment-history").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                // 가맹점 전용: 자신의 지점만 조회/수정
+                .requestMatchers("/inventory/branch/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers("/inventory/safety-stock").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers("/inventory/adjust").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                // 나머지 인벤토리 API는 기존 권한 유지
                 .requestMatchers("/inventory/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
 
                 // 쿠폰(가정): 조회는 공개, 생성/수정/삭제는 관리자

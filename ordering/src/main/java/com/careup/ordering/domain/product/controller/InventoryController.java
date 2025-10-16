@@ -11,6 +11,7 @@ import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.service.InventoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -41,8 +42,10 @@ public class InventoryController {
     
     // 지점별 재고 조회
     @GetMapping("/branch/{branchId}")
-    public ResponseEntity<List<BranchProductResponseDto>> getBranchProducts(@PathVariable Long branchId) {
-        List<BranchProduct> branchProducts = inventoryService.getBranchProducts(branchId);
+    public ResponseEntity<List<BranchProductResponseDto>> getBranchProducts(
+            @PathVariable Long branchId, 
+            Authentication authentication) {
+        List<BranchProduct> branchProducts = inventoryService.getBranchProducts(branchId, authentication);
         List<BranchProductResponseDto> response = branchProducts.stream()
                 .map(this::convertToBranchProductResponse)
                 .collect(Collectors.toList());
@@ -53,26 +56,28 @@ public class InventoryController {
     @GetMapping("/branch/{branchId}/product/{productId}")
     public ResponseEntity<BranchProductResponseDto> getBranchProduct(
             @PathVariable Long branchId,
-            @PathVariable Long productId) {
-        BranchProduct branchProduct = inventoryService.getBranchProduct(branchId, productId);
+            @PathVariable Long productId,
+            Authentication authentication) {
+        BranchProduct branchProduct = inventoryService.getBranchProduct(branchId, productId, authentication);
         return ResponseEntity.ok(convertToBranchProductResponse(branchProduct));
     }
 
     // 안전재고 설정
     @PostMapping("/safety-stock")
-    public ResponseEntity<Void> updateSafetyStock(@RequestBody SafetyStockRequestDto request) {
-        inventoryService.updateSafetyStock(request.getBranchProductId(), request.getSafetyStock());
+    public ResponseEntity<Void> updateSafetyStock(@RequestBody SafetyStockRequestDto request, Authentication authentication) {
+        inventoryService.updateSafetyStock(request.getBranchProductId(), request.getSafetyStock(), authentication);
         return ResponseEntity.ok().build();
     }
 
     // 재고 증감
     @PostMapping("/adjust")
-    public ResponseEntity<Void> adjustStock(@RequestBody StockAdjustRequestDto request) {
+    public ResponseEntity<Void> adjustStock(@RequestBody StockAdjustRequestDto request, Authentication authentication) {
         inventoryService.adjustStock(
                 request.getBranchProductId(),
                 request.getQuantity(),
                 request.getType(),
-                request.getReason()
+                request.getReason(),
+                authentication
         );
         return ResponseEntity.ok().build();
     }
@@ -83,9 +88,10 @@ public class InventoryController {
     @GetMapping("/flow")
     public ResponseEntity<List<InventoryFlowResponseDto>> getInventoryFlows(
             @RequestParam(required = false) Long branchId,
-            @RequestParam(required = false) Long productId) {
+            @RequestParam(required = false) Long productId,
+            Authentication authentication) {
         
-        List<InventoryFlowDetail> flows = inventoryService.getInventoryFlows(branchId, productId);
+        List<InventoryFlowDetail> flows = inventoryService.getInventoryFlows(branchId, productId, authentication);
         List<InventoryFlowResponseDto> response = flows.stream()
                 .map(this::convertToInventoryFlowResponse)
                 .collect(Collectors.toList());
@@ -95,12 +101,13 @@ public class InventoryController {
 
     // 입출고 기록 등록
     @PostMapping("/flow")
-    public ResponseEntity<InventoryFlowResponseDto> createInventoryFlow(@RequestBody InventoryFlowRequestDto request) {
+    public ResponseEntity<InventoryFlowResponseDto> createInventoryFlow(@RequestBody InventoryFlowRequestDto request, Authentication authentication) {
         InventoryFlowDetail flow = inventoryService.createInventoryFlow(
                 request.getBranchProductId(),
                 request.getInQuantity(),
                 request.getOutQuantity(),
-                request.getRemark()
+                request.getRemark(),
+                authentication
         );
         
         return ResponseEntity.ok(convertToInventoryFlowResponse(flow));
@@ -108,8 +115,8 @@ public class InventoryController {
 
     // 입출고 기록 삭제
     @DeleteMapping("/flow/{flowId}")
-    public ResponseEntity<Void> deleteInventoryFlow(@PathVariable Long flowId) {
-        inventoryService.deleteInventoryFlow(flowId);
+    public ResponseEntity<Void> deleteInventoryFlow(@PathVariable Long flowId, Authentication authentication) {
+        inventoryService.deleteInventoryFlow(flowId, authentication);
         return ResponseEntity.ok().build();
     }
 
@@ -117,9 +124,10 @@ public class InventoryController {
     @GetMapping("/adjustment-history")
     public ResponseEntity<List<InventoryFlowResponseDto>> getAdjustmentHistory(
             @RequestParam(required = false) Long branchId,
-            @RequestParam(required = false) String reason) {
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
         
-        List<InventoryFlowDetail> flows = inventoryService.getAdjustmentHistory(branchId, reason);
+        List<InventoryFlowDetail> flows = inventoryService.getAdjustmentHistory(branchId, reason, authentication);
         List<InventoryFlowResponseDto> response = flows.stream()
                 .map(this::convertToInventoryFlowResponse)
                 .collect(Collectors.toList());
