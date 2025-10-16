@@ -7,29 +7,31 @@ import com.careup.branch.domain.employee.dto.request.ScheduleMassCreateDto;
 import com.careup.branch.domain.employee.dto.request.ScheduleMassItemDto;
 import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.entity.LeaveType;
 import com.careup.branch.domain.employee.entity.Schedule;
-import com.careup.branch.domain.employee.entity.ScheduleType;
 import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import com.careup.branch.domain.employee.entity.WorkType;
 import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
-import com.careup.branch.domain.employee.repository.ScheduleTypeRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
+import com.careup.branch.domain.employee.repository.WorkTypeRepository;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
 public class ScheduleValidationService {
 
     private final ScheduleRepository scheduleRepository;
-    private final ScheduleTypeRepository scheduleTypeRepository;
+    private final WorkTypeRepository workTypeRepository;
+    private final LeaveTypeRepository leaveTypeRepository;
     private final AttendanceTemplateRepository attendanceTemplateRepository;
     private final EmployeeRepository employeeRepository;
     private final BranchRepository branchRepository;
@@ -57,7 +59,7 @@ public class ScheduleValidationService {
 
             ScheduleTimeService.Interval exIv = toInterval(
                     ex.getRegisteredDate(),
-                    ex.getScheduleType().getCategory(),
+                    ex.getCategory(),
                     ex.getRegisteredClockIn(),
                     ex.getRegisteredClockOut()
             );
@@ -72,7 +74,7 @@ public class ScheduleValidationService {
     }
 
     public Map<String, Object> massValidate(ScheduleMassCreateDto dto) {
-        record Entry(Long employeeId, Long branchId, Long scheduleTypeId, Long attendanceTemplateId,
+        record Entry(Long employeeId, Long branchId, ScheduleTypeCategory category, Long workTypeId, Long leaveTypeId, Long attendanceTemplateId,
                      LocalDate date, LocalTime in, LocalTime bs, LocalTime be, LocalTime out, int index) {}
 
         List<Entry> entries = new ArrayList<>();
@@ -83,7 +85,7 @@ public class ScheduleValidationService {
                 for (Long empId : b.getEmployeeIds()) {
                     for (LocalDate d : b.getDates()) {
                         entries.add(new Entry(
-                                empId, b.getBranchId(), b.getScheduleTypeId(), b.getAttendanceTemplateId(),
+                                empId, b.getBranchId(), b.getCategory(), b.getWorkTypeId(), b.getLeaveTypeId(), b.getAttendanceTemplateId(),
                                 d, b.getRegisteredClockInTime(), b.getRegisteredBreakStartTime(),
                                 b.getRegisteredBreakEndTime(), b.getRegisteredClockOutTime(), idx++
                         ));
@@ -94,7 +96,7 @@ public class ScheduleValidationService {
         if (dto.getItems() != null) {
             for (ScheduleMassItemDto it : dto.getItems()) {
                 entries.add(new Entry(
-                        it.getEmployeeId(), it.getBranchId(), it.getScheduleTypeId(), it.getAttendanceTemplateId(),
+                        it.getEmployeeId(), it.getBranchId(), it.getCategory(), it.getWorkTypeId(), it.getLeaveTypeId(), it.getAttendanceTemplateId(),
                         it.getDate(), it.getRegisteredClockInTime(), it.getRegisteredBreakStartTime(),
                         it.getRegisteredBreakEndTime(), it.getRegisteredClockOutTime(), idx++
                 ));
@@ -104,7 +106,8 @@ public class ScheduleValidationService {
 
         Set<Long> employeeIds = entries.stream().map(Entry::employeeId).collect(Collectors.toSet());
         Set<Long> branchIds   = entries.stream().map(Entry::branchId).collect(Collectors.toSet());
-        Set<Long> typeIds     = entries.stream().map(Entry::scheduleTypeId).collect(Collectors.toSet());
+        Set<Long> workIds     = entries.stream().map(Entry::workTypeId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> leaveIds    = entries.stream().map(Entry::leaveTypeId).filter(Objects::nonNull).collect(Collectors.toSet());
         Set<Long> tmplIds     = entries.stream().map(Entry::attendanceTemplateId).filter(Objects::nonNull).collect(Collectors.toSet());
         Set<LocalDate> dates  = entries.stream().map(Entry::date).collect(Collectors.toSet());
 
@@ -112,8 +115,10 @@ public class ScheduleValidationService {
                 .stream().collect(Collectors.toMap(Employee::getId, Function.identity()));
         Map<Long, Branch> branchMap = branchRepository.findAllById(branchIds)
                 .stream().collect(Collectors.toMap(Branch::getId, Function.identity()));
-        Map<Long, ScheduleType> typeMap = scheduleTypeRepository.findAllById(typeIds)
-                .stream().collect(Collectors.toMap(ScheduleType::getId, Function.identity()));
+        Map<Long, WorkType> workMap = workTypeRepository.findAllById(workIds)
+                .stream().collect(Collectors.toMap(WorkType::getId, Function.identity()));
+        Map<Long, LeaveType> leaveMap = leaveTypeRepository.findAllById(leaveIds)
+                .stream().collect(Collectors.toMap(LeaveType::getId, Function.identity()));
         Map<Long, AttendanceTemplate> tmplMap = attendanceTemplateRepository.findAllById(tmplIds)
                 .stream().collect(Collectors.toMap(AttendanceTemplate::getId, Function.identity()));
 
@@ -122,8 +127,11 @@ public class ScheduleValidationService {
         for (Entry e : entries) {
             if (!employeeMap.containsKey(e.employeeId())) errors.add(err(e.index(), "INVALID_EMPLOYEE"));
             if (!branchMap.containsKey(e.branchId())) errors.add(err(e.index(), "INVALID_BRANCH"));
-            if (!typeMap.containsKey(e.scheduleTypeId())) errors.add(err(e.index(), "INVALID_SCHEDULE_TYPE"));
-            if (e.attendanceTemplateId() != null && !tmplMap.containsKey(e.attendanceTemplateId()))
+            if (e.category == ScheduleTypeCategory.WORK && e.workTypeId == null) errors.add(err(e.index(), "REQUIRED_WORK_TYPE"));
+            if (e.category == ScheduleTypeCategory.LEAVE && e.leaveTypeId == null) errors.add(err(e.index(), "REQUIRED_LEAVE_TYPE"));
+            if (e.workTypeId != null && !workMap.containsKey(e.workTypeId())) errors.add(err(e.index(), "INVALID_WORK_TYPE"));
+            if (e.leaveTypeId != null && !leaveMap.containsKey(e.leaveTypeId())) errors.add(err(e.index(), "INVALID_LEAVE_TYPE"));
+            if (e.attendanceTemplateId != null && !tmplMap.containsKey(e.attendanceTemplateId()))
                 errors.add(err(e.index(), "INVALID_TEMPLATE"));
         }
         if (!errors.isEmpty()) {
@@ -147,18 +155,21 @@ public class ScheduleValidationService {
         Map<Long, List<TempSlot>> tempSlotsPerEmp = new HashMap<>();
 
         for (Entry e : entries) {
-            Employee emp = employeeMap.get(e.employeeId());
-            Branch br    = branchMap.get(e.branchId());
-            ScheduleType tp = typeMap.get(e.scheduleTypeId());
-            AttendanceTemplate tmpl = e.attendanceTemplateId() != null ? tmplMap.get(e.attendanceTemplateId()) : null;
+            LocalDateTime in;
+            LocalDateTime out;
 
-            LocalDateTime in, out;
-            if (tp.getCategory() == ScheduleTypeCategory.LEAVE) {
-                in = e.date().atStartOfDay();
+            if (e.category() == ScheduleTypeCategory.LEAVE) {
+                in  = e.date().atStartOfDay();
                 out = e.date().atTime(LEAVE_END_CUTOFF);
             } else {
-                in  = time.coalesce(e.date(), e.in(),  tmpl != null ? tmpl.getDefaultClockIn()  : null);
-                out = time.coalesce(e.date(), e.out(), tmpl != null ? tmpl.getDefaultClockOut() : null);
+                LocalTime tmplIn  = null;
+                LocalTime tmplOut = null;
+                if (e.attendanceTemplateId() != null && tmplMap.containsKey(e.attendanceTemplateId())) {
+                    tmplIn  = tmplMap.get(e.attendanceTemplateId()).getDefaultClockIn();
+                    tmplOut = tmplMap.get(e.attendanceTemplateId()).getDefaultClockOut();
+                }
+                in  = time.coalesce(e.date(), e.in(),  tmplIn);
+                out = time.coalesce(e.date(), e.out(), tmplOut);
                 if (in == null && out == null) {
                     var span = time.daySpan(e.date());
                     in = span.start();
@@ -168,7 +179,7 @@ public class ScheduleValidationService {
 
             ScheduleTimeService.Interval newIv = time.interval(in, out);
 
-            List<Schedule> existedForEmp = existedByEmp.getOrDefault(emp.getId(), List.of()).stream()
+            List<Schedule> existedForEmp = existedByEmp.getOrDefault(e.employeeId(), List.of()).stream()
                     .filter(s -> {
                         LocalDate sd = s.getRegisteredDate();
                         return sd.isEqual(e.date()) || sd.isEqual(e.date().minusDays(1)) || sd.isEqual(e.date().plusDays(1));
@@ -178,11 +189,11 @@ public class ScheduleValidationService {
             for (Schedule ex : existedForEmp) {
                 ScheduleTimeService.Interval exIv = toInterval(
                         ex.getRegisteredDate(),
-                        ex.getScheduleType().getCategory(),
+                        ex.getCategory(),
                         ex.getRegisteredClockIn(),
                         ex.getRegisteredClockOut()
                 );
-                if (time.isExactlySame(exIv, newIv) && Objects.equals(ex.getBranch().getId(), br.getId())) {
+                if (time.isExactlySame(exIv, newIv) && Objects.equals(ex.getBranch().getId(), e.branchId())) {
                     errors.add(err(e.index(), "DUPLICATE_EXISTING"));
                     break;
                 }
@@ -192,10 +203,10 @@ public class ScheduleValidationService {
                 }
             }
 
-            List<TempSlot> empSlots = tempSlotsPerEmp.computeIfAbsent(emp.getId(), k -> new ArrayList<>());
+            List<TempSlot> empSlots = tempSlotsPerEmp.computeIfAbsent(e.employeeId(), k -> new ArrayList<>());
             boolean conflict = false;
             for (TempSlot ts : empSlots) {
-                if (time.isExactlySame(ts.interval(), newIv) && Objects.equals(ts.branchId(), br.getId())) {
+                if (time.isExactlySame(ts.interval(), newIv) && Objects.equals(ts.branchId(), e.branchId())) {
                     errors.add(err(e.index(), "DUPLICATE_REQUEST"));
                     conflict = true;
                     break;
@@ -206,7 +217,7 @@ public class ScheduleValidationService {
                     break;
                 }
             }
-            if (!conflict) empSlots.add(new TempSlot(br.getId(), newIv));
+            if (!conflict) empSlots.add(new TempSlot(e.branchId(), newIv));
         }
 
         Map<String, Object> res = new HashMap<>();

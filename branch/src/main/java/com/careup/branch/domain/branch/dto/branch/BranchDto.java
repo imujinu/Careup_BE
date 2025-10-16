@@ -9,13 +9,11 @@ import java.time.LocalDate;
 
 /**
  * 지점 상세 조회 DTO
- * 해당 지점 상세 조회 및 수정에 사용
  */
-@Data
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Getter
 public class BranchDto {
 
     private Long id;
@@ -31,8 +29,16 @@ public class BranchDto {
     private String address;
     private String addressDetail;
     private String profileImageUrl;
+    private String email;
 
-    // Entity -> DTO
+    private Integer geofenceRadius;
+    private Double latitude;
+    private Double longitude;
+
+    private String remark;
+    private String attorneyName;
+    private String attorneyPhoneNumber;
+
     public static BranchDto fromEntity(Branch branch) {
         return BranchDto.builder()
                 .id(branch.getId())
@@ -48,6 +54,13 @@ public class BranchDto {
                 .address(branch.getAddress())
                 .addressDetail(branch.getAddressDetail())
                 .profileImageUrl(branch.getProfileImageUrl())
+                .email(branch.getEmail())
+                .geofenceRadius(branch.getGeofenceRadius())
+                .latitude(branch.getLatitude())
+                .longitude(branch.getLongitude())
+                .remark(branch.getRemark())
+                .attorneyName(branch.getAttorneyName())
+                .attorneyPhoneNumber(branch.getAttorneyPhoneNumber())
                 .build();
     }
 }

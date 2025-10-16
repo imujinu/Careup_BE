@@ -9,6 +9,15 @@ import lombok.*;
 import java.time.LocalDate;
 
 @Entity
+@Table(
+        name = "branch",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_branch_business_number", columnNames = {"businessNumber"}),
+                @UniqueConstraint(name = "uk_branch_corporation_number", columnNames = {"corporationNumber"}),
+                @UniqueConstraint(name = "uk_branch_phone", columnNames = {"phone"}),
+                @UniqueConstraint(name = "uk_branch_email", columnNames = {"email"})
+        }
+)
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
@@ -67,11 +76,15 @@ public class Branch extends BaseTimeEntity {
     @Column(nullable = false)
     private String email; // 지점 이메일
 
-    @Column(nullable = false)
-    private String location; // 지정된 출퇴근 위치
+    // 지오펜스 중심 좌표 (필수는 아님)
+    @Column
+    private Double latitude;
+
+    @Column
+    private Double longitude;
 
     @Column(nullable = false)
-    private Integer geofenceRadius; // 출퇴근 가능 반경
+    private Integer geofenceRadius; // 출퇴근 가능 반경(미터)
 
     @Column(length = 200)
     private String remark; // 비고
@@ -94,10 +107,13 @@ public class Branch extends BaseTimeEntity {
         this.address = request.getAddress();
         this.addressDetail = request.getAddressDetail();
         this.phone = request.getPhone();
+        this.profileImageUrl = request.getProfileImageUrl();
         this.email = request.getEmail();
-        this.location = request.getLocation();
         this.geofenceRadius = request.getGeofenceRadius();
         this.remark = request.getRemark();
+        this.latitude = request.getLatitude();
+        this.longitude = request.getLongitude();
+        this.openDate = request.getOpenDate(); // 필요 시 수정 허용
     }
 
     // --- 자기수정(HQ 승인 후 적용)용 보조 메서드 ---

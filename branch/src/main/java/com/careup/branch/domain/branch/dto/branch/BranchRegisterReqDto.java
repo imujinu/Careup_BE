@@ -61,8 +61,17 @@ public class BranchRegisterReqDto {
     @Length(max = 100, message = "대리인명은 100자를 넘을 수 없습니다.")
     private String attorneyName; // 대리인명
 
-    @Length(max = 100, message = "대리인명은 100자를 넘을 수 없습니다.")
+    @Length(max = 30, message = "대리인 연락처은 30자를 넘을 수 없습니다.")
     private String attorneyPhoneNumber; // 대리인 연락처
+
+    // 위/경도(선택)
+    @DecimalMin(value = "-90.0", message = "위도는 -90 ~ 90 범위여야 합니다.")
+    @DecimalMax(value = "90.0",  message = "위도는 -90 ~ 90 범위여야 합니다.")
+    private Double latitude;
+
+    @DecimalMin(value = "-180.0", message = "경도는 -180 ~ 180 범위여야 합니다.")
+    @DecimalMax(value = "180.0",  message = "경도는 -180 ~ 180 범위여야 합니다.")
+    private Double longitude;
 
     // DTO -> Entity
     public Branch toEntity() {
@@ -78,11 +87,12 @@ public class BranchRegisterReqDto {
                 .addressDetail(this.addressDetail)
                 .phone(this.phone)
                 .email(this.email)
-                .location(this.location)
                 .geofenceRadius(this.geofenceRadius)
                 .remark(this.remark)
                 .attorneyName(this.attorneyName)
                 .attorneyPhoneNumber(this.attorneyPhoneNumber)
+                .latitude(this.latitude)
+                .longitude(this.longitude)
                 .build();
     }
 }

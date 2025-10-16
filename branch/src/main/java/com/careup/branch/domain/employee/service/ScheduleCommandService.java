@@ -10,26 +10,27 @@ import com.careup.branch.domain.employee.dto.request.ScheduleUpdateDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.entity.LeaveType;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
-import com.careup.branch.domain.employee.entity.ScheduleType;
 import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import com.careup.branch.domain.employee.entity.WorkType;
 import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleEventRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
-import com.careup.branch.domain.employee.repository.ScheduleTypeRepository;
+import com.careup.branch.domain.employee.repository.WorkTypeRepository;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -39,7 +40,8 @@ public class ScheduleCommandService {
     private final ScheduleRepository scheduleRepository;
     private final ScheduleEventRepository scheduleEventRepository;
     private final EmployeeRepository employeeRepository;
-    private final ScheduleTypeRepository scheduleTypeRepository;
+    private final WorkTypeRepository workTypeRepository;
+    private final LeaveTypeRepository leaveTypeRepository;
     private final AttendanceTemplateRepository attendanceTemplateRepository;
     private final BranchRepository branchRepository;
 
@@ -51,22 +53,33 @@ public class ScheduleCommandService {
     public ScheduleDetailDto create(ScheduleAuthService.Auth auth, ScheduleCreateDto dto) {
         Employee employee = employeeRepository.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
-        ScheduleType type = scheduleTypeRepository.findById(dto.getScheduleTypeId())
-                .orElseThrow(() -> new EntityNotFoundException("스케줄 종류를 찾을 수 없습니다."));
+        Branch branch = branchRepository.findById(dto.getBranchId())
+                .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
+
+        WorkType workType = null;
+        LeaveType leaveType = null;
+        if (dto.getCategory() == ScheduleTypeCategory.WORK) {
+            if (dto.getWorkTypeId() == null) throw new IllegalArgumentException("근무 스케줄은 workTypeId가 필요합니다.");
+            workType = workTypeRepository.findById(dto.getWorkTypeId())
+                    .orElseThrow(() -> new EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
+        } else {
+            if (dto.getLeaveTypeId() == null) throw new IllegalArgumentException("휴가 스케줄은 leaveTypeId가 필요합니다.");
+            leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId())
+                    .orElseThrow(() -> new EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
+        }
+
         AttendanceTemplate template = null;
         if (dto.getAttendanceTemplateId() != null) {
             template = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId())
                     .orElseThrow(() -> new EntityNotFoundException("템플릿을 찾을 수 없습니다."));
         }
-        Branch branch = branchRepository.findById(dto.getBranchId())
-                .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
 
         authz.ensurePermissionForWrite(auth, branch, employee, dto.getRegisteredDate());
 
         LocalDate date = dto.getRegisteredDate();
 
         LocalDateTime in, bs, be, out;
-        if (type.getCategory() == ScheduleTypeCategory.LEAVE) {
+        if (dto.getCategory() == ScheduleTypeCategory.LEAVE) {
             in = bs = be = out = null;
         } else {
             in  = time.coalesceDateTime(dto.getRegisteredClockIn(),  date, template != null ? template.getDefaultClockIn()  : null);
@@ -78,13 +91,15 @@ public class ScheduleCommandService {
             }
         }
 
-        validator.validateNoConflictOnSave(employee, date, branch.getId(), type.getCategory(), in, out, null);
+        validator.validateNoConflictOnSave(employee, date, branch.getId(), dto.getCategory(), in, out, null);
 
         Schedule saved = scheduleRepository.save(
                 Schedule.builder()
                         .branch(branch)
                         .employee(employee)
-                        .scheduleType(type)
+                        .category(dto.getCategory())
+                        .workType(workType)
+                        .leaveType(leaveType)
                         .attendanceTemplate(template)
                         .registeredDate(date)
                         .registeredClockIn(in)
@@ -100,7 +115,7 @@ public class ScheduleCommandService {
 
     @Transactional
     public List<ScheduleDetailDto> massCreate(ScheduleAuthService.Auth auth, ScheduleMassCreateDto dto) {
-        record Entry(Long employeeId, Long branchId, Long scheduleTypeId, Long attendanceTemplateId,
+        record Entry(Long employeeId, Long branchId, ScheduleTypeCategory category, Long workTypeId, Long leaveTypeId, Long attendanceTemplateId,
                      LocalDate date, LocalTime in, LocalTime bs, LocalTime be, LocalTime out) {}
 
         List<Entry> entries = new ArrayList<>();
@@ -110,7 +125,7 @@ public class ScheduleCommandService {
                 for (Long empId : b.getEmployeeIds()) {
                     for (LocalDate d : b.getDates()) {
                         entries.add(new Entry(
-                                empId, b.getBranchId(), b.getScheduleTypeId(), b.getAttendanceTemplateId(),
+                                empId, b.getBranchId(), b.getCategory(), b.getWorkTypeId(), b.getLeaveTypeId(), b.getAttendanceTemplateId(),
                                 d, b.getRegisteredClockInTime(), b.getRegisteredBreakStartTime(),
                                 b.getRegisteredBreakEndTime(), b.getRegisteredClockOutTime()
                         ));
@@ -121,7 +136,7 @@ public class ScheduleCommandService {
         if (dto.getItems() != null) {
             for (ScheduleMassItemDto it : dto.getItems()) {
                 entries.add(new Entry(
-                        it.getEmployeeId(), it.getBranchId(), it.getScheduleTypeId(), it.getAttendanceTemplateId(),
+                        it.getEmployeeId(), it.getBranchId(), it.getCategory(), it.getWorkTypeId(), it.getLeaveTypeId(), it.getAttendanceTemplateId(),
                         it.getDate(), it.getRegisteredClockInTime(), it.getRegisteredBreakStartTime(),
                         it.getRegisteredBreakEndTime(), it.getRegisteredClockOutTime()
                 ));
@@ -131,22 +146,31 @@ public class ScheduleCommandService {
 
         Set<Long> employeeIds = entries.stream().map(Entry::employeeId).collect(Collectors.toSet());
         Set<Long> branchIds   = entries.stream().map(Entry::branchId).collect(Collectors.toSet());
-        Set<Long> typeIds     = entries.stream().map(Entry::scheduleTypeId).collect(Collectors.toSet());
+        Set<Long> workIds     = entries.stream().map(Entry::workTypeId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> leaveIds    = entries.stream().map(Entry::leaveTypeId).filter(Objects::nonNull).collect(Collectors.toSet());
         Set<Long> tmplIds     = entries.stream().map(Entry::attendanceTemplateId).filter(Objects::nonNull).collect(Collectors.toSet());
 
         Map<Long, Employee> employeeMap = employeeRepository.findAllById(employeeIds)
                 .stream().collect(Collectors.toMap(Employee::getId, Function.identity()));
         Map<Long, Branch> branchMap = branchRepository.findAllById(branchIds)
                 .stream().collect(Collectors.toMap(Branch::getId, Function.identity()));
-        Map<Long, ScheduleType> typeMap = scheduleTypeRepository.findAllById(typeIds)
-                .stream().collect(Collectors.toMap(ScheduleType::getId, Function.identity()));
+        Map<Long, WorkType> workMap = workTypeRepository.findAllById(workIds)
+                .stream().collect(Collectors.toMap(WorkType::getId, Function.identity()));
+        Map<Long, LeaveType> leaveMap = leaveTypeRepository.findAllById(leaveIds)
+                .stream().collect(Collectors.toMap(LeaveType::getId, Function.identity()));
         Map<Long, AttendanceTemplate> tmplMap = attendanceTemplateRepository.findAllById(tmplIds)
                 .stream().collect(Collectors.toMap(AttendanceTemplate::getId, Function.identity()));
 
         for (Entry e : entries) {
             if (!employeeMap.containsKey(e.employeeId())) throw new jakarta.persistence.EntityNotFoundException("직원 없음: " + e.employeeId());
             if (!branchMap.containsKey(e.branchId())) throw new jakarta.persistence.EntityNotFoundException("지점 없음: " + e.branchId());
-            if (!typeMap.containsKey(e.scheduleTypeId())) throw new jakarta.persistence.EntityNotFoundException("스케줄 종류 없음: " + e.scheduleTypeId());
+            if (e.category() == ScheduleTypeCategory.WORK) {
+                if (e.workTypeId() == null) throw new IllegalArgumentException("근무 항목에 workTypeId가 필요합니다.");
+                if (!workMap.containsKey(e.workTypeId())) throw new jakarta.persistence.EntityNotFoundException("근무 종류 없음: " + e.workTypeId());
+            } else {
+                if (e.leaveTypeId() == null) throw new IllegalArgumentException("휴가 항목에 leaveTypeId가 필요합니다.");
+                if (!leaveMap.containsKey(e.leaveTypeId())) throw new jakarta.persistence.EntityNotFoundException("휴가 종류 없음: " + e.leaveTypeId());
+            }
             if (e.attendanceTemplateId() != null && !tmplMap.containsKey(e.attendanceTemplateId()))
                 throw new jakarta.persistence.EntityNotFoundException("템플릿 없음: " + e.attendanceTemplateId());
         }
@@ -174,11 +198,12 @@ public class ScheduleCommandService {
         for (Entry e : entries) {
             Employee emp = employeeMap.get(e.employeeId());
             Branch br    = branchMap.get(e.branchId());
-            ScheduleType tp = typeMap.get(e.scheduleTypeId());
+            WorkType wt  = e.workTypeId()  != null ? workMap.get(e.workTypeId())   : null;
+            LeaveType lt = e.leaveTypeId() != null ? leaveMap.get(e.leaveTypeId()) : null;
             AttendanceTemplate tmpl = e.attendanceTemplateId() != null ? tmplMap.get(e.attendanceTemplateId()) : null;
 
             LocalDateTime in, bs, be, out;
-            if (tp.getCategory() == ScheduleTypeCategory.LEAVE) {
+            if (e.category() == ScheduleTypeCategory.LEAVE) {
                 in = e.date().atStartOfDay();
                 bs = null;
                 be = null;
@@ -195,7 +220,7 @@ public class ScheduleCommandService {
                 }
             }
 
-            ScheduleTimeService.Interval newIv = toInterval(e.date(), tp.getCategory(), in, out);
+            ScheduleTimeService.Interval newIv = toInterval(e.date(), e.category(), in, out);
 
             List<Schedule> existedForEmp = existedByEmp.getOrDefault(emp.getId(), List.of()).stream()
                     .filter(s -> {
@@ -207,7 +232,7 @@ public class ScheduleCommandService {
             for (Schedule ex : existedForEmp) {
                 ScheduleTimeService.Interval exIv = toInterval(
                         ex.getRegisteredDate(),
-                        ex.getScheduleType().getCategory(),
+                        ex.getCategory(),
                         ex.getRegisteredClockIn(),
                         ex.getRegisteredClockOut()
                 );
@@ -234,7 +259,9 @@ public class ScheduleCommandService {
                     Schedule.builder()
                             .branch(br)
                             .employee(emp)
-                            .scheduleType(tp)
+                            .category(e.category())
+                            .workType(wt)
+                            .leaveType(lt)
                             .attendanceTemplate(tmpl)
                             .registeredDate(e.date())
                             .registeredClockIn(in)
@@ -259,22 +286,33 @@ public class ScheduleCommandService {
         ensureUpdatable(scheduleId);
 
         Employee employee = target.getEmployee();
-        ScheduleType type = scheduleTypeRepository.findById(dto.getScheduleTypeId())
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("스케줄 종류를 찾을 수 없습니다."));
+        Branch branch = branchRepository.findById(dto.getBranchId())
+                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("지점을 찾을 수 없습니다."));
+
+        WorkType workType = null;
+        LeaveType leaveType = null;
+        if (dto.getCategory() == ScheduleTypeCategory.WORK) {
+            if (dto.getWorkTypeId() == null) throw new IllegalArgumentException("근무 스케줄은 workTypeId가 필요합니다.");
+            workType = workTypeRepository.findById(dto.getWorkTypeId())
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
+        } else {
+            if (dto.getLeaveTypeId() == null) throw new IllegalArgumentException("휴가 스케줄은 leaveTypeId가 필요합니다.");
+            leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId())
+                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
+        }
+
         AttendanceTemplate template = null;
         if (dto.getAttendanceTemplateId() != null) {
             template = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId())
                     .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("템플릿을 찾을 수 없습니다."));
         }
-        Branch branch = branchRepository.findById(dto.getBranchId())
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("지점을 찾을 수 없습니다."));
 
         authz.ensurePermissionForWrite(auth, branch, employee, dto.getRegisteredDate());
 
         LocalDate date = dto.getRegisteredDate();
 
         LocalDateTime in, bs, be, out;
-        if (type.getCategory() == ScheduleTypeCategory.LEAVE) {
+        if (dto.getCategory() == ScheduleTypeCategory.LEAVE) {
             in = bs = be = out = null;
         } else {
             in  = time.coalesceDateTime(dto.getRegisteredClockIn(),  date, template != null ? template.getDefaultClockIn()  : null);
@@ -286,9 +324,9 @@ public class ScheduleCommandService {
             }
         }
 
-        validator.validateNoConflictOnSave(employee, date, branch.getId(), type.getCategory(), in, out, target.getId());
+        validator.validateNoConflictOnSave(employee, date, branch.getId(), dto.getCategory(), in, out, target.getId());
 
-        target.change(branch, type, template, date, in, bs, be, out);
+        target.change(branch, dto.getCategory(), workType, leaveType, template, date, in, bs, be, out);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(target.getId()).orElse(null);
         return ScheduleDetailDto.from(target, ev);
     }

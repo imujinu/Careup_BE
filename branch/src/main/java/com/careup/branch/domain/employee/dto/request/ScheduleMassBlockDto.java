@@ -1,15 +1,15 @@
 package com.careup.branch.domain.employee.dto.request;
 
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.List;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
 
 @Getter
 @Builder
@@ -21,7 +21,11 @@ public class ScheduleMassBlockDto {
     private Long branchId;
 
     @NotNull
-    private Long scheduleTypeId;
+    private ScheduleTypeCategory category;
+
+    private Long workTypeId;
+
+    private Long leaveTypeId;
 
     private Long attendanceTemplateId;
 

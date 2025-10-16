@@ -1,18 +1,8 @@
 package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -24,9 +14,14 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ScheduleEvent extends BaseTimeEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    // ★ 낙관적 락(중복 클릭/경합 방지)
+    @Version
+    private Long version;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "schedule_id", unique = true)
@@ -77,4 +72,14 @@ public class ScheduleEvent extends BaseTimeEntity {
     public void clearMissedCheckout() { this.missedCheckout = false; }
     public void changeTotalWorkMinutes(int v) { this.totalWorkMinutes = Math.max(v, 0); }
     public void changeTotalBreakMinutes(int v) { this.totalBreakMinutes = Math.max(v, 0); }
+
+    // ★ 위치 좌표 세터
+    public void setClockInLatLon(BigDecimal lat, BigDecimal lon) {
+        this.clockInLat = lat;
+        this.clockInLon = lon;
+    }
+    public void setClockOutLatLon(BigDecimal lat, BigDecimal lon) {
+        this.clockOutLat = lat;
+        this.clockOutLon = lon;
+    }
 }

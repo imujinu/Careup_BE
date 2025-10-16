@@ -15,24 +15,14 @@ import java.time.LocalDateTime;
 public class ScheduleCalendarDto {
 
     private Long id;
-
     private Long employeeId;
-
     private String employeeName;
-
     private Long branchId;
-
     private String branchName;
-
     private LocalDate date;
-
     private String title;
-
     private LocalDateTime startAt;
-
     private LocalDateTime endAt;
-
     private boolean allDay;
-
     private String timeSource;
 }

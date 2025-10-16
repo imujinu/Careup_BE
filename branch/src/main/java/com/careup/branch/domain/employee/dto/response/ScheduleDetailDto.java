@@ -17,45 +17,48 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ScheduleDetailDto {
     private Long id;
-
-    // 직원
     private Long employeeId;
     private String employeeName;
-
-    // 지점 (추가)
     private Long branchId;
     private String branchName;
-
-    // 스케줄 타입/템플릿
-    private Long scheduleTypeId;
-    private String scheduleTypeName;
-    private ScheduleTypeCategory scheduleTypeCategory;
+    private ScheduleTypeCategory category;
+    private Long workTypeId;
+    private String workTypeName;
+    private Long leaveTypeId;
+    private String leaveTypeName;
     private Long attendanceTemplateId;
     private String attendanceTemplateName;
 
-    // 계획(등록) 시간
     private LocalDate registeredDate;
     private LocalDateTime registeredClockIn;
     private LocalDateTime registeredBreakStart;
     private LocalDateTime registeredBreakEnd;
     private LocalDateTime registeredClockOut;
 
-    // 실제(이벤트) 시간
     private LocalDateTime actualClockIn;
     private LocalDateTime actualBreakStart;
     private LocalDateTime actualBreakEnd;
     private LocalDateTime actualClockOut;
 
+    // ★ 추가: 실제 누적 시간(분)
+    private Integer actualWorkMinutes;   // 출근~퇴근 - 휴게
+    private Integer actualBreakMinutes;  // 휴게 시작~종료
+
     public static ScheduleDetailDto from(Schedule s, ScheduleEvent e) {
+        Integer workMin  = (e != null) ? e.getTotalWorkMinutes()   : null;
+        Integer breakMin = (e != null) ? e.getTotalBreakMinutes()  : null;
+
         return ScheduleDetailDto.builder()
                 .id(s.getId())
                 .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
                 .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
-                .branchId(s.getBranch() != null ? s.getBranch().getId() : null)                 // 추가
-                .branchName(s.getBranch() != null ? s.getBranch().getName() : null)             // 추가
-                .scheduleTypeId(s.getScheduleType() != null ? s.getScheduleType().getId() : null)
-                .scheduleTypeName(s.getScheduleType() != null ? s.getScheduleType().getName() : null)
-                .scheduleTypeCategory(s.getScheduleType() != null ? s.getScheduleType().getCategory() : null)
+                .branchId(s.getBranch() != null ? s.getBranch().getId() : null)
+                .branchName(s.getBranch() != null ? s.getBranch().getName() : null)
+                .category(s.getCategory())
+                .workTypeId(s.getWorkType() != null ? s.getWorkType().getId() : null)
+                .workTypeName(s.getWorkType() != null ? s.getWorkType().getName() : null)
+                .leaveTypeId(s.getLeaveType() != null ? s.getLeaveType().getId() : null)
+                .leaveTypeName(s.getLeaveType() != null ? s.getLeaveType().getName() : null)
                 .attendanceTemplateId(s.getAttendanceTemplate() != null ? s.getAttendanceTemplate().getId() : null)
                 .attendanceTemplateName(s.getAttendanceTemplate() != null ? s.getAttendanceTemplate().getName() : null)
                 .registeredDate(s.getRegisteredDate())
@@ -67,6 +70,8 @@ public class ScheduleDetailDto {
                 .actualBreakStart(e != null ? e.getBreakStartAt() : null)
                 .actualBreakEnd(e != null ? e.getBreakEndAt() : null)
                 .actualClockOut(e != null ? e.getClockOutAt() : null)
+                .actualWorkMinutes(workMin)
+                .actualBreakMinutes(breakMin)
                 .build();
     }
 }

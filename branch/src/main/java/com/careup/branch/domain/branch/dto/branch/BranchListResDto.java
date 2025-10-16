@@ -2,25 +2,25 @@ package com.careup.branch.domain.branch.dto.branch;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-@Data
+@Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class BranchListResDto {
 
     private List<BranchDto> data;
-    private int currentPage; // 현재 페이지 (0부터 시작)
-    private int totalPages; // 전체 페이지 수
-    private long totalElements; // 전체 요소 수
-    private int size; // 페이지당 요소 수
-    private boolean first; // 첫 번째 페이지 여부
-    private boolean last; // 마지막 페이지 여부
+    private int currentPage;
+    private int totalPages;
+    private long totalElements;
+    private int size;
+    private boolean first;
+    private boolean last;
 
     public static BranchListResDto fromPage(Page<BranchDto> page) {
         return BranchListResDto.builder()
