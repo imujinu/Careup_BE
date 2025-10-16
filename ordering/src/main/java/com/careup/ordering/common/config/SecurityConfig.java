@@ -27,6 +27,7 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable());
         http.httpBasic(b -> b.disable());
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.cors(cors -> {}); // CORS 활성화
 
         http.authorizeHttpRequests(auth -> auth
                 // 공용 공개
