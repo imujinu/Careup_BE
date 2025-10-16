@@ -24,6 +24,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -130,9 +131,15 @@ public class AuthService {
     public AuthRefreshResponse refresh(String refreshToken) {
         Claims claims = jwt.validateRefreshToken(refreshToken);
         Long memberId = Long.valueOf(claims.getSubject());
+        long rtIatMs = claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : 0L;
 
-        if (revokeStore.readCutoverAt(memberId).isPresent()) {
-            throw new IllegalArgumentException("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
+        // 컷오프 도래 이후 + 컷오프 이전 발급 RT 는 차단 (존재만으로 차단하지 않음)
+        Optional<Long> cutOpt = revokeStore.readCutoverAt(memberId);
+        if (cutOpt.isPresent()) {
+            long cut = cutOpt.get();
+            if (System.currentTimeMillis() >= cut && rtIatMs < cut) {
+                throw new IllegalArgumentException("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
+            }
         }
 
         Member m = memberRepository.findById(memberId)
@@ -207,6 +214,7 @@ public class AuthService {
 
         m.changePassword(passwordEncoder.encode(newPassword));
 
+        // 10초 후 컷오프 + RT 폐기 (브랜치와 동일 전략)
         revokeStore.scheduleCutoverAfterSeconds(m.getId(), 10);
         jwt.revokeRefreshToken(m.getId());
 
