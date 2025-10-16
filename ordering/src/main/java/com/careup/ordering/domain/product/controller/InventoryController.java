@@ -113,6 +113,23 @@ public class InventoryController {
         return ResponseEntity.ok(convertToInventoryFlowResponse(flow));
     }
 
+    // 입출고 기록 수정
+    @PutMapping("/flow/{flowId}")
+    public ResponseEntity<InventoryFlowResponseDto> updateInventoryFlow(
+            @PathVariable Long flowId,
+            @RequestBody InventoryFlowRequestDto request,
+            Authentication authentication) {
+        InventoryFlowDetail flow = inventoryService.updateInventoryFlow(
+                flowId,
+                request.getInQuantity(),
+                request.getOutQuantity(),
+                request.getRemark(),
+                authentication
+        );
+        
+        return ResponseEntity.ok(convertToInventoryFlowResponse(flow));
+    }
+
     // 입출고 기록 삭제
     @DeleteMapping("/flow/{flowId}")
     public ResponseEntity<Void> deleteInventoryFlow(@PathVariable Long flowId, Authentication authentication) {

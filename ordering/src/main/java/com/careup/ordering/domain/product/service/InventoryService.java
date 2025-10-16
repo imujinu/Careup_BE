@@ -380,6 +380,42 @@ public class InventoryService {
         }
     }
 
+    // 입출고 기록 수정
+    public InventoryFlowDetail updateInventoryFlow(Long flowId, Long inQuantity, Long outQuantity, String remark, Authentication auth) {
+        InventoryFlowDetail flow = inventoryFlowDetailRepository.findById(flowId)
+                .orElseThrow(() -> new IllegalArgumentException("입출고 기록을 찾을 수 없습니다: " + flowId));
+
+        if (auth != null) {
+            validateBranchAccess(auth, flow.getBranchProduct().getBranchId());
+        }
+        
+        // 기존 수량과 새 수량의 차이 계산
+        Long inDiff = (inQuantity != null ? inQuantity : 0L) - (flow.getInQuantity() != null ? flow.getInQuantity() : 0L);
+        Long outDiff = (outQuantity != null ? outQuantity : 0L) - (flow.getOutQuantity() != null ? flow.getOutQuantity() : 0L);
+        
+        // 재고 수량 업데이트
+        BranchProduct branchProduct = flow.getBranchProduct();
+        if (inDiff != 0) {
+            branchProduct.increaseStock(inDiff);
+        }
+        if (outDiff != 0) {
+            branchProduct.decreaseStock(outDiff);
+        }
+        
+        // 입출고 기록 업데이트
+        flow.updateFlow(inQuantity, outQuantity, remark);
+        InventoryFlowDetail savedFlow = inventoryFlowDetailRepository.save(flow);
+        
+        // 캐시 무효화
+        String cacheKey = INVENTORY_CACHE_PREFIX + branchProduct.getBranchId();
+        redisTemplate.delete(cacheKey);
+        
+        // Kafka 이벤트 발행
+        publishInventoryChangeEvent(branchProduct, inDiff - outDiff, "ADJUST", "입출고 기록 수정");
+        
+        return savedFlow;
+    }
+
     // 입출고 기록 삭제
     public void deleteInventoryFlow(Long flowId, Authentication auth) {
         InventoryFlowDetail flow = inventoryFlowDetailRepository.findById(flowId)
