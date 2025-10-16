@@ -231,10 +231,13 @@ public class InventoryService {
     public List<BranchProduct> getBranchProducts(Long branchId, Authentication auth) {
         // 권한 체크: Authentication이 null이면 시스템 내부 호출로 간주
         if (auth != null) {
-            validateBranchAccess(auth, branchId);
+            // 본사 상품 조회 시에는 권한 체크 안함 (상품 등록할 때 가맹점이 본사 상품 목록을 볼 수 있도록)
+            if (branchId != 1L) {
+                validateBranchAccess(auth, branchId);
+            }
         }
         
-        return branchProductRepository.findByBranchId(branchId);
+        return branchProductRepository.findByBranchIdWithProduct(branchId);
     }
 
     // 특정 상품의 지점별 재고 조회

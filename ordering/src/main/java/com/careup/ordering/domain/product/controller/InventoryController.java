@@ -155,17 +155,7 @@ public class InventoryController {
     // ==================== DTO 변환 메서드 ====================
     
     private BranchProductResponseDto convertToBranchProductResponse(BranchProduct branchProduct) {
-        return new BranchProductResponseDto(
-                branchProduct.getId(),
-                branchProduct.getProduct().getId(),
-                branchProduct.getBranchId(),
-                branchProduct.getSerialNumber(),
-                branchProduct.getStockQuantity(),
-                branchProduct.getSafetystock(),
-                branchProduct.getPrice(),
-                branchProduct.getProduct().getName(),
-                branchProduct.getProduct().getDescription()
-        );
+        return BranchProductResponseDto.from(branchProduct);
     }
 
     private InventoryFlowResponseDto convertToInventoryFlowResponse(InventoryFlowDetail flow) {
