@@ -30,4 +30,9 @@ public class LeaveType extends BaseTimeEntity {
     @Column(nullable = false)
     @Builder.Default
     private Boolean paid = false;
+
+    public void change(String name, Boolean paid) {
+        this.name = name;
+        this.paid = Boolean.TRUE.equals(paid);
+    }
 }

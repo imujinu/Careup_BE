@@ -7,14 +7,21 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalTime;
+
 @Getter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class WorkTypeUpsertDto {
+public class AttendanceTemplateUpsertDto {
 
     @NotBlank
-    @Size(max = 20)
+    @Size(max = 100)
     private String name;
-    private Boolean geofenceRequired;
+
+    // 시간들은 선택 입력 (null 허용)
+    private LocalTime defaultClockIn;
+    private LocalTime defaultBreakStart;
+    private LocalTime defaultBreakEnd;
+    private LocalTime defaultClockOut;
 }

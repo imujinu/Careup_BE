@@ -46,31 +46,39 @@ public class AttendanceService {
     }
 
     /* =======================
-       Public APIs (실사용: now)
+       Public APIs (실사용)
        ======================= */
 
     @Transactional
     public ScheduleEventDetailDto clockIn(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime now = LocalDateTime.now();
-        return clockInAt(scheduleId, req != null ? req.getLat() : null, req != null ? req.getLng() : null, now);
+        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
+        Double lat = (req != null) ? req.getLat() : null;
+        Double lng = (req != null) ? req.getLng() : null;
+        return clockInAt(scheduleId, lat, lng, ts);
     }
 
     @Transactional
     public ScheduleEventDetailDto breakStart(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime now = LocalDateTime.now();
-        return breakStartAt(scheduleId, req != null ? req.getLat() : null, req != null ? req.getLng() : null, now);
+        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
+        Double lat = (req != null) ? req.getLat() : null;
+        Double lng = (req != null) ? req.getLng() : null;
+        return breakStartAt(scheduleId, lat, lng, ts);
     }
 
     @Transactional
     public ScheduleEventDetailDto breakEnd(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime now = LocalDateTime.now();
-        return breakEndAt(scheduleId, req != null ? req.getLat() : null, req != null ? req.getLng() : null, now);
+        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
+        Double lat = (req != null) ? req.getLat() : null;
+        Double lng = (req != null) ? req.getLng() : null;
+        return breakEndAt(scheduleId, lat, lng, ts);
     }
 
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
     public ScheduleEventDetailDto clockOut(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime now = LocalDateTime.now();
-        return clockOutAt(scheduleId, req != null ? req.getLat() : null, req != null ? req.getLng() : null, now);
+        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
+        Double lat = (req != null) ? req.getLat() : null;
+        Double lng = (req != null) ? req.getLng() : null;
+        return clockOutAt(scheduleId, lat, lng, ts);
     }
 
     /* =======================================
@@ -108,7 +116,7 @@ public class AttendanceService {
         }
 
         validateTimeline(ev);
-        recomputeTotals(ev); // ★ 합산 업데이트
+        recomputeTotals(ev);
 
         AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
         return ScheduleEventDetailDto.of(s, ev, st);
@@ -137,7 +145,7 @@ public class AttendanceService {
         ev.changeBreakStart(actionAt);
 
         validateTimeline(ev);
-        recomputeTotals(ev); // ★ 합산 업데이트
+        recomputeTotals(ev);
 
         AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
         return ScheduleEventDetailDto.of(s, ev, st);
@@ -163,7 +171,7 @@ public class AttendanceService {
         ev.changeBreakEnd(actionAt);
 
         validateTimeline(ev);
-        recomputeTotals(ev); // ★ 합산 업데이트
+        recomputeTotals(ev);
 
         AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
         return ScheduleEventDetailDto.of(s, ev, st);
@@ -206,7 +214,7 @@ public class AttendanceService {
             }
 
             validateTimeline(ev);
-            recomputeTotals(ev); // ★ 합산 업데이트
+            recomputeTotals(ev);
 
             AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
             return ScheduleEventDetailDto.of(s, ev, st);
@@ -271,7 +279,7 @@ public class AttendanceService {
             }
 
             validateTimeline(ev);
-            recomputeTotals(ev); // ★ 합산 업데이트
+            recomputeTotals(ev);
 
             AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
             return ScheduleEventDetailDto.of(s, ev, st);
@@ -324,22 +332,19 @@ public class AttendanceService {
         }
     }
 
-    /* ===== 합산 로직 (여기가 핵심) ===== */
+    /* ===== 합산 로직 ===== */
 
     private void recomputeTotals(ScheduleEvent e) {
-        // 휴게 시간 계산 (단일 구간)
         int breakMin = 0;
         if (e.getBreakStartAt() != null && e.getBreakEndAt() != null) {
             breakMin = safeMinutesBetween(e.getBreakStartAt(), e.getBreakEndAt());
         }
         e.changeTotalBreakMinutes(breakMin);
 
-        // 실제 근무 시간 = (출근~퇴근) - 휴게
         if (e.getClockInAt() != null && e.getClockOutAt() != null) {
             int total = safeMinutesBetween(e.getClockInAt(), e.getClockOutAt()) - breakMin;
             e.changeTotalWorkMinutes(Math.max(total, 0));
         } else {
-            // 퇴근 전에는 확정 근무분을 0으로 유지(원하면 임시 합계로 업데이트할 수도 있음)
             e.changeTotalWorkMinutes(0);
         }
     }

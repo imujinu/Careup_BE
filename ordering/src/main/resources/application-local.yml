@@ -81,7 +81,7 @@ payment:
 
 
 jwt:
-  accessTokenExpiryMinutes: 60   # 1분이 너무 적어서 테스트용 1시간으로 늘림
+  accessTokenExpiryMinutes: 30
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
   secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
@@ -102,3 +102,4 @@ careup:
 logging:
   level:
     root: info
+
