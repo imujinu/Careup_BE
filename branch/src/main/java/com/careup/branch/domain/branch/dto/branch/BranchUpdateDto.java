@@ -46,8 +46,6 @@ public class BranchUpdateDto {
     @NotBlank(message = "지점 전화번호는 필수입니다.")
     private String phone; // 지점 전화번호
 
-    private String profileImageUrl; // 지점 프로필 이미지
-
     @NotBlank(message = "대표 이메일은 필수입니다.")
     @Email(message = "이메일 형식이 올바르지 않습니다.")
     private String email; // 대표 이메일

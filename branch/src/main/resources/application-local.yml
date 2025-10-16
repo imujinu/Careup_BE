@@ -75,7 +75,7 @@ security:
 
 careup:
   mail:
-    reset-base-url: "http://localhost:3000/reset-password"
+    reset-base-url: "http://localhost:3000/reset-password"  # 비밀번호 재설정 링크 프론트 URL
 
 logging:
   level:

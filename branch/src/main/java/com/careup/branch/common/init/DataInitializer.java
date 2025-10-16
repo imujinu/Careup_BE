@@ -284,7 +284,6 @@ public class DataInitializer implements CommandLineRunner {
                 .address(address)
                 .addressDetail(addressDetail)
                 .phone(phone)
-                .profileImageUrl(null)
                 .email(email)
                 .location(location)
                 .geofenceRadius(geofenceRadius)
@@ -292,7 +291,7 @@ public class DataInitializer implements CommandLineRunner {
                 .attorneyName(null)
                 .attorneyPhoneNumber(null)
                 .build();
-        Branch saved = branchService.registerBranch(dto);
+        Branch saved = branchService.registerBranch(dto, null);
         return saved.getId();
     }
 
