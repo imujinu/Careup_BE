@@ -1,10 +1,7 @@
 package com.careup.branch.domain.branch.service;
 
 import com.careup.branch.common.file.AwsS3Uploader;
-import com.careup.branch.domain.branch.dto.branch.BranchDto;
-import com.careup.branch.domain.branch.dto.branch.BranchListResDto;
-import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
-import com.careup.branch.domain.branch.dto.branch.BranchUpdateDto;
+import com.careup.branch.domain.branch.dto.branch.*;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import jakarta.validation.Valid;
@@ -15,6 +12,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -154,5 +155,80 @@ public class BranchService {
         branchRepository.delete(branch);
     }
 
+    /**
+     * Branch ID 목록으로 Branch 정보 조회 (ordering 서비스용)
+     */
+    public List<BranchSimpleDto> getBranchesByIds(List<Long> branchIds) {
+        List<Branch> branches = branchRepository.findAllById(branchIds);
 
+        return branches.stream()
+                .map(branch -> BranchSimpleDto.builder()
+                        .id(branch.getId())
+                        .name(branch.getName())
+                        .address(branch.getAddress())
+                        .addressDetail(branch.getAddressDetail())
+                        .latitude(branch.getLatitude())
+                        .longitude(branch.getLongitude())
+                        .phone(branch.getPhone())
+                        .email(branch.getEmail())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 특정 지점의 인근 지점 조회 (위치 기반)
+     */
+    public List<NearbyBranchDto> getNearbyBranches(Long branchId, Double radiusKm) {
+        Branch targetBranch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
+
+        if (targetBranch.getLatitude() == null || targetBranch.getLongitude() == null) {
+            throw new IllegalArgumentException("해당 지점의 위치 정보가 없습니다.");
+        }
+
+        // 모든 지점 조회 (자신 제외)
+        List<Branch> allBranches = branchRepository.findAll().stream()
+                .filter(branch -> !branch.getId().equals(branchId))
+                .filter(branch -> branch.getLatitude() != null && branch.getLongitude() != null)
+                .collect(Collectors.toList());
+
+        // 거리 계산 및 반경 내 지점 필터링
+        return allBranches.stream()
+                .map(branch -> {
+                    double distance = calculateDistance(
+                            targetBranch.getLatitude(), targetBranch.getLongitude(),
+                            branch.getLatitude(), branch.getLongitude()
+                    );
+
+                    return NearbyBranchDto.builder()
+                            .id(branch.getId())
+                            .name(branch.getName())
+                            .address(branch.getAddress())
+                            .latitude(branch.getLatitude())
+                            .longitude(branch.getLongitude())
+                            .distance(distance)
+                            .build();
+                })
+                .filter(dto -> dto.getDistance() <= radiusKm)
+                .sorted(Comparator.comparing(NearbyBranchDto::getDistance))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Haversine 공식을 사용한 두 지점 간 거리 계산 (km)
+     */
+    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+        final int EARTH_RADIUS = 6371; // 지구 반경 (km)
+
+        double latDistance = Math.toRadians(lat2 - lat1);
+        double lonDistance = Math.toRadians(lon2 - lon1);
+
+        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return EARTH_RADIUS * c;
+    }
 }
