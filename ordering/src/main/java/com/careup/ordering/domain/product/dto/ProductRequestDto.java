@@ -17,4 +17,3 @@ public class ProductRequestDto {
     private String imageUrl;
     private String visibility;
 }
-

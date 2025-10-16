@@ -11,10 +11,10 @@ import java.util.Optional;
 
 @Repository
 public interface BranchProductRepository extends JpaRepository<BranchProduct, Long> {
-    
+
     // 지점별 상품 조회
     List<BranchProduct> findByBranchId(Long branchId);
-    
+
     // 지점&상품으로 조회
     @Query("SELECT bp FROM BranchProduct bp WHERE bp.branchId = :branchId AND bp.product.id = :productId")
     Optional<BranchProduct> findByBranchIdAndProductId(@Param("branchId") Long branchId, @Param("productId") Long productId);

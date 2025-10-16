@@ -15,4 +15,3 @@ public class BranchProductRequestDto {
     private Long safetyStock;
     private Long price;
 }
-

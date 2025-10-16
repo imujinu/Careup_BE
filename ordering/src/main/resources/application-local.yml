@@ -16,6 +16,13 @@ spring:
   redis:
     host: localhost
     port: 6379
+    database: 0
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
     url: jdbc:mariadb://localhost:3306/careup
@@ -34,9 +41,18 @@ spring:
       max-file-size: 1000MB
       max-request-size: 1000MB
   kafka:
+    enabled: false  # Kafka 비활성화
     bootstrap-servers: localhost:9092
     consumer:
-      group-id: test-topic-group-02
+      group-id: ordering-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.careup.ordering,com.careup.branch"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
   mail:
     host: smtp.gmail.com
     port: 587
@@ -59,8 +75,13 @@ cloud:
     s3:
       bucket: ${S3_BUCKET}
 
+payment:
+  toss:
+    secret-key: test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6  # 토스 테스트 키
+
+
 jwt:
-  accessTokenExpiryMinutes: 1   # 테스트용: 1분
+  accessTokenExpiryMinutes: 60   # 1분이 너무 적어서 테스트용 1시간으로 늘림
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
   secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
@@ -81,4 +102,3 @@ careup:
 logging:
   level:
     root: info
-
