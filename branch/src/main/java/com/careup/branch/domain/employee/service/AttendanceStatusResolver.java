@@ -14,8 +14,9 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AttendanceStatusResolver {
 
-    private static final long LATE_MINUTES_THRESHOLD = 1;
-    private static final long EARLY_MINUTES_THRESHOLD = 1;
+    private static final long LATE_MINUTES_THRESHOLD = 1;   // 지각 임계 (분)
+    private static final long EARLY_MINUTES_THRESHOLD = 1;  // 조퇴 임계 (분)
+    private static final long OVERTIME_GRACE_MINUTES = 30;   // 초과근무 그레이스 (분)
 
     private final ScheduleTimeService time;
 
@@ -24,11 +25,13 @@ public class AttendanceStatusResolver {
             return AttendanceStatus.LEAVE;
         }
 
+        // 등록값 (자정 넘김 보정)
         LocalDateTime regInRaw  = s.getRegisteredClockIn();
         LocalDateTime regOutRaw = s.getRegisteredClockOut();
         LocalDateTime regIn  = regInRaw;
         LocalDateTime regOut = time.normalizeOut(regInRaw, regOutRaw);
 
+        // 실제 이벤트
         LocalDateTime in  = e != null ? e.getClockInAt()    : null;
         LocalDateTime brS = e != null ? e.getBreakStartAt() : null;
         LocalDateTime brE = e != null ? e.getBreakEndAt()   : null;
@@ -41,17 +44,22 @@ public class AttendanceStatusResolver {
 
         if (missedFlag) return AttendanceStatus.MISSED_CHECKOUT;
 
+        // 퇴근 판정
         if (out != null) {
             if (regOut != null) {
-                if (out.isAfter(regOut)) return AttendanceStatus.OVERTIME;
-                long early = Duration.between(out, regOut).toMinutes();
-                if (early >= EARLY_MINUTES_THRESHOLD) return AttendanceStatus.EARLY_LEAVE;
+                long afterMin = Duration.between(regOut, out).toMinutes(); // +면 등록보다 늦게 퇴근
+                long earlyMin = Duration.between(out, regOut).toMinutes(); // +면 등록보다 일찍 퇴근
+                if (afterMin >= OVERTIME_GRACE_MINUTES) return AttendanceStatus.OVERTIME;
+                if (earlyMin >= EARLY_MINUTES_THRESHOLD) return AttendanceStatus.EARLY_LEAVE;
             }
+            // 등록과 동일 또는 그레이스 이내 초과 ⇒ 정상 퇴근
             return AttendanceStatus.CLOCKED_OUT;
         }
 
+        // 휴게 중
         if (brS != null && brE == null) return AttendanceStatus.ON_BREAK;
 
+        // 근무 중
         if (in != null) {
             if (pastDay || pastRegOut) return AttendanceStatus.MISSED_CHECKOUT;
             if (regIn != null) {
@@ -61,8 +69,10 @@ public class AttendanceStatusResolver {
             return AttendanceStatus.CLOCKED_IN;
         }
 
+        // 당일 지나갔는데 아무 기록 없음
         if (pastDay) return AttendanceStatus.ABSENT;
 
+        // 예정
         return AttendanceStatus.PLANNED;
     }
 }

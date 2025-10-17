@@ -2,21 +2,15 @@ package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalTime;
+import lombok.*;
 
 @Entity
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(
-        name = "attendance_template",
-        uniqueConstraints = {
-                @UniqueConstraint(name = "uk_attendance_template_name", columnNames = {"name"})
-        }
-)
+@Table(name = "attendance_template")
 public class AttendanceTemplate extends BaseTimeEntity {
 
     @Id
@@ -24,7 +18,7 @@ public class AttendanceTemplate extends BaseTimeEntity {
     private Long id;
 
     @Column(length = 100, nullable = false)
-    private String name; // 유니크로 강화
+    private String name;
 
     @Column
     private LocalTime defaultClockIn;
@@ -37,4 +31,16 @@ public class AttendanceTemplate extends BaseTimeEntity {
 
     @Column
     private LocalTime defaultClockOut;
+
+    public void change(String name,
+                       LocalTime defaultClockIn,
+                       LocalTime defaultBreakStart,
+                       LocalTime defaultBreakEnd,
+                       LocalTime defaultClockOut) {
+        this.name = name;
+        this.defaultClockIn = defaultClockIn;
+        this.defaultBreakStart = defaultBreakStart;
+        this.defaultBreakEnd = defaultBreakEnd;
+        this.defaultClockOut = defaultClockOut;
+    }
 }

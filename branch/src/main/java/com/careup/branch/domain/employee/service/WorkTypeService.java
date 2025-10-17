@@ -29,12 +29,13 @@ public class WorkTypeService {
 
     @Transactional
     public WorkTypeDetailDto create(WorkTypeUpsertDto dto) {
-        if (workTypeRepository.existsByNameIgnoreCase(dto.getName())) throw new IllegalArgumentException("이미 사용 중인 이름입니다.");
+        if (workTypeRepository.existsByNameIgnoreCase(dto.getName())) {
+            throw new IllegalArgumentException("이미 사용 중인 이름입니다.");
+        }
         WorkType saved = workTypeRepository.save(
                 WorkType.builder()
                         .name(dto.getName())
                         .geofenceRequired(Boolean.TRUE.equals(dto.getGeofenceRequired()))
-                        .geofenceRadiusMeters(dto.getGeofenceRadiusMeters())
                         .build()
         );
         return WorkTypeDetailDto.fromEntity(saved);
@@ -42,17 +43,17 @@ public class WorkTypeService {
 
     @Transactional
     public WorkTypeDetailDto update(Long id, WorkTypeUpsertDto dto) {
-        WorkType target = workTypeRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
-        if (!target.getName().equalsIgnoreCase(dto.getName()) && workTypeRepository.existsByNameIgnoreCase(dto.getName())) {
+        WorkType target = workTypeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
+
+        if (!target.getName().equalsIgnoreCase(dto.getName())
+                && workTypeRepository.existsByNameIgnoreCase(dto.getName())) {
             throw new IllegalArgumentException("이미 사용 중인 이름입니다.");
         }
-        target = WorkType.builder()
-                .id(target.getId())
-                .name(dto.getName())
-                .geofenceRequired(Boolean.TRUE.equals(dto.getGeofenceRequired()))
-                .geofenceRadiusMeters(dto.getGeofenceRadiusMeters())
-                .build();
-        return WorkTypeDetailDto.fromEntity(workTypeRepository.save(target));
+
+        // 의미 있는 변경 메서드로 갱신 (재조립 저장 금지)
+        target.change(dto.getName(), dto.getGeofenceRequired());
+        return WorkTypeDetailDto.fromEntity(target);
     }
 
     @Transactional

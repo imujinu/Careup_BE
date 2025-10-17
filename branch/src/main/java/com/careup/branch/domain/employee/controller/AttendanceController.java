@@ -10,14 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/attendance")
@@ -37,8 +30,9 @@ public class AttendanceController {
                 .build());
     }
 
+    /** 관리/보정: 관리자만 가능 */
     @PatchMapping("/event/{scheduleId}")
-    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> upsertEvent(@PathVariable Long scheduleId,
                                                         @Valid @RequestBody ScheduleEventUpdateDto req) {
         ScheduleEventDetailDto result = attendanceService.upsertEvent(scheduleId, req);
@@ -49,8 +43,9 @@ public class AttendanceController {
                 .build());
     }
 
+    /** 삭제: 관리자만 가능 */
     @DeleteMapping("/event/{scheduleId}")
-    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> deleteEvent(@PathVariable Long scheduleId) {
         attendanceService.deleteEvent(scheduleId);
         return ResponseEntity.ok(CommonSuccessDto.builder()
@@ -60,8 +55,7 @@ public class AttendanceController {
                 .build());
     }
 
-    // 액션 엔드포인트 (서버 now 기록 + 지오펜스 검증)
-
+    // 액션 엔드포인트 (서버 now + 지오펜스 검증) — STAFF 포함 허용
     @PostMapping("/event/{scheduleId}/clock-in")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> clockIn(@PathVariable Long scheduleId,

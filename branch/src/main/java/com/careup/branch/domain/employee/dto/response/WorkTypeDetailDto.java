@@ -14,14 +14,12 @@ public class WorkTypeDetailDto {
     private Long id;
     private String name;
     private Boolean geofenceRequired;
-    private Integer geofenceRadiusMeters;
 
     public static WorkTypeDetailDto fromEntity(WorkType e) {
         return WorkTypeDetailDto.builder()
                 .id(e.getId())
                 .name(e.getName())
                 .geofenceRequired(e.getGeofenceRequired())
-                .geofenceRadiusMeters(e.getGeofenceRadiusMeters())
                 .build();
     }
 }

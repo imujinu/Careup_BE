@@ -1,6 +1,5 @@
 package com.careup.branch.domain.employee.dto.request;
 
-import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,12 +14,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ScheduleUpdateDto {
 
-    @NotNull
-    private ScheduleTypeCategory category;
-
-    private Long workTypeId;
-
-    private Long leaveTypeId;
+    // category는 더 이상 클라이언트에서 받지 않음
+    private Long workTypeId;   // 근무로 전환/유지 시 사용
+    private Long leaveTypeId;  // 휴가로 전환/유지 시 사용
 
     @NotNull
     private Long branchId;

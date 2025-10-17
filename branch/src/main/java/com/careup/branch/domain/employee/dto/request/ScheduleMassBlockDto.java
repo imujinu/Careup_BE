@@ -1,6 +1,5 @@
 package com.careup.branch.domain.employee.dto.request;
 
-import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
@@ -20,11 +19,8 @@ public class ScheduleMassBlockDto {
     @NotNull
     private Long branchId;
 
-    @NotNull
-    private ScheduleTypeCategory category;
-
+    // category 제거. 서버가 workTypeId/leaveTypeId 존재로 판정
     private Long workTypeId;
-
     private Long leaveTypeId;
 
     private Long attendanceTemplateId;
@@ -36,10 +32,7 @@ public class ScheduleMassBlockDto {
     private List<LocalDate> dates;
 
     private LocalTime registeredClockInTime;
-
     private LocalTime registeredBreakStartTime;
-
     private LocalTime registeredBreakEndTime;
-
     private LocalTime registeredClockOutTime;
 }
