@@ -37,11 +37,11 @@ public class HqSalesService {
         LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
         LocalDateTime endDateTime = request.getEndDate().atTime(LocalTime.MAX);
 
-        // 전체 지점 주문 조회
+        // 정해진 기간 내 전체 지점 주문 조회
         List<Order> orders = orderRepository.findAllByOrderStatusAndCreatedAtBetween(
                 OrderStatus.CONFIRMED, startDateTime, endDateTime);
 
-        // 기간별 통계 계산
+        // 기간별 통계 계산 -> 일별(DAY), 주별(WEEK), 월별(MONTH)
         List<AllBranchesSalesDto> salesData;
         String periodType = request.getPeriodType() != null ? request.getPeriodType() : "DAY";
 
@@ -74,9 +74,10 @@ public class HqSalesService {
     }
 
     /**
-     * 일별 전체 지점 매출 통계
+     * 일별(DAY) 전체 지점 매출 통계
      */
     private List<AllBranchesSalesDto> calculateAllBranchesDailySales(List<Order> orders) {
+        // 일자별 주문 그룹화
         Map<LocalDate, List<Order>> dailyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order -> order.getCreatedAt().toLocalDate()));
 
@@ -148,9 +149,10 @@ public class HqSalesService {
     }
 
     /**
-     * 월별 전체 지점 매출 통계
+     * 월별(MONTH) 전체 지점 매출 통계
      */
     private List<AllBranchesSalesDto> calculateAllBranchesMonthlySales(List<Order> orders) {
+        // 월별 주문 그룹화
         Map<String, List<Order>> monthlyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order ->
                         order.getCreatedAt().getYear() + "-" +
@@ -338,6 +340,7 @@ public class HqSalesService {
         LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
         LocalDateTime endDateTime = request.getEndDate().atTime(LocalTime.MAX);
 
+        // 비교할 지점 ID 목록
         List<Long> branchIds = request.getBranchIds();
         if (branchIds == null || branchIds.isEmpty()) {
             throw new IllegalArgumentException("비교할 지점을 선택해주세요.");

@@ -24,5 +24,10 @@ public interface BranchClient {
     Map<String, Object> getNearbyBranches(
             @PathVariable("branchId") Long branchId,
             @RequestParam(value = "radiusKm", defaultValue = "10.0") Double radiusKm);
-}
 
+    /**
+     * 지점의 예상 매출액 조회 (branch 모듈의 SalesForecast 사용)
+     */
+    @GetMapping("/sales-forecast/branch/{branchId}")
+    Map<String, Object> getBranchSalesForecast(@PathVariable("branchId") Long branchId);
+}

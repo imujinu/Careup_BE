@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
+/**
+ * 본점 관리자(HQ_ADMIN) 전용 매출 관련 API
+ */
 @RestController
 @RequestMapping("/hq/sales")
 @RequiredArgsConstructor
@@ -36,11 +39,7 @@ public class HqSalesController {
             @RequestParam(defaultValue = "DAY") String periodType) {
 
         try {
-            HqSalesRequestDto request = new HqSalesRequestDto();
-            request.setStartDate(startDate);
-            request.setEndDate(endDate);
-            request.setPeriodType(periodType);
-
+            HqSalesRequestDto request = HqSalesRequestDto.withDates(startDate, endDate, periodType);
             AllBranchesSalesResponseDto response = hqSalesService.getAllBranchesSales(request);
 
             return ResponseEntity.ok(
@@ -73,11 +72,7 @@ public class HqSalesController {
             @RequestParam(defaultValue = "DAY") String periodType) {
 
         try {
-            HqSalesRequestDto request = new HqSalesRequestDto();
-            request.setStartDate(startDate);
-            request.setEndDate(endDate);
-            request.setPeriodType(periodType);
-
+            HqSalesRequestDto request = HqSalesRequestDto.withDates(startDate, endDate, periodType);
             BranchSalesDetailResponseDto response = hqSalesService.getBranchSalesDetail(branchId, request);
 
             return ResponseEntity.ok(
@@ -110,12 +105,7 @@ public class HqSalesController {
             @RequestParam(defaultValue = "DAY") String periodType) {
 
         try {
-            HqSalesRequestDto request = new HqSalesRequestDto();
-            request.setBranchIds(branchIds);
-            request.setStartDate(startDate);
-            request.setEndDate(endDate);
-            request.setPeriodType(periodType);
-
+            HqSalesRequestDto request = HqSalesRequestDto.withDatesAndBranchIds(branchIds, startDate, endDate, periodType);
             BranchComparisonResponseDto response = hqSalesService.compareBranchesSales(request);
 
             return ResponseEntity.ok(

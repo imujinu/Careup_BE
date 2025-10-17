@@ -3,15 +3,16 @@ package com.careup.ordering.domain.order.controller;
 import com.careup.ordering.common.dto.CommonErrorDto;
 import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.domain.order.dto.BranchComparisonDto;
-import com.careup.ordering.domain.order.dto.SalesForecastDto;
 import com.careup.ordering.domain.order.dto.request.SalesStatisticsRequestDto;
 import com.careup.ordering.domain.order.dto.response.ProductSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.SalesStatisticsResponseDto;
+import com.careup.ordering.domain.order.dto.response.SalesForecastResponseDto;
 import com.careup.ordering.domain.order.service.SalesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -30,6 +31,7 @@ public class SalesController {
      * GET /sales/statistics?branchId=1&startDate=2025-01-01&endDate=2025-01-31&periodType=DAY
      */
     @GetMapping("/statistics")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getSalesStatistics(
             @RequestParam Long branchId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
@@ -62,6 +64,7 @@ public class SalesController {
      * GET /sales/products?branchId=1&startDate=2025-01-01&endDate=2025-01-31&sortType=HIGH_MARGIN
      */
     @GetMapping("/products")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getProductSales(
             @RequestParam Long branchId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
@@ -93,6 +96,7 @@ public class SalesController {
      * GET /sales/comparison?branchId=1&startDate=2025-01-01&endDate=2025-01-31&radiusKm=10
      */
     @GetMapping("/comparison")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> compareBranchSales(
             @RequestParam Long branchId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
@@ -121,16 +125,17 @@ public class SalesController {
     }
 
     /**
-     * 소속 가맹점의 예상 매출액 조회
+     * 소속 가맹점의 예상 매출액 조회 (branch 모듈의 SalesForecast 사용)
      * GET /sales/forecast?branchId=1&targetDate=2025-01-31
      */
     @GetMapping("/forecast")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getSalesForecast(
             @RequestParam Long branchId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate targetDate) {
 
         try {
-            SalesForecastDto response = salesService.getSalesForecast(branchId, targetDate);
+            SalesForecastResponseDto response = salesService.getSalesForecast(branchId, targetDate);
 
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
@@ -143,7 +148,7 @@ public class SalesController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.NOT_FOUND.value())
-                            .status_message("소속 가먕점의 예상 매출액 조회 성공")
+                            .status_message("소속 가맹점의 예상 매출액 조회 실패: " + e.getMessage())
                             .build()
             );
         }
@@ -154,6 +159,7 @@ public class SalesController {
      * GET /sales/statistics-for-forecast?branchId=1&days=30
      */
     @GetMapping("/statistics-for-forecast")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getSalesStatisticsForForecast(
             @RequestParam Long branchId,
             @RequestParam(defaultValue = "30") Integer days) {

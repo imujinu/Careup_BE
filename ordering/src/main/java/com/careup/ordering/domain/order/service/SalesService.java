@@ -9,6 +9,7 @@ import com.careup.ordering.domain.order.dto.SalesStatisticsDto;
 import com.careup.ordering.domain.order.dto.request.SalesStatisticsRequestDto;
 import com.careup.ordering.domain.order.dto.response.ProductSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.SalesStatisticsResponseDto;
+import com.careup.ordering.domain.order.dto.response.SalesForecastResponseDto;
 import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.entity.OrderStatus;
 import com.careup.ordering.domain.order.repository.OrderRepository;
@@ -43,6 +44,7 @@ public class SalesService {
         LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
         LocalDateTime endDateTime = request.getEndDate().atTime(LocalTime.MAX);
 
+        // 해당 지점의 확정된 주문 내역 조회
         List<Order> orders = orderRepository.findByBranchIdAndOrderStatusAndCreatedAtBetween(
                 request.getBranchId(), OrderStatus.CONFIRMED, startDateTime, endDateTime);
 
@@ -85,6 +87,7 @@ public class SalesService {
      * 시간별 매출 통계
      */
     private List<SalesStatisticsDto> calculateHourlySales(List<Order> orders) {
+        // 0~23시 기준 그룹화
         Map<Integer, List<Order>> hourlyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order -> order.getCreatedAt().getHour()));
 
@@ -272,16 +275,16 @@ public class SalesService {
 
         // 정렬 타입에 따라 정렬
         switch (sortType.toUpperCase()) {
-            case "HIGH_MARGIN":
+            case "HIGH_MARGIN": // 마진율 높은 순
                 products.sort(Comparator.comparing(ProductSalesDto::getMarginRate).reversed());
                 break;
-            case "LOW_MARGIN":
+            case "LOW_MARGIN": // 마진율 낮은 순
                 products.sort(Comparator.comparing(ProductSalesDto::getMarginRate));
                 break;
-            case "HIGH_SALES":
+            case "HIGH_SALES": // 매출 높은 순
                 products.sort(Comparator.comparing(ProductSalesDto::getTotalSales).reversed());
                 break;
-            case "LOW_SALES":
+            case "LOW_SALES": // 매출 낮은 순
                 products.sort(Comparator.comparing(ProductSalesDto::getTotalSales));
                 break;
             default:
@@ -422,9 +425,71 @@ public class SalesService {
     }
 
     /**
-     * 소속 가맹점의 예상 매출액 조회
+     * 소속 가맹점의 예상 매출액 조회 - branch 모듈의 SalesForecast 사용
      */
-    public SalesForecastDto getSalesForecast(Long branchId, LocalDate targetDate) {
+    public SalesForecastResponseDto getSalesForecast(Long branchId, LocalDate targetDate) {
+        try {
+            // branch 서비스에서 예상 매출액 조회
+            Map<String, Object> response = branchClient.getBranchSalesForecast(branchId);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resultMap = (Map<String, Object>) response.get("result");
+
+            // 현재 예상 매출 정보 파싱
+            SalesForecastResponseDto.CurrentForecast currentForecast = null;
+            if (resultMap.get("currentForecast") != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> currentData = (Map<String, Object>) resultMap.get("currentForecast");
+                currentForecast = SalesForecastResponseDto.CurrentForecast.builder()
+                        .id(currentData.get("id") != null ? ((Number) currentData.get("id")).longValue() : null)
+                        .branchId(currentData.get("branchId") != null ? ((Number) currentData.get("branchId")).longValue() : null)
+                        .branchName((String) currentData.get("branchName"))
+                        .amount(currentData.get("amount") != null ? ((Number) currentData.get("amount")).longValue() : null)
+                        .periodStart(currentData.get("periodStart") != null ? new Date(((Number) currentData.get("periodStart")).longValue()) : null)
+                        .periodEnd(currentData.get("periodEnd") != null ? new Date(((Number) currentData.get("periodEnd")).longValue()) : null)
+                        .createdAt(currentData.get("createdAt") != null ? new Date(((Number) currentData.get("createdAt")).longValue()) : null)
+                        .forecastBasis((String) currentData.get("forecastBasis"))
+                        .build();
+            }
+
+            // 예상 매출 이력 파싱
+            List<SalesForecastResponseDto.ForecastHistory> forecastHistory = new ArrayList<>();
+            if (resultMap.get("forecastHistory") != null) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> historyData = (List<Map<String, Object>>) resultMap.get("forecastHistory");
+
+                forecastHistory = historyData.stream()
+                        .map(data -> SalesForecastResponseDto.ForecastHistory.builder()
+                                .id(data.get("id") != null ? ((Number) data.get("id")).longValue() : null)
+                                .branchId(data.get("branchId") != null ? ((Number) data.get("branchId")).longValue() : null)
+                                .branchName((String) data.get("branchName"))
+                                .amount(data.get("amount") != null ? ((Number) data.get("amount")).longValue() : null)
+                                .periodStart(data.get("periodStart") != null ? new Date(((Number) data.get("periodStart")).longValue()) : null)
+                                .periodEnd(data.get("periodEnd") != null ? new Date(((Number) data.get("periodEnd")).longValue()) : null)
+                                .createdAt(data.get("createdAt") != null ? new Date(((Number) data.get("createdAt")).longValue()) : null)
+                                .forecastBasis((String) data.get("forecastBasis"))
+                                .build())
+                        .collect(Collectors.toList());
+            }
+
+            return SalesForecastResponseDto.builder()
+                    .branchId(resultMap.get("branchId") != null ? ((Number) resultMap.get("branchId")).longValue() : branchId)
+                    .branchName((String) resultMap.get("branchName"))
+                    .currentForecast(currentForecast)
+                    .forecastHistory(forecastHistory)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("branch 서비스에서 예상 매출액 조회 실패, 로컬 계산으로 대체: {}", e.getMessage());
+            // Feign 통신 실패 시 ordering 서비스 내부 로직으로 계산
+            return getLocalSalesForecast(branchId, targetDate);
+        }
+    }
+
+    /**
+     * branch 서비스 통신 실패 시 로컬 계산 방식
+     */
+    private SalesForecastResponseDto getLocalSalesForecast(Long branchId, LocalDate targetDate) {
         // 지난 30일 평균 매출 기반 예측
         LocalDate thirtyDaysAgo = targetDate.minusDays(30);
         LocalDateTime startDateTime = thirtyDaysAgo.atStartOfDay();
@@ -436,22 +501,26 @@ public class SalesService {
         // 일평균 매출 계산
         Long dailyAverageSales = previousPeriodSales / 30;
 
-        // 요일별 가중치 적용 (실제로는 더 복잡한 예측 모델 사용 가능)
+        // 요일별 가중치 적용
         DayOfWeek dayOfWeek = targetDate.getDayOfWeek();
         double dayWeightFactor = getDayWeightFactor(dayOfWeek);
 
         Long expectedSales = (long) (dailyAverageSales * dayWeightFactor);
 
-        Double growthRate = previousPeriodSales > 0 ?
-                ((double) (expectedSales - dailyAverageSales) / dailyAverageSales) * 100 : 0.0;
-
-        return SalesForecastDto.builder()
+        SalesForecastResponseDto.CurrentForecast currentForecast = SalesForecastResponseDto.CurrentForecast.builder()
                 .branchId(branchId)
-                .forecastDate(targetDate)
-                .expectedSales(expectedSales)
-                .previousPeriodSales(previousPeriodSales)
-                .growthRate(growthRate)
-                .forecastBasis("지난 30일 평균 매출 기반 + 요일별 가중치")
+                .branchName("Branch-" + branchId)
+                .amount(expectedSales)
+                .periodStart(new Date())
+                .periodEnd(java.sql.Date.valueOf(targetDate))
+                .forecastBasis("지난 30일 평균 매출 기반 + 요일별 가중치 (로컬 계산)")
+                .build();
+
+        return SalesForecastResponseDto.builder()
+                .branchId(branchId)
+                .branchName("Branch-" + branchId)
+                .currentForecast(currentForecast)
+                .forecastHistory(new ArrayList<>())
                 .build();
     }
 
