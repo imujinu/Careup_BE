@@ -16,15 +16,15 @@ public interface OrderedItemRepository extends JpaRepository<OrderedItem, Long> 
     List<OrderedItem> findByOrderId(Long orderId);
 
     // 특정 지점의 상품별 판매 통계 조회
-    @Query("SELECT oi.product.id as productId, oi.product.name as productName, " +
+    @Query("SELECT oi.branchProduct.product.id as productId, oi.branchProduct.product.name as productName, " +
            "SUM(oi.quantity) as totalQuantity, SUM(oi.totalPrice) as totalSales, " +
-           "oi.product.supplyPrice as supplyPrice, AVG(oi.unitPrice) as avgSellingPrice, " +
+           "oi.branchProduct.product.supplyPrice as supplyPrice, AVG(oi.unitPrice) as avgSellingPrice, " +
            "COUNT(DISTINCT oi.order.id) as orderCount " +
            "FROM OrderedItem oi " +
            "WHERE oi.order.branchId = :branchId " +
            "AND oi.order.orderStatus = com.careup.ordering.domain.order.entity.OrderStatus.CONFIRMED " +
            "AND oi.order.createdAt BETWEEN :startDate AND :endDate " +
-           "GROUP BY oi.product.id, oi.product.name, oi.product.supplyPrice " +
+           "GROUP BY oi.branchProduct.product.id, oi.branchProduct.product.name, oi.branchProduct.product.supplyPrice " +
            "ORDER BY totalSales DESC")
     List<Object[]> findProductSalesStatistics(
             @Param("branchId") Long branchId,
