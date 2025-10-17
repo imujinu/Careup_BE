@@ -428,6 +428,28 @@ public class InventoryService {
             validateBranchAccess(auth, flow.getBranchProduct().getBranchId());
         }
         
+        // 삭제 전에 재고를 원래대로 되돌리기
+        BranchProduct branchProduct = flow.getBranchProduct();
+        
+        // 입고 기록이면 출고로, 출고 기록이면 입고로 되돌리기
+        if (flow.getInQuantity() != null && flow.getInQuantity() > 0) {
+            // 입고 기록 삭제 시 재고 차감
+            branchProduct.decreaseStock(flow.getInQuantity());
+        }
+        
+        if (flow.getOutQuantity() != null && flow.getOutQuantity() > 0) {
+            // 출고 기록 삭제 시 재고 증가
+            branchProduct.increaseStock(flow.getOutQuantity());
+        }
+        
+        branchProductRepository.save(branchProduct);
+        
+        // 재고 변경 이벤트 발송
+        publishInventoryChangeEvent(branchProduct, 
+            (flow.getInQuantity() != null ? -flow.getInQuantity() : 0) + 
+            (flow.getOutQuantity() != null ? flow.getOutQuantity() : 0), 
+            "ADJUST", "입출고 기록 삭제로 인한 재고 조정");
+        
         inventoryFlowDetailRepository.delete(flow);
     }
 
