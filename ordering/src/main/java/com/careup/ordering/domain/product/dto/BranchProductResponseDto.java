@@ -20,6 +20,8 @@ public class BranchProductResponseDto {
     private Long price;
     private String productName;
     private String productDescription;
+    private String categoryName;
+    private Long categoryId;
 
     /**
      * Entity → DTO 변환 정적 메서드
@@ -35,6 +37,10 @@ public class BranchProductResponseDto {
                 .price(branchProduct.getPrice())
                 .productName(branchProduct.getProduct().getName())
                 .productDescription(branchProduct.getProduct().getDescription())
+                .categoryName(branchProduct.getProduct().getCategory() != null ? 
+                    branchProduct.getProduct().getCategory().getName() : null)
+                .categoryId(branchProduct.getProduct().getCategory() != null ? 
+                    branchProduct.getProduct().getCategory().getId() : null)
                 .build();
     }
 }

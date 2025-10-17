@@ -42,7 +42,10 @@ public class SecurityConfig {
                         "/auth/password/forgot",
                         "/auth/password/reset",
                         "/auth/introspect",            // Ordering 서버에서 토큰 검증용
-                        "/auth/employees/id-lookup"    // 직원 아이디(이메일/휴대폰) 찾기
+                        "/auth/employees/id-lookup" ,   // 직원 아이디(이메일/휴대폰) 찾기
+                        "/inventory/**",
+                        "/categories/",
+                        "/products/**"
                 ).permitAll()
 
                 // 나머지는 인증 필요

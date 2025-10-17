@@ -27,8 +27,13 @@ public class ProductService {
     // 상품 등록
     public ProductResponseDto createProduct(ProductRequestDto request) {
         // 카테고리 조회
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
+        Category category;
+        if (request.getCategoryId() != null) {
+            category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
+        } else {
+            throw new IllegalArgumentException("카테고리 ID가 필요합니다.");
+        }
 
         Visibility visibilityEnum = Visibility.ALL;
         if (request.getVisibility() != null) {

@@ -26,11 +26,12 @@ public class PurchaseOrderConsumerService {
                 Long branchProductId = findBranchProductId(hqBranchId, orderDetail.getProductId());
                 
                 if (branchProductId != null) {
+                    // 시스템 내부 호출이므로 Authentication 없이 처리
                     inventoryService.adjustStock(
                         branchProductId,
                         (long) orderDetail.getQuantity(),
                         "DECREASE",
-                        "발주 승인으로 인한 재고 차감 (발주ID: " + event.getPurchaseOrderId() + ")"
+                        "발주 승인으로 인한 재고 차감 (발주ID: " + event.getPurchaseOrderId() + ")", null // 시스템 내부 호출
                     );
 
                 } else {
@@ -55,8 +56,7 @@ public class PurchaseOrderConsumerService {
                        branchProductId,
                        (long) orderDetail.getQuantity(),
                        "INCREASE",
-                       "발주 입고 완료로 인한 재고 증가 (발주ID: " + event.getPurchaseOrderId() + ")"
-                   );
+                       "발주 입고 완료로 인한 재고 증가 (발주ID: " + event.getPurchaseOrderId() + ")", null);
 
                } else {
                    log.warn("BranchProduct를 찾을 수 없음: branchId={}, productId={}",
