@@ -87,6 +87,15 @@ jwt:
   secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
   secretKeyRt: ${REFRESH_TOKEN_CUSTOMER}
 
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+    redirect-uri: http://localhost:3000/oauth/google/callback
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    redirect-uri: http://localhost:3000/oauth/kakao/callback
+
 security:
   csrf:
     allowed-origins:

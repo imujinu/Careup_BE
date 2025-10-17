@@ -34,14 +34,17 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**", "/public/**", "/health").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // 고객 인증 플로우 공개
+                // 고객 인증 플로우 공개 + OAuth 공개 엔드포인트
                 .requestMatchers(
                         "/auth/customers/signup",
                         "/auth/customers/login",
                         "/auth/customers/refresh",
                         "/auth/customers/logout",
                         "/auth/customers/password/forgot",
-                        "/auth/customers/password/reset"
+                        "/auth/customers/password/reset",
+                        "/auth/customers/oauth/google",
+                        "/auth/customers/oauth/kakao",
+                        "/auth/customers/oauth/update" // 임시토큰 기반 완료 단계는 permitAll
                 ).permitAll()
 
                 // 상품/카테고리: 조회는 공개, 쓰기/수정/삭제는 관리자 계열만
@@ -55,18 +58,15 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 인벤토리: 본사와 가맹점 권한 분리
-                // 본사 전용: 전체 지점 조회, 전체 입출고 조회 등
+                // 인벤토리
                 .requestMatchers("/inventory/flow").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/adjustment-history").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
-                // 가맹점 전용: 자신의 지점만 조회/수정
                 .requestMatchers("/inventory/branch/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/safety-stock").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/adjust").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
-                // 나머지 인벤토리 API는 기존 권한 유지
                 .requestMatchers("/inventory/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
 
-                // 쿠폰(가정): 조회는 공개, 생성/수정/삭제는 관리자
+                // 쿠폰
                 .requestMatchers(HttpMethod.GET, "/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -75,11 +75,11 @@ public class SecurityConfig {
                 // 고객 전용 영역
                 .requestMatchers("/cart/**", "/orders/**", "/customers/**").hasRole("CUSTOMER")
 
-                // 관리자 전용 영역(추가 관리용 라우트)
+                // 관리자 전용
                 .requestMatchers("/admin/**", "/management/**", "/product-admin/**")
                 .hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 나머지는 로그인만 필요
+                // 나머지는 인증 필요
                 .anyRequest().authenticated()
         );
 
