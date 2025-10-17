@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.payment.service;
 
+import com.careup.ordering.config.TossPaymentConfig;
 import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.repository.OrderRepository;
 import com.careup.ordering.domain.payment.dto.PaymentConfirmRequest;
@@ -9,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +17,6 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +29,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-
-    @Value("${payment.toss.secret-key}")
-    private String tossSecretKey;
+    private final TossPaymentConfig tossPaymentConfig;  // ⭐ Config 주입
 
     /**
      * 결제 승인 (토스페이먼츠 공식 샘플 코드 기반)
@@ -82,7 +79,7 @@ public class PaymentService {
     /**
      * 토스페이먼츠 API 호출 (공식 샘플 코드)
      */
-    @SuppressWarnings("unchecked") // 토스 페이먼츠 공식에서 가져왔는데 경고가 떠서 경고문 뜨는거 없어지는 코드
+    @SuppressWarnings("unchecked")
     private JSONObject callTossPaymentsApi(PaymentConfirmRequest request) throws Exception {
         // 요청 데이터 생성
         JSONObject requestData = new JSONObject();
@@ -90,13 +87,11 @@ public class PaymentService {
         requestData.put("amount", request.getAmount());
         requestData.put("paymentKey", request.getPaymentKey());
 
-        // Authorization 헤더 생성 (Basic Auth)
-        Base64.Encoder encoder = Base64.getEncoder();
-        byte[] encodedBytes = encoder.encode((tossSecretKey + ":").getBytes(StandardCharsets.UTF_8));
-        String authorization = "Basic " + new String(encodedBytes, StandardCharsets.UTF_8);
+        // Authorization 헤더 생성 ⭐ Config 사용
+        String authorization = "Basic " + tossPaymentConfig.getEncodedSecretKey();
 
-        // HTTP 연결 설정
-        URL url = new URL("https://api.tosspayments.com/v1/payments/confirm");
+        // HTTP 연결 설정 ⭐ Config의 API URL 사용
+        URL url = new URL(tossPaymentConfig.getApiUrl() + "/v1/payments/confirm");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestProperty("Authorization", authorization);
         connection.setRequestProperty("Content-Type", "application/json");
@@ -155,6 +150,7 @@ public class PaymentService {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "해당 주문의 결제 정보가 없습니다. orderId: " + orderId));
     }
+    
     // 회원별 결제 목록 조회
     @Transactional(readOnly = true)
     public List<Payment> getPaymentsByMemberId(Long memberId) {
