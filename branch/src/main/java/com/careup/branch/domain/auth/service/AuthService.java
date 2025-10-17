@@ -64,9 +64,6 @@ public class AuthService {
         String role = emp.getAuthorityType().name();
         Long employeeId = emp.getId();
 
-        String at = jwt.createAccessToken(employeeId, role);
-        String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
-
         // 전역 컷오프 방식에서는 재로그인 시 clear() 하지 않음
 
         LocalDate today = LocalDate.now();
@@ -79,6 +76,9 @@ public class AuthService {
             branchId = active.get().getBranch().getId();
             branchName = active.get().getBranch().getName();
         }
+
+        String at = jwt.createAccessToken(employeeId, role, branchId);
+        String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
 
         String title = (emp.getJobGrade() != null) ? emp.getJobGrade().getName() : null;
 

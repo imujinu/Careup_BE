@@ -75,4 +75,9 @@ public class BranchProduct {
         this.safetystock = safetyStock;
     }
 
+    // 단가 설정
+    public void updatePrice(Long price) {
+        this.price = price;
+    }
+
 }

@@ -45,4 +45,17 @@ public class InventoryFlowDetail {
         this.remark =remark;
         this.createAt = LocalDateTime.now();
     }
+    
+    // 입출고 기록 수정
+    public void updateFlow(Long inQuantity, Long outQuantity, String remark) {
+        if (inQuantity != null) {
+            this.inQuantity = inQuantity;
+        }
+        if (outQuantity != null) {
+            this.outQuantity = outQuantity;
+        }
+        if (remark != null) {
+            this.remark = remark;
+        }
+    }
 }
