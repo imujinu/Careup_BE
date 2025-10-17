@@ -42,12 +42,19 @@ public class JwtTokenProvider {
     private static String rtKey(Long employeeId) { return "RT:EMP:" + employeeId; }
 
     public String createAccessToken(Long employeeId, String role) {
+        return createAccessToken(employeeId, role, null);
+    }
+    
+    public String createAccessToken(Long employeeId, String role, Long branchId) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
 
         Claims claims = Jwts.claims().setSubject(String.valueOf(employeeId));
         claims.put("role", role);
         claims.put("employeeId", employeeId);
+        if (branchId != null) {
+            claims.put("branchId", branchId);
+        }
 
         return Jwts.builder()
                 .setClaims(claims)

@@ -22,6 +22,8 @@ public class BranchProductResponseDto {
     private Long price;  // 원가
     private String productName;
     private String productDescription;
+    private String categoryName;
+    private Long categoryId;
     private Boolean hasPromotion;          // 프로모션 적용 여부
     private Long promotionId;              // 프로모션 ID
     private BigDecimal discountRate;       // 할인율 (%)
@@ -42,6 +44,10 @@ public class BranchProductResponseDto {
                 .price(branchProduct.getPrice())
                 .productName(branchProduct.getProduct().getName())
                 .productDescription(branchProduct.getProduct().getDescription())
+                .categoryName(branchProduct.getProduct().getCategory() != null ?
+                    branchProduct.getProduct().getCategory().getName() : null)
+                .categoryId(branchProduct.getProduct().getCategory() != null ?
+                    branchProduct.getProduct().getCategory().getId() : null)
                 // 프로모션 정보 기본값
                 .hasPromotion(false)
                 .promotionId(null)
@@ -50,7 +56,7 @@ public class BranchProductResponseDto {
                 .finalPrice(branchProduct.getPrice())  // 원가 그대로
                 .build();
     }
-    
+
     /**
      * Entity + 프로모션 정보 → DTO 변환 메서드
      */
