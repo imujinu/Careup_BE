@@ -124,6 +124,7 @@ public class SalesController {
         }
     }
 
+
     /**
      * 소속 가맹점의 예상 매출액 조회 (branch 모듈의 SalesForecast 사용)
      * GET /sales/forecast?branchId=1&targetDate=2025-01-31
