@@ -13,6 +13,18 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
+    // 회원별 주문 조회
+    List<Order> findByMemberId(Long memberId);
+
+    // 지점별 주문 조회
+    List<Order> findByBranchId(Long branchId);
+
+    // 주문 상태별 조회
+    List<Order> findByOrderStatus(OrderStatus status);
+
+    // 기간별 주문 조회
+    List<Order> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
     // 특정 지점의 기간별 주문 조회
     List<Order> findByBranchIdAndOrderStatusAndCreatedAtBetween(
             Long branchId, OrderStatus orderStatus, LocalDateTime startDate, LocalDateTime endDate);
@@ -78,6 +90,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("status") OrderStatus status,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
 
     // 지점별 매출 정보 조회 (지점 ID, 총 매출, 주문 수)
     @Query("SELECT o.branchId, SUM(o.totalAmount), COUNT(o) FROM Order o " +

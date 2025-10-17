@@ -7,7 +7,8 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class CategoryRequestDto {
-    private String name;
-    private String description;
+public class InventoryUpdateRequestDto {
+    private Long branchProductId;
+    private Long safetyStock;
+    private Long unitPrice;
 }

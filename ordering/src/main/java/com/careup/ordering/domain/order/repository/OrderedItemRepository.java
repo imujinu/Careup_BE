@@ -12,6 +12,9 @@ import java.util.List;
 @Repository
 public interface OrderedItemRepository extends JpaRepository<OrderedItem, Long> {
 
+    // 주문별 상품 조회
+    List<OrderedItem> findByOrderId(Long orderId);
+
     // 특정 지점의 상품별 판매 통계 조회
     @Query("SELECT oi.product.id as productId, oi.product.name as productName, " +
            "SUM(oi.quantity) as totalQuantity, SUM(oi.totalPrice) as totalSales, " +
@@ -28,4 +31,3 @@ public interface OrderedItemRepository extends JpaRepository<OrderedItem, Long> 
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 }
-

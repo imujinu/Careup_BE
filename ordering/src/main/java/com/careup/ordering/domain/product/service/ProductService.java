@@ -27,8 +27,13 @@ public class ProductService {
     // 상품 등록
     public ProductResponseDto createProduct(ProductRequestDto request) {
         // 카테고리 조회
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
+        Category category;
+        if (request.getCategoryId() != null) {
+            category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
+        } else {
+            throw new IllegalArgumentException("카테고리 ID가 필요합니다.");
+        }
 
         Visibility visibilityEnum = Visibility.ALL;
         if (request.getVisibility() != null) {
@@ -37,7 +42,7 @@ public class ProductService {
             } catch (IllegalArgumentException e) {
             }
         }
-        
+
         Product product = Product.builder()
                 .category(category)
                 .name(request.getName())
@@ -48,9 +53,9 @@ public class ProductService {
                 .imageUrl(request.getImageUrl())
                 .visibility(visibilityEnum)
                 .build();
-        
+
         Product savedProduct = productRepository.save(product);
-        return convertToProductResponse(savedProduct);
+        return ProductResponseDto.from(savedProduct);
     }
 
     // 상품 목록 조회
@@ -58,7 +63,7 @@ public class ProductService {
     public List<ProductResponseDto> getAllProducts() {
         List<Product> products = productRepository.findAll();
         return products.stream()
-                .map(this::convertToProductResponse)
+                .map(ProductResponseDto::from)
                 .collect(Collectors.toList());
     }
 
@@ -67,14 +72,41 @@ public class ProductService {
     public ProductResponseDto getProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
-        return convertToProductResponse(product);
+        return ProductResponseDto.from(product);
+    }
+
+    // 카테고리별 상품 조회
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
+        List<Product> products = productRepository.findByCategoryId(categoryId);
+        return products.stream()
+                .map(ProductResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    // 상품 검색
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> searchProducts(String keyword) {
+        List<Product> products = productRepository.searchByKeyword(keyword);
+        return products.stream()
+                .map(ProductResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    // 카테고리 + 검색
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> searchProductsByCategoryAndKeyword(Long categoryId, String keyword) {
+        List<Product> products = productRepository.searchByCategoryAndKeyword(categoryId, keyword);
+        return products.stream()
+                .map(ProductResponseDto::from)
+                .collect(Collectors.toList());
     }
 
     // 상품 수정
     public ProductResponseDto updateProduct(Long productId, ProductRequestDto request) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
-        
+
         // 상품 정보 업데이트
         product.updateInfo(
                 request.getName(),
@@ -84,9 +116,9 @@ public class ProductService {
                 request.getMaxPrice(),
                 request.getImageUrl()
         );
-        
+
         Product updatedProduct = productRepository.save(product);
-        return convertToProductResponse(updatedProduct);
+        return ProductResponseDto.from(updatedProduct);  // ✅ 변경
     }
 
     // 상품 삭제
@@ -95,20 +127,5 @@ public class ProductService {
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
         product.delete();
         productRepository.save(product);
-    }
-
-    // dto 변환 메서드
-    private ProductResponseDto convertToProductResponse(Product product) {
-        return new ProductResponseDto(
-                product.getId(),
-                product.getName(),
-                product.getDescription(),
-                product.getSupplyPrice(),
-                product.getMinPrice(),
-                product.getMaxPrice(),
-                product.getImageUrl(),
-                product.getStatus().toString(),
-                product.getVisibility().toString()
-        );
     }
 }
