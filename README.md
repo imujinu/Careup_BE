@@ -54,7 +54,7 @@
 
   
 - **Ordering 명세서**
-- https://documenter.getpostman.com/view/48691546/2sB3QQH7M6
+https://documenter.getpostman.com/view/48691546/2sB3QQH7M6
 
 - **Branch 명세서**
-- https://documenter.getpostman.com/view/48691546/2sB3QQH7M3
+https://documenter.getpostman.com/view/48691546/2sB3QQH7M3
