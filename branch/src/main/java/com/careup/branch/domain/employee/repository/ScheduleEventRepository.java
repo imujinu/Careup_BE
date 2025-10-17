@@ -18,6 +18,7 @@ public interface ScheduleEventRepository extends JpaRepository<ScheduleEvent, Lo
 
     long countByScheduleIdIn(Collection<Long> scheduleIds);
 
-    // 경량 존재 확인(선택적 개선)
     boolean existsByScheduleId(Long scheduleId);
+
+    boolean existsBySchedule_Employee_IdAndSchedule_IdNotAndClockInAtIsNotNullAndClockOutAtIsNull(Long employeeId, Long excludeScheduleId);
 }

@@ -17,17 +17,18 @@ import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.JobGradeRepository;
 import io.jsonwebtoken.Claims;
 import jakarta.persistence.EntityNotFoundException;
+import java.time.Clock;
+import java.time.LocalDate;
+import java.util.*;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.time.LocalDate;
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,23 +41,55 @@ public class EmployeeService {
     private final DispatchStatusRepository dispatchStatusRepository;
     private final PasswordEncoder passwordEncoder;
     private final AwsS3Uploader awsS3Uploader;
+    private final Clock clock;
 
     private static final String DEFAULT_PROFILE_URL =
             "https://beyond-16-care-up.s3.ap-northeast-2.amazonaws.com/image/employee/profile/default/default_user.png";
 
+    private record Auth(Long employeeId, String role) {
+        boolean isHqAdmin() { return "HQ_ADMIN".equals(role); }
+    }
+
+    private Auth readAuth() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new EntityNotFoundException("권한을 확인할 수 없습니다.");
+        }
+
+        // 1) JwtTokenFilter 가 details 에 Claims 를 넣어둠
+        Object details = authentication.getDetails();
+        if (details instanceof Claims c) {
+            Long employeeId = c.get("employeeId", Long.class);
+            String rawRole = String.valueOf(c.get("role"));
+            if (employeeId == null || rawRole == null) throw new EntityNotFoundException("권한을 확인할 수 없습니다.");
+            String role = rawRole.startsWith("ROLE_") ? rawRole.substring(5) : rawRole;
+            return new Auth(employeeId, role);
+        }
+
+        // 2) 폴백: principal/authorities 기반
+        Long employeeId = null;
+        try { employeeId = Long.valueOf(authentication.getName()); } catch (Exception ignored) {}
+        String role = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .map(r -> r.startsWith("ROLE_") ? r.substring(5) : r)
+                .findFirst().orElse(null);
+
+        if (employeeId == null || role == null) throw new EntityNotFoundException("권한을 확인할 수 없습니다.");
+        return new Auth(employeeId, role);
+    }
+
     @Transactional
     public EmployeeDetailDto create(EmployeeCreateDto dto, MultipartFile image) {
-        // 1) 입력 정규화(불변 DTO이므로 지역변수로만 보관)
+        // 1) 입력 정규화
         final String normalizedMobile = PhoneUtils.normalize(dto.getMobile());
         final String normalizedEmergencyTel = PhoneUtils.normalize(dto.getEmergencyTel());
 
         validateDuplicateOnCreate(dto);
 
         // 2) 권한 확인
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Claims c = (Claims) auth.getDetails();
-        String role = String.valueOf(c.get("role"));
-        Long actorId = c.get("employeeId", Long.class);
+        Auth auth = readAuth();
+        String role = auth.role();
+        Long actorId = auth.employeeId();
 
         Employee actor = null;
         if (!"HQ_ADMIN".equals(role)) {
@@ -105,7 +138,7 @@ public class EmployeeService {
 
         Employee saved = employeeRepository.save(employee);
 
-        // 6) 이미지 업로드(있다면) 후 URL 교체 — DTO 변경 없이 엔티티 메서드로만 변경
+        // 6) 이미지 업로드
         if (image != null && !image.isEmpty()) {
             String dir = "employee/profile";
             String uploadedUrl = awsS3Uploader.uploadFile(dir, saved.getId(), image);
@@ -126,17 +159,16 @@ public class EmployeeService {
             throw new IllegalArgumentException("사번은 변경할 수 없습니다.");
         }
 
-        // 1) 입력 정규화(불변 DTO → 지역변수)
+        // 1) 입력 정규화
         final String normalizedMobile = PhoneUtils.normalize(dto.getMobile());
         final String normalizedEmergencyTel = PhoneUtils.normalize(dto.getEmergencyTel());
 
         validateDuplicateOnUpdate(target, dto.getEmail(), normalizedMobile);
 
         // 2) 권한 확인
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Claims c = (Claims) auth.getDetails();
-        String role = String.valueOf(c.get("role"));
-        Long actorId = c.get("employeeId", Long.class);
+        Auth auth = readAuth();
+        String role = auth.role();
+        Long actorId = auth.employeeId();
 
         if (!"HQ_ADMIN".equals(role)) {
             Employee actor = employeeRepository.findById(actorId)
@@ -152,7 +184,7 @@ public class EmployeeService {
                     .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
         }
 
-        // 4) 프로필 이미지 처리(최종 URL 결정)
+        // 4) 프로필 이미지 처리
         final String oldUrl = target.getProfileImageUrl();
         String newUploadedUrl = null;
         String finalProfileUrl;
@@ -167,7 +199,7 @@ public class EmployeeService {
                     : target.getProfileImageUrl();
         }
 
-        // 5) 엔티티 변경 — DTO를 새로 빌드해 전달(불변 유지)
+        // 5) 엔티티 변경
         EmployeeUpdateDto dto2 = EmployeeUpdateDto.builder()
                 .employeeNumber(dto.getEmployeeNumber())
                 .name(dto.getName())
@@ -178,8 +210,8 @@ public class EmployeeService {
                 .zipcode(dto.getZipcode())
                 .address(dto.getAddress())
                 .addressDetail(dto.getAddressDetail())
-                .mobile(normalizedMobile)                // 정규화 반영
-                .emergencyTel(normalizedEmergencyTel)    // 정규화 반영
+                .mobile(normalizedMobile)
+                .emergencyTel(normalizedEmergencyTel)
                 .emergencyName(dto.getEmergencyName())
                 .relationship(dto.getRelationship())
                 .hireDate(dto.getHireDate())
@@ -187,7 +219,7 @@ public class EmployeeService {
                 .authorityType(dto.getAuthorityType())
                 .employmentStatus(dto.getEmploymentStatus())
                 .employmentType(dto.getEmploymentType())
-                .profileImageUrl(finalProfileUrl)        // 최종 URL 반영
+                .profileImageUrl(finalProfileUrl)
                 .remark(dto.getRemark())
                 .rawPassword(dto.getRawPassword())
                 .dispatches(dto.getDispatches())
@@ -200,7 +232,7 @@ public class EmployeeService {
             safeDeleteOldImage(oldUrl);
         }
 
-        // 7) 비밀번호 변경(있다면)
+        // 7) 비밀번호 변경
         if (dto.getRawPassword() != null && !dto.getRawPassword().isBlank()) {
             target.changePasswordHash(passwordEncoder.encode(dto.getRawPassword()));
         }
@@ -216,10 +248,9 @@ public class EmployeeService {
         Employee target = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Claims c = (Claims) auth.getDetails();
-        String role = String.valueOf(c.get("role"));
-        Long actorId = c.get("employeeId", Long.class);
+        Auth auth = readAuth();
+        String role = auth.role();
+        Long actorId = auth.employeeId();
 
         if (!"HQ_ADMIN".equals(role)) {
             Employee actor = employeeRepository.findById(actorId)
@@ -227,7 +258,7 @@ public class EmployeeService {
             ensureTargetBelongsToMyBranches(target, actor, "삭제");
         }
 
-        target.deactivate(LocalDate.now());
+        target.deactivate(LocalDate.now(clock));
     }
 
     @Transactional
@@ -235,10 +266,9 @@ public class EmployeeService {
         Employee target = employeeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다."));
 
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        Claims c = (Claims) auth.getDetails();
-        String role = String.valueOf(c.get("role"));
-        Long actorId = c.get("employeeId", Long.class);
+        Auth auth = readAuth();
+        String role = auth.role();
+        Long actorId = auth.employeeId();
 
         if (!"HQ_ADMIN".equals(role)) {
             Employee actor = employeeRepository.findById(actorId)
@@ -246,11 +276,11 @@ public class EmployeeService {
             ensureRehirePermission(target, actor);
         }
 
-        target.rehire(LocalDate.now());
+        target.rehire(LocalDate.now(clock));
 
         List<DispatchStatus> actives = dispatchStatusRepository
                 .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
-                        target, "N", LocalDate.now(), LocalDate.now()
+                        target, "N", LocalDate.now(clock), LocalDate.now(clock)
                 );
         List<EmployeeDispatchDto> dispatchDtos = actives.stream()
                 .map(EmployeeDispatchDto::fromEntity)
@@ -268,12 +298,11 @@ public class EmployeeService {
     private void safeDeleteOldImage(String url) {
         try {
             awsS3Uploader.deleteByUrl(url);
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) { }
     }
 
     private void ensureRehirePermission(Employee target, Employee actor) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         List<Branch> myBranches = dispatchStatusRepository
                 .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(actor, "N", today, today)
@@ -309,7 +338,7 @@ public class EmployeeService {
     }
 
     private void ensureTargetBelongsToMyBranches(Employee target, Employee actor, String actionKor) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         List<Branch> myBranches = dispatchStatusRepository
                 .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(actor, "N", today, today)
@@ -335,7 +364,7 @@ public class EmployeeService {
     private void enforceBranchManagePermission(List<DispatchAssignmentDto> dispatches, Employee actor) {
         if (dispatches == null || dispatches.isEmpty()) return;
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
 
         Set<Long> requested = dispatches.stream()
                 .map(DispatchAssignmentDto::getBranchId)
@@ -351,6 +380,26 @@ public class EmployeeService {
         Set<Long> allowed = myBranches.stream().map(Branch::getId).collect(Collectors.toSet());
         if (!allowed.containsAll(requested)) {
             throw new IllegalArgumentException("권한이 없는 지점이 포함되어 있습니다.");
+        }
+    }
+
+    private void validateDuplicateOnCreate(EmployeeCreateDto dto) {
+        employeeRepository.findByEmployeeNumber(dto.getEmployeeNumber())
+                .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 사번입니다."); });
+        employeeRepository.findByEmailIgnoreCase(dto.getEmail())
+                .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 이메일입니다."); });
+        employeeRepository.findByMobile(PhoneUtils.normalize(dto.getMobile()))
+                .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 휴대전화 번호입니다."); });
+    }
+
+    private void validateDuplicateOnUpdate(Employee current, String newEmail, String newMobileNormalized) {
+        if (!newEmail.equalsIgnoreCase(current.getEmail())) {
+            employeeRepository.findByEmailIgnoreCase(newEmail)
+                    .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 이메일입니다."); });
+        }
+        if (!newMobileNormalized.equals(current.getMobile())) {
+            employeeRepository.findByMobile(newMobileNormalized)
+                    .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 휴대전화 번호입니다."); });
         }
     }
 
@@ -378,27 +427,6 @@ public class EmployeeService {
             dtos.add(EmployeeDispatchDto.fromEntity(savedStatus));
         }
         return dtos;
-    }
-
-    private void validateDuplicateOnCreate(EmployeeCreateDto dto) {
-        employeeRepository.findByEmployeeNumber(dto.getEmployeeNumber())
-                .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 사번입니다."); });
-        employeeRepository.findByEmailIgnoreCase(dto.getEmail())
-                .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 이메일입니다."); });
-        // mobile은 정규화 후 중복 검사 필요 → create에서는 정규화해 저장하므로, 저장 전 검사 시에는 원문 중복 허용 가능
-        employeeRepository.findByMobile(PhoneUtils.normalize(dto.getMobile()))
-                .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 휴대전화 번호입니다."); });
-    }
-
-    private void validateDuplicateOnUpdate(Employee current, String newEmail, String newMobileNormalized) {
-        if (!newEmail.equalsIgnoreCase(current.getEmail())) {
-            employeeRepository.findByEmailIgnoreCase(newEmail)
-                    .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 이메일입니다."); });
-        }
-        if (!newMobileNormalized.equals(current.getMobile())) {
-            employeeRepository.findByMobile(newMobileNormalized)
-                    .ifPresent(e -> { throw new IllegalArgumentException("이미 사용 중인 휴대전화 번호입니다."); });
-        }
     }
 
     private void validateDispatchDates(LocalDate from, LocalDate to) {

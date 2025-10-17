@@ -12,9 +12,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WorkTypeUpsertDto {
+
     @NotBlank
     @Size(max = 20)
     private String name;
     private Boolean geofenceRequired;
-    private Integer geofenceRadiusMeters;
 }

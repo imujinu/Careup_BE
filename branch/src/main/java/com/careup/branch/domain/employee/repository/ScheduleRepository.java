@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.repository;
 
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.entity.Schedule;
 import java.time.LocalDate;
@@ -43,4 +44,13 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
 
     @EntityGraph(attributePaths = {"employee", "attendanceTemplate", "branch", "workType", "leaveType"})
     Optional<Schedule> findByEmployeeIdAndRegisteredDate(Long employeeId, LocalDate registeredDate);
+
+    // ===== 전파 로직용 추가 메서드 =====
+    @EntityGraph(attributePaths = {"employee", "attendanceTemplate", "branch", "workType", "leaveType"})
+    List<Schedule> findByAttendanceTemplate(AttendanceTemplate template);
+
+    @EntityGraph(attributePaths = {"employee", "attendanceTemplate", "branch", "workType", "leaveType"})
+    List<Schedule> findByAttendanceTemplateAndRegisteredDateBetween(
+            AttendanceTemplate template, LocalDate from, LocalDate to
+    );
 }

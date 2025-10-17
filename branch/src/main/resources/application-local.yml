@@ -60,7 +60,7 @@ cloud:
       bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 60   # 테스트용
+  accessTokenExpiryMinutes: 30   # 테스트용
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
   secretKeyAt: ${ACCESS_TOKEN}
@@ -72,6 +72,12 @@ security:
       - "http://localhost:3000"
     skip-paths:
       - "/health"
+
+attendance:
+  geofence:
+    enabled: true
+    radiusSlackMeters: 30
+    maxAccuracyMeters: 100
 
 careup:
   mail:

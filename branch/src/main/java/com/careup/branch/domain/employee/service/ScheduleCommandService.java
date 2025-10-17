@@ -49,6 +49,35 @@ public class ScheduleCommandService {
     private final ScheduleTimeService time;
     private final ScheduleValidationService validator;
 
+    private LocalTime pick(LocalTime overrideTime, LocalTime templateTime) {
+        return overrideTime != null ? overrideTime : templateTime;
+    }
+    private LocalDateTime at(LocalDate d, LocalTime t) {
+        return (t == null) ? null : LocalDateTime.of(d, t);
+    }
+    private LocalDateTime normalizeAfter(LocalDateTime prev, LocalDate d, LocalTime t) {
+        if (t == null) return null;
+        LocalDateTime cand = LocalDateTime.of(d, t);
+        if (prev != null && !cand.isAfter(prev)) cand = cand.plusDays(1);
+        return cand;
+    }
+    private static record Seq(LocalDateTime in, LocalDateTime bs, LocalDateTime be, LocalDateTime out) {}
+    private Seq buildSeq(LocalDate baseDate,
+                         LocalTime inT, LocalTime bsT, LocalTime beT, LocalTime outT,
+                         AttendanceTemplate tpl) {
+        LocalTime inPick  = pick(inT,  tpl != null ? tpl.getDefaultClockIn()   : null);
+        LocalTime bsPick  = pick(bsT,  tpl != null ? tpl.getDefaultBreakStart(): null);
+        LocalTime bePick  = pick(beT,  tpl != null ? tpl.getDefaultBreakEnd()  : null);
+        LocalTime outPick = pick(outT, tpl != null ? tpl.getDefaultClockOut()  : null);
+
+        LocalDateTime in  = at(baseDate, inPick);
+        LocalDateTime bs  = normalizeAfter(in,  baseDate, bsPick);
+        LocalDateTime be  = normalizeAfter(bs != null ? bs : in, baseDate, bePick);
+        LocalDateTime out = normalizeAfter(be != null ? be : (bs != null ? bs : in), baseDate, outPick);
+
+        return new Seq(in, bs, be, out);
+    }
+
     @Transactional
     public ScheduleDetailDto create(ScheduleAuthService.Auth auth, ScheduleCreateDto dto) {
         Employee employee = employeeRepository.findById(dto.getEmployeeId())
@@ -56,14 +85,20 @@ public class ScheduleCommandService {
         Branch branch = branchRepository.findById(dto.getBranchId())
                 .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
 
+        // 파생 카테고리 결정
+        boolean isWork = dto.getWorkTypeId() != null;
+        boolean isLeave = dto.getLeaveTypeId() != null;
+        if (isWork == isLeave) {
+            throw new IllegalArgumentException("workTypeId 또는 leaveTypeId 중 하나만 지정해야 합니다.");
+        }
+        ScheduleTypeCategory category = isWork ? ScheduleTypeCategory.WORK : ScheduleTypeCategory.LEAVE;
+
         WorkType workType = null;
         LeaveType leaveType = null;
-        if (dto.getCategory() == ScheduleTypeCategory.WORK) {
-            if (dto.getWorkTypeId() == null) throw new IllegalArgumentException("근무 스케줄은 workTypeId가 필요합니다.");
+        if (isWork) {
             workType = workTypeRepository.findById(dto.getWorkTypeId())
                     .orElseThrow(() -> new EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
         } else {
-            if (dto.getLeaveTypeId() == null) throw new IllegalArgumentException("휴가 스케줄은 leaveTypeId가 필요합니다.");
             leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId())
                     .orElseThrow(() -> new EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
         }
@@ -75,29 +110,45 @@ public class ScheduleCommandService {
         }
 
         authz.ensurePermissionForWrite(auth, branch, employee, dto.getRegisteredDate());
-
         LocalDate date = dto.getRegisteredDate();
 
         LocalDateTime in, bs, be, out;
-        if (dto.getCategory() == ScheduleTypeCategory.LEAVE) {
+        if (isLeave) {
             in = bs = be = out = null;
         } else {
-            in  = time.coalesceDateTime(dto.getRegisteredClockIn(),  date, template != null ? template.getDefaultClockIn()  : null);
-            bs  = time.coalesceDateTime(dto.getRegisteredBreakStart(), date, template != null ? template.getDefaultBreakStart() : null);
-            be  = time.coalesceDateTime(dto.getRegisteredBreakEnd(), date, template != null ? template.getDefaultBreakEnd() : null);
-            out = time.coalesceDateTime(dto.getRegisteredClockOut(), date, template != null ? template.getDefaultClockOut() : null);
-            if (dto.getRegisteredClockIn() != null && dto.getRegisteredClockOut() != null) {
-                if (out == null || in == null || !out.isAfter(in)) throw new IllegalArgumentException("퇴근 시각은 출근 시각 이후여야 합니다.");
+            if (dto.getRegisteredClockIn() != null
+                    || dto.getRegisteredBreakStart() != null
+                    || dto.getRegisteredBreakEnd() != null
+                    || dto.getRegisteredClockOut() != null) {
+
+                in  = dto.getRegisteredClockIn();
+                bs  = dto.getRegisteredBreakStart();
+                be  = dto.getRegisteredBreakEnd();
+                out = dto.getRegisteredClockOut();
+
+                if (bs  != null && in  != null && !bs.isAfter(in))  bs  = bs.plusDays(1);
+                if (be  != null && bs  != null && !be.isAfter(bs))  be  = be.plusDays(1);
+                LocalDateTime pivot = be != null ? be : (bs != null ? bs : in);
+                if (out != null && pivot != null && !out.isAfter(pivot)) out = out.plusDays(1);
+
+            } else {
+                LocalTime inT  = null, bsT = null, beT = null, outT = null;
+                var seq = buildSeq(date, inT, bsT, beT, outT, template);
+                in = seq.in(); bs = seq.bs(); be = seq.be(); out = seq.out();
+            }
+
+            if (in != null && out != null && !out.isAfter(in)) {
+                throw new IllegalArgumentException("퇴근 시각은 출근 시각 이후(익일 포함)여야 합니다.");
             }
         }
 
-        validator.validateNoConflictOnSave(employee, date, branch.getId(), dto.getCategory(), in, out, null);
+        validator.validateNoConflictOnSave(employee, date, branch.getId(), isLeave, in, out, null);
 
         Schedule saved = scheduleRepository.save(
                 Schedule.builder()
                         .branch(branch)
                         .employee(employee)
-                        .category(dto.getCategory())
+                        .category(category)     // 파생 카테고리 강제
                         .workType(workType)
                         .leaveType(leaveType)
                         .attendanceTemplate(template)
@@ -115,7 +166,7 @@ public class ScheduleCommandService {
 
     @Transactional
     public List<ScheduleDetailDto> massCreate(ScheduleAuthService.Auth auth, ScheduleMassCreateDto dto) {
-        record Entry(Long employeeId, Long branchId, ScheduleTypeCategory category, Long workTypeId, Long leaveTypeId, Long attendanceTemplateId,
+        record Entry(Long employeeId, Long branchId, Long workTypeId, Long leaveTypeId, Long attendanceTemplateId,
                      LocalDate date, LocalTime in, LocalTime bs, LocalTime be, LocalTime out) {}
 
         List<Entry> entries = new ArrayList<>();
@@ -125,7 +176,7 @@ public class ScheduleCommandService {
                 for (Long empId : b.getEmployeeIds()) {
                     for (LocalDate d : b.getDates()) {
                         entries.add(new Entry(
-                                empId, b.getBranchId(), b.getCategory(), b.getWorkTypeId(), b.getLeaveTypeId(), b.getAttendanceTemplateId(),
+                                empId, b.getBranchId(), b.getWorkTypeId(), b.getLeaveTypeId(), b.getAttendanceTemplateId(),
                                 d, b.getRegisteredClockInTime(), b.getRegisteredBreakStartTime(),
                                 b.getRegisteredBreakEndTime(), b.getRegisteredClockOutTime()
                         ));
@@ -136,7 +187,7 @@ public class ScheduleCommandService {
         if (dto.getItems() != null) {
             for (ScheduleMassItemDto it : dto.getItems()) {
                 entries.add(new Entry(
-                        it.getEmployeeId(), it.getBranchId(), it.getCategory(), it.getWorkTypeId(), it.getLeaveTypeId(), it.getAttendanceTemplateId(),
+                        it.getEmployeeId(), it.getBranchId(), it.getWorkTypeId(), it.getLeaveTypeId(), it.getAttendanceTemplateId(),
                         it.getDate(), it.getRegisteredClockInTime(), it.getRegisteredBreakStartTime(),
                         it.getRegisteredBreakEndTime(), it.getRegisteredClockOutTime()
                 ));
@@ -162,17 +213,16 @@ public class ScheduleCommandService {
                 .stream().collect(Collectors.toMap(AttendanceTemplate::getId, Function.identity()));
 
         for (Entry e : entries) {
-            if (!employeeMap.containsKey(e.employeeId())) throw new jakarta.persistence.EntityNotFoundException("직원 없음: " + e.employeeId());
-            if (!branchMap.containsKey(e.branchId())) throw new jakarta.persistence.EntityNotFoundException("지점 없음: " + e.branchId());
-            if (e.category() == ScheduleTypeCategory.WORK) {
-                if (e.workTypeId() == null) throw new IllegalArgumentException("근무 항목에 workTypeId가 필요합니다.");
-                if (!workMap.containsKey(e.workTypeId())) throw new jakarta.persistence.EntityNotFoundException("근무 종류 없음: " + e.workTypeId());
-            } else {
-                if (e.leaveTypeId() == null) throw new IllegalArgumentException("휴가 항목에 leaveTypeId가 필요합니다.");
-                if (!leaveMap.containsKey(e.leaveTypeId())) throw new jakarta.persistence.EntityNotFoundException("휴가 종류 없음: " + e.leaveTypeId());
-            }
+            if (!employeeMap.containsKey(e.employeeId())) throw new EntityNotFoundException("직원 없음: " + e.employeeId());
+            if (!branchMap.containsKey(e.branchId())) throw new EntityNotFoundException("지점 없음: " + e.branchId());
+            boolean isWork = e.workTypeId() != null;
+            boolean isLeave = e.leaveTypeId() != null;
+            if (isWork == isLeave) throw new IllegalArgumentException("workTypeId 또는 leaveTypeId 중 하나만 지정해야 합니다.");
+
+            if (isWork && !workMap.containsKey(e.workTypeId())) throw new EntityNotFoundException("근무 종류 없음: " + e.workTypeId());
+            if (isLeave && !leaveMap.containsKey(e.leaveTypeId())) throw new EntityNotFoundException("휴가 종류 없음: " + e.leaveTypeId());
             if (e.attendanceTemplateId() != null && !tmplMap.containsKey(e.attendanceTemplateId()))
-                throw new jakarta.persistence.EntityNotFoundException("템플릿 없음: " + e.attendanceTemplateId());
+                throw new EntityNotFoundException("템플릿 없음: " + e.attendanceTemplateId());
         }
         for (Entry e : entries) {
             Employee emp = employeeMap.get(e.employeeId());
@@ -202,25 +252,28 @@ public class ScheduleCommandService {
             LeaveType lt = e.leaveTypeId() != null ? leaveMap.get(e.leaveTypeId()) : null;
             AttendanceTemplate tmpl = e.attendanceTemplateId() != null ? tmplMap.get(e.attendanceTemplateId()) : null;
 
+            boolean isLeave = (lt != null);
+            ScheduleTypeCategory category = isLeave ? ScheduleTypeCategory.LEAVE : ScheduleTypeCategory.WORK;
+
             LocalDateTime in, bs, be, out;
-            if (e.category() == ScheduleTypeCategory.LEAVE) {
+            if (isLeave) {
                 in = e.date().atStartOfDay();
-                bs = null;
-                be = null;
+                bs = null; be = null;
                 out = e.date().atTime(ScheduleValidationService.LEAVE_END_CUTOFF);
             } else {
-                in  = time.coalesce(e.date(), e.in(),  tmpl != null ? tmpl.getDefaultClockIn()  : null);
-                bs  = time.coalesce(e.date(), e.bs(),  tmpl != null ? tmpl.getDefaultBreakStart() : null);
-                be  = time.coalesce(e.date(), e.be(),  tmpl != null ? tmpl.getDefaultBreakEnd()   : null);
-                out = time.coalesce(e.date(), e.out(), tmpl != null ? tmpl.getDefaultClockOut() : null);
+                var seq = buildSeq(e.date(), e.in(), e.bs(), e.be(), e.out(), tmpl);
+                in = seq.in(); bs = seq.bs(); be = seq.be(); out = seq.out();
+
                 if (in == null && out == null) {
                     var span = time.daySpan(e.date());
-                    in = span.start();
-                    out = span.end();
+                    in = span.start(); out = span.end();
+                }
+                if (in != null && out != null && !out.isAfter(in)) {
+                    out = out.plusDays(1);
                 }
             }
 
-            ScheduleTimeService.Interval newIv = toInterval(e.date(), e.category(), in, out);
+            ScheduleTimeService.Interval newIv = toInterval(e.date(), isLeave, in, out);
 
             List<Schedule> existedForEmp = existedByEmp.getOrDefault(emp.getId(), List.of()).stream()
                     .filter(s -> {
@@ -232,7 +285,7 @@ public class ScheduleCommandService {
             for (Schedule ex : existedForEmp) {
                 ScheduleTimeService.Interval exIv = toInterval(
                         ex.getRegisteredDate(),
-                        ex.getCategory(),
+                        ex.getCategory() == ScheduleTypeCategory.LEAVE, // isLeave
                         ex.getRegisteredClockIn(),
                         ex.getRegisteredClockOut()
                 );
@@ -259,7 +312,7 @@ public class ScheduleCommandService {
                     Schedule.builder()
                             .branch(br)
                             .employee(emp)
-                            .category(e.category())
+                            .category(category)
                             .workType(wt)
                             .leaveType(lt)
                             .attendanceTemplate(tmpl)
@@ -282,51 +335,72 @@ public class ScheduleCommandService {
     @Transactional
     public ScheduleDetailDto update(ScheduleAuthService.Auth auth, Long scheduleId, ScheduleUpdateDto dto) {
         Schedule target = scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("스케줄을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         ensureUpdatable(scheduleId);
 
         Employee employee = target.getEmployee();
         Branch branch = branchRepository.findById(dto.getBranchId())
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("지점을 찾을 수 없습니다."));
+                .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
+
+        boolean isWork = dto.getWorkTypeId() != null;
+        boolean isLeave = dto.getLeaveTypeId() != null;
+        if (isWork == isLeave) {
+            throw new IllegalArgumentException("workTypeId 또는 leaveTypeId 중 하나만 지정해야 합니다.");
+        }
+        ScheduleTypeCategory category = isWork ? ScheduleTypeCategory.WORK : ScheduleTypeCategory.LEAVE;
 
         WorkType workType = null;
         LeaveType leaveType = null;
-        if (dto.getCategory() == ScheduleTypeCategory.WORK) {
-            if (dto.getWorkTypeId() == null) throw new IllegalArgumentException("근무 스케줄은 workTypeId가 필요합니다.");
+        if (isWork) {
             workType = workTypeRepository.findById(dto.getWorkTypeId())
-                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new EntityNotFoundException("근무 종류를 찾을 수 없습니다."));
         } else {
-            if (dto.getLeaveTypeId() == null) throw new IllegalArgumentException("휴가 스케줄은 leaveTypeId가 필요합니다.");
             leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId())
-                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
+                    .orElseThrow(() -> new EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
         }
 
         AttendanceTemplate template = null;
         if (dto.getAttendanceTemplateId() != null) {
             template = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId())
-                    .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("템플릿을 찾을 수 없습니다."));
+                    .orElseThrow(() -> new EntityNotFoundException("템플릿을 찾을 수 없습니다."));
         }
 
         authz.ensurePermissionForWrite(auth, branch, employee, dto.getRegisteredDate());
-
         LocalDate date = dto.getRegisteredDate();
 
         LocalDateTime in, bs, be, out;
-        if (dto.getCategory() == ScheduleTypeCategory.LEAVE) {
+        if (isLeave) {
             in = bs = be = out = null;
         } else {
-            in  = time.coalesceDateTime(dto.getRegisteredClockIn(),  date, template != null ? template.getDefaultClockIn()  : null);
-            bs  = time.coalesceDateTime(dto.getRegisteredBreakStart(), date, template != null ? template.getDefaultBreakStart() : null);
-            be  = time.coalesceDateTime(dto.getRegisteredBreakEnd(), date, template != null ? template.getDefaultBreakEnd() : null);
-            out = time.coalesceDateTime(dto.getRegisteredClockOut(), date, template != null ? template.getDefaultClockOut() : null);
-            if (dto.getRegisteredClockIn() != null && dto.getRegisteredClockOut() != null) {
-                if (out == null || in == null || !out.isAfter(in)) throw new IllegalArgumentException("퇴근 시각은 출근 시각 이후여야 합니다.");
+            if (dto.getRegisteredClockIn() != null
+                    || dto.getRegisteredBreakStart() != null
+                    || dto.getRegisteredBreakEnd() != null
+                    || dto.getRegisteredClockOut() != null) {
+
+                in  = dto.getRegisteredClockIn();
+                bs  = dto.getRegisteredBreakStart();
+                be  = dto.getRegisteredBreakEnd();
+                out = dto.getRegisteredClockOut();
+
+                if (bs  != null && in  != null && !bs.isAfter(in))  bs  = bs.plusDays(1);
+                if (be  != null && bs  != null && !be.isAfter(bs))  be  = be.plusDays(1);
+                LocalDateTime pivot = be != null ? be : (bs != null ? bs : in);
+                if (out != null && pivot != null && !out.isAfter(pivot)) out = out.plusDays(1);
+
+            } else {
+                LocalTime inT  = null, bsT = null, beT = null, outT = null;
+                var seq = buildSeq(date, inT, bsT, beT, outT, template);
+                in = seq.in(); bs = seq.bs(); be = seq.be(); out = seq.out();
+            }
+
+            if (in != null && out != null && !out.isAfter(in)) {
+                throw new IllegalArgumentException("퇴근 시각은 출근 시각 이후(익일 포함)여야 합니다.");
             }
         }
 
-        validator.validateNoConflictOnSave(employee, date, branch.getId(), dto.getCategory(), in, out, target.getId());
+        validator.validateNoConflictOnSave(employee, date, branch.getId(), isLeave, in, out, target.getId());
 
-        target.change(branch, dto.getCategory(), workType, leaveType, template, date, in, bs, be, out);
+        target.change(branch, category, workType, leaveType, template, date, in, bs, be, out);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(target.getId()).orElse(null);
         return ScheduleDetailDto.from(target, ev);
     }
@@ -334,10 +408,8 @@ public class ScheduleCommandService {
     @Transactional
     public void delete(ScheduleAuthService.Auth auth, Long scheduleId) {
         Schedule target = scheduleRepository.findById(scheduleId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("스케줄을 찾을 수 없습니다."));
-
+                .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForRead(auth, target.getEmployee(), target.getRegisteredDate());
-
         boolean hasEvent = scheduleEventRepository.findByScheduleId(scheduleId).isPresent();
         if (hasEvent) throw new IllegalStateException("이미 근태 이벤트가 존재합니다. 이벤트 삭제 후 스케줄을 삭제하세요.");
         scheduleRepository.delete(target);
@@ -348,21 +420,15 @@ public class ScheduleCommandService {
         if (scheduleIds == null || scheduleIds.isEmpty()) {
             throw new IllegalArgumentException("삭제할 스케줄이 없습니다.");
         }
-
         List<Schedule> targets = scheduleRepository.findAllById(scheduleIds);
         if (targets.size() != new HashSet<>(scheduleIds).size()) {
-            throw new jakarta.persistence.EntityNotFoundException("일부 스케줄을 찾을 수 없습니다.");
+            throw new EntityNotFoundException("일부 스케줄을 찾을 수 없습니다.");
         }
-
         for (Schedule s : targets) {
             authz.ensurePermissionForRead(auth, s.getEmployee(), s.getRegisteredDate());
         }
-
         long evCount = scheduleEventRepository.countByScheduleIdIn(scheduleIds);
-        if (evCount > 0) {
-            throw new IllegalStateException("일부 스케줄에 근태 이벤트가 존재합니다. 이벤트 삭제 후 다시 시도하세요.");
-        }
-
+        if (evCount > 0) throw new IllegalStateException("일부 스케줄에 근태 이벤트가 존재합니다. 이벤트 삭제 후 다시 시도하세요.");
         scheduleRepository.deleteAllByIdInBatch(scheduleIds);
     }
 
@@ -371,8 +437,8 @@ public class ScheduleCommandService {
         if (hasEvent) throw new IllegalStateException("이미 근태 이벤트가 존재합니다. 이벤트 삭제 후 수정하세요.");
     }
 
-    private ScheduleTimeService.Interval toInterval(LocalDate baseDate, ScheduleTypeCategory category, LocalDateTime in, LocalDateTime out) {
-        if (category == ScheduleTypeCategory.LEAVE) {
+    private ScheduleTimeService.Interval toInterval(LocalDate baseDate, boolean isLeave, LocalDateTime in, LocalDateTime out) {
+        if (isLeave) {
             return time.interval(baseDate.atStartOfDay(), baseDate.atTime(ScheduleValidationService.LEAVE_END_CUTOFF));
         }
         if (in == null && out == null) return time.daySpan(baseDate);

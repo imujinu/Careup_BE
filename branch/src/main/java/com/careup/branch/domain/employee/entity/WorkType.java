@@ -31,6 +31,8 @@ public class WorkType extends BaseTimeEntity {
     @Builder.Default
     private Boolean geofenceRequired = false;
 
-    @Column
-    private Integer geofenceRadiusMeters;
+    public void change(String name, Boolean geofenceRequired) {
+        this.name = name;
+        this.geofenceRequired = Boolean.TRUE.equals(geofenceRequired);
+    }
 }

@@ -1,4 +1,3 @@
-// 내용이 매우 깁니다. 그대로 교체하세요.
 package com.careup.branch.common.init;
 
 import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
@@ -6,7 +5,6 @@ import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.OwnershipType;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.branch.service.BranchService;
-import com.careup.branch.domain.employee.dto.request.AttendanceActionRequest;
 import com.careup.branch.domain.employee.dto.request.DispatchAssignmentDto;
 import com.careup.branch.domain.employee.dto.request.EmployeeCreateDto;
 import com.careup.branch.domain.employee.dto.request.JobGradeCreateDto;
@@ -24,9 +22,7 @@ import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.EmploymentStatus;
 import com.careup.branch.domain.employee.entity.EmploymentType;
 import com.careup.branch.domain.employee.entity.Gender;
-import com.careup.branch.domain.employee.entity.JobGrade;
 import com.careup.branch.domain.employee.entity.Relationship;
-import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.JobGradeRepository;
@@ -41,7 +37,6 @@ import com.careup.branch.domain.employee.service.ScheduleService;
 import com.careup.branch.domain.employee.service.WorkTypeService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -49,6 +44,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -217,17 +213,17 @@ public class DataInitializer implements CommandLineRunner {
             ));
 
             seedSchedules(hqId, dongjakId, boramaeId, workTypeIds, leaveTypeIds, templateIds);
-            seedAttendanceRecordsFixed(); // 고정 시간 근태 생성
+            seedAttendanceRecordsFixed();
         });
     }
 
     private void runAsSystem(Runnable task) {
-        Claims claims = Jwts.claims().setSubject("system@careup.com");
+        Claims claims = Jwts.claims().setSubject("0");
         claims.put("role", "HQ_ADMIN");
         claims.put("employeeId", 0L);
 
         var auth = new UsernamePasswordAuthenticationToken(
-                "system@careup.com", null, List.of(new SimpleGrantedAuthority("ROLE_HQ_ADMIN"))
+                "0", null, List.of(new SimpleGrantedAuthority("ROLE_HQ_ADMIN"))
         );
         auth.setDetails(claims);
 
@@ -265,8 +261,9 @@ public class DataInitializer implements CommandLineRunner {
                 .addressDetail(addressDetail)
                 .phone(phone)
                 .email(email)
-                .latitude(latitude).longitude(longitude)
-                .geofenceRadius(geofenceRadius)
+                .latitude(latitude)
+                .longitude(longitude)
+                .geofenceRadius(Objects.requireNonNullElse(geofenceRadius, 200))
                 .remark(remark)
                 .attorneyName(null)
                 .attorneyPhoneNumber(null)
@@ -307,7 +304,7 @@ public class DataInitializer implements CommandLineRunner {
                 .hireDate(hireDate).terminateDate(null)
                 .authorityType(role).employmentStatus(status).employmentType(type)
                 .profileImageUrl(profileImageUrl).remark(remark)
-                .rawPassword("care1234") // DEV ONLY
+                .rawPassword("care1234")
                 .dispatches(dispatches)
                 .build();
 
@@ -325,11 +322,23 @@ public class DataInitializer implements CommandLineRunner {
     private Map<String, Long> ensureWorkTypes(List<String> names) {
         Map<String, Long> result = new LinkedHashMap<>();
         var all = workTypeRepository.findAll();
+
         for (String name : names) {
-            Long id = all.stream().filter(w -> w.getName().equals(name)).map(w -> w.getId()).findFirst()
+            Long id = all.stream()
+                    .filter(w -> w.getName().equals(name))
+                    .map(w -> w.getId())
+                    .findFirst()
                     .orElseGet(() -> {
+                        boolean geofenceRequired =
+                                switch (name) {
+                                    case "재택근무" -> false;
+                                    default -> true;
+                                };
                         WorkTypeDetailDto created = workTypeService.create(
-                                WorkTypeUpsertDto.builder().name(name).geofenceRequired(false).geofenceRadiusMeters(null).build()
+                                WorkTypeUpsertDto.builder()
+                                        .name(name)
+                                        .geofenceRequired(geofenceRequired)
+                                        .build()
                         );
                         return created.getId();
                     });
@@ -341,11 +350,21 @@ public class DataInitializer implements CommandLineRunner {
     private Map<String, Long> ensureLeaveTypes(List<String> names) {
         Map<String, Long> result = new LinkedHashMap<>();
         var all = leaveTypeRepository.findAll();
+
+        Set<String> paidSet = Set.of("연차", "특별휴가");
+
         for (String name : names) {
-            Long id = all.stream().filter(l -> l.getName().equals(name)).map(l -> l.getId()).findFirst()
+            Long id = all.stream()
+                    .filter(l -> l.getName().equals(name))
+                    .map(l -> l.getId())
+                    .findFirst()
                     .orElseGet(() -> {
+                        boolean paid = paidSet.contains(name);
                         LeaveTypeDetailDto created = leaveTypeService.create(
-                                LeaveTypeUpsertDto.builder().name(name).paid(false).build()
+                                LeaveTypeUpsertDto.builder()
+                                        .name(name)
+                                        .paid(paid)
+                                        .build()
                         );
                         return created.getId();
                     });
@@ -387,7 +406,6 @@ public class DataInitializer implements CommandLineRunner {
     private void seedSchedules(Long hqId, Long dongjakId, Long boramaeId,
                                Map<String, Long> workTypeIds, Map<String, Long> leaveTypeIds, Map<String, Long> templateIds) {
 
-        // 기준일: 2025-01-13 (월)
         LocalDate D0 = LocalDate.of(2025, 1, 13);
         LocalDate Dm1 = D0.minusDays(1);
         LocalDate Dp1 = D0.plusDays(1);
@@ -423,10 +441,9 @@ public class DataInitializer implements CommandLineRunner {
         Long tplEve   = Objects.requireNonNull(templateIds.get("석간"));
         Long tplNight = Objects.requireNonNull(templateIds.get("야간"));
 
-        // 단건 스케줄 (멱등)
         if (!hasSchedule(empHQ, D0)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empHQ)
                     .workTypeId(wtWork).attendanceTemplateId(tplDay).branchId(hqId)
                     .registeredDate(D0)
                     .registeredClockIn(LocalDateTime.of(D0, LocalTime.of(9, 0)))
@@ -438,7 +455,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empDJ, Dm1)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empDJ)
                     .workTypeId(wtNight).attendanceTemplateId(tplNight).branchId(dongjakId)
                     .registeredDate(Dm1)
                     .registeredClockIn(LocalDateTime.of(Dm1, LocalTime.of(22, 0)))
@@ -450,20 +467,18 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empBR, Dp1)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empBR).category(ScheduleTypeCategory.LEAVE)
+                    .employeeId(empBR)
                     .leaveTypeId(ltAnnual).branchId(boramaeId)
                     .registeredDate(Dp1)
                     .build());
         }
 
-        // mass: DJ (석간, 수/목)
         var blockDates = List.of(Dp2, Dp3);
         if (blockDates.stream().anyMatch(d -> !hasSchedule(empDJ, d))) {
             scheduleService.massCreate(ScheduleMassCreateDto.builder()
                     .blocks(List.of(
                             ScheduleMassBlockDto.builder()
                                     .branchId(dongjakId)
-                                    .category(ScheduleTypeCategory.WORK)
                                     .workTypeId(wtWork)
                                     .attendanceTemplateId(tplEve)
                                     .employeeIds(List.of(empDJ))
@@ -477,12 +492,11 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
         }
 
-        // mass items: DJ (야간, 금/토)
         var items = new ArrayList<ScheduleMassItemDto>();
         if (!hasSchedule(empDJ, Dp4)) {
             items.add(ScheduleMassItemDto.builder()
                     .employeeId(empDJ).branchId(dongjakId)
-                    .category(ScheduleTypeCategory.WORK).workTypeId(wtNight) // NOTE: ensure enum is WORK
+                    .workTypeId(wtNight)
                     .attendanceTemplateId(tplNight).date(Dp4)
                     .registeredClockInTime(LocalTime.of(22, 0))
                     .registeredBreakStartTime(LocalTime.of(2, 0))
@@ -493,7 +507,7 @@ public class DataInitializer implements CommandLineRunner {
         if (!hasSchedule(empDJ, Dp5)) {
             items.add(ScheduleMassItemDto.builder()
                     .employeeId(empDJ).branchId(dongjakId)
-                    .category(ScheduleTypeCategory.WORK).workTypeId(wtNight)
+                    .workTypeId(wtNight)
                     .attendanceTemplateId(tplNight).date(Dp5)
                     .registeredClockInTime(LocalTime.of(22, 0))
                     .registeredBreakStartTime(LocalTime.of(2, 0))
@@ -507,7 +521,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empHQ2, Dp1)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ2).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empHQ2)
                     .workTypeId(wtWork).attendanceTemplateId(tplDay).branchId(hqId)
                     .registeredDate(Dp1)
                     .registeredClockIn(LocalDateTime.of(Dp1, LocalTime.of(9, 0)))
@@ -519,7 +533,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empDJ2, Dp1)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ2).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empDJ2)
                     .workTypeId(wtWork).attendanceTemplateId(tplEve).branchId(dongjakId)
                     .registeredDate(Dp1)
                     .registeredClockIn(LocalDateTime.of(Dp1, LocalTime.of(14, 0)))
@@ -531,7 +545,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empBR2, D0)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empBR2).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empBR2)
                     .workTypeId(wtNight).attendanceTemplateId(tplNight).branchId(boramaeId)
                     .registeredDate(D0)
                     .registeredClockIn(LocalDateTime.of(D0, LocalTime.of(22, 0)))
@@ -543,7 +557,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empHQ2, Dp2)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ2).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empHQ2)
                     .workTypeId(wtWFH).attendanceTemplateId(tplDay).branchId(hqId)
                     .registeredDate(Dp2)
                     .registeredClockIn(LocalDateTime.of(Dp2, LocalTime.of(9, 30)))
@@ -555,7 +569,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empDJ2, D0)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ2).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empDJ2)
                     .workTypeId(wtWFH).attendanceTemplateId(tplDay).branchId(dongjakId)
                     .registeredDate(D0)
                     .registeredClockIn(LocalDateTime.of(D0, LocalTime.of(10, 0)))
@@ -567,7 +581,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empHQ, Dp3)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ).category(ScheduleTypeCategory.WORK)
+                    .employeeId(empHQ)
                     .workTypeId(wtField).attendanceTemplateId(tplDay).branchId(hqId)
                     .registeredDate(Dp3)
                     .registeredClockIn(LocalDateTime.of(Dp3, LocalTime.of(10, 0)))
@@ -579,7 +593,7 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empBR, Dp6)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empBR).category(ScheduleTypeCategory.LEAVE)
+                    .employeeId(empBR)
                     .leaveTypeId(ltUnpaid).branchId(boramaeId)
                     .registeredDate(Dp6)
                     .build());
@@ -587,20 +601,18 @@ public class DataInitializer implements CommandLineRunner {
 
         if (!hasSchedule(empDJ, Dp7)) {
             scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ).category(ScheduleTypeCategory.LEAVE)
+                    .employeeId(empDJ)
                     .leaveTypeId(ltSpecial).branchId(dongjakId)
                     .registeredDate(Dp7)
                     .build());
         }
 
-        // mass: HQ2 WFH 3일 (Dp8~Dp10)
         var wfhDates = List.of(Dp8, Dp9, Dp10);
         if (wfhDates.stream().anyMatch(d -> !hasSchedule(empHQ2, d))) {
             scheduleService.massCreate(ScheduleMassCreateDto.builder()
                     .blocks(List.of(
                             ScheduleMassBlockDto.builder()
                                     .branchId(hqId)
-                                    .category(ScheduleTypeCategory.WORK)
                                     .workTypeId(wtWFH)
                                     .attendanceTemplateId(tplDay)
                                     .employeeIds(List.of(empHQ2))
@@ -614,12 +626,11 @@ public class DataInitializer implements CommandLineRunner {
                     .build());
         }
 
-        // mass items: DJ2 외근 2건 (Dp11, Dp12)
         var dj2Items = new ArrayList<ScheduleMassItemDto>();
         if (!hasSchedule(empDJ2, Dp11)) {
             dj2Items.add(ScheduleMassItemDto.builder()
                     .employeeId(empDJ2).branchId(dongjakId)
-                    .category(ScheduleTypeCategory.WORK).workTypeId(wtField)
+                    .workTypeId(wtField)
                     .attendanceTemplateId(tplDay).date(Dp11)
                     .registeredClockInTime(LocalTime.of(11, 0))
                     .registeredBreakStartTime(LocalTime.of(14, 0))
@@ -630,7 +641,7 @@ public class DataInitializer implements CommandLineRunner {
         if (!hasSchedule(empDJ2, Dp12)) {
             dj2Items.add(ScheduleMassItemDto.builder()
                     .employeeId(empDJ2).branchId(dongjakId)
-                    .category(ScheduleTypeCategory.WORK).workTypeId(wtField)
+                    .workTypeId(wtField)
                     .attendanceTemplateId(tplDay).date(Dp12)
                     .registeredClockInTime(LocalTime.of(13, 0))
                     .registeredBreakStartTime(LocalTime.of(17, 0))
@@ -643,9 +654,7 @@ public class DataInitializer implements CommandLineRunner {
         }
     }
 
-    /** 고정된 날짜/시간으로 근태 이벤트 생성 (검증용) */
     private void seedAttendanceRecordsFixed() {
-        // 기준일: 2025-01-13 (월)
         LocalDate D0 = LocalDate.of(2025, 1, 13);
         LocalDate Dm1 = D0.minusDays(1);
 
@@ -653,34 +662,31 @@ public class DataInitializer implements CommandLineRunner {
         var optDJ  = employeeRepository.findByEmployeeNumber("S2025004");
         var optDJ2 = employeeRepository.findByEmployeeNumber("S2025007");
 
-        // HQ (D0) 주간: 09:02 ~ 18:03, 휴게 12:31 ~ 13:29
         optHQ.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), D0)).ifPresent(s -> {
             double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5665);
             double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9780);
-            attendanceService.clockInAt (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(9, 2)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(12, 31)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(13, 29)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(18, 3)));
+            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(9, 2)));
+            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(12, 31)));
+            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 29)));
+            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(18, 3)));
         });
 
-        // DJ (Dm1~D0) 야간: 22:01 ~ 06:02, 휴게 02:05 ~ 03:04
         optDJ.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), Dm1)).ifPresent(s -> {
             double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5124);
             double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9399);
-            attendanceService.clockInAt (s.getId(), lat, lng, LocalDateTime.of(Dm1, LocalTime.of(22, 1)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, LocalDateTime.of(D0,  LocalTime.of(2, 5)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, LocalDateTime.of(D0,  LocalTime.of(3, 4)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, LocalDateTime.of(D0,  LocalTime.of(6, 2)));
+            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(Dm1, LocalTime.of(22, 1)));
+            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(2, 5)));
+            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(3, 4)));
+            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(6, 2)));
         });
 
-        // DJ2 (D0) 재택: 10:00 ~ 19:00, 휴게 13:00 ~ 13:59
         optDJ2.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), D0)).ifPresent(s -> {
             double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5124);
             double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9399);
-            attendanceService.clockInAt (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(10, 0)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(13, 0)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(13, 59)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(19, 0)));
+            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(10, 0)));
+            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 0)));
+            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 59)));
+            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(19, 0)));
         });
     }
 }

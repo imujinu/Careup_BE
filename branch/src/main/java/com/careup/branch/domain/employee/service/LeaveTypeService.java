@@ -29,7 +29,9 @@ public class LeaveTypeService {
 
     @Transactional
     public LeaveTypeDetailDto create(LeaveTypeUpsertDto dto) {
-        if (leaveTypeRepository.existsByNameIgnoreCase(dto.getName())) throw new IllegalArgumentException("이미 사용 중인 이름입니다.");
+        if (leaveTypeRepository.existsByNameIgnoreCase(dto.getName())) {
+            throw new IllegalArgumentException("이미 사용 중인 이름입니다.");
+        }
         LeaveType saved = leaveTypeRepository.save(
                 LeaveType.builder()
                         .name(dto.getName())
@@ -41,16 +43,17 @@ public class LeaveTypeService {
 
     @Transactional
     public LeaveTypeDetailDto update(Long id, LeaveTypeUpsertDto dto) {
-        LeaveType target = leaveTypeRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
-        if (!target.getName().equalsIgnoreCase(dto.getName()) && leaveTypeRepository.existsByNameIgnoreCase(dto.getName())) {
+        LeaveType target = leaveTypeRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("휴가 종류를 찾을 수 없습니다."));
+
+        if (!target.getName().equalsIgnoreCase(dto.getName())
+                && leaveTypeRepository.existsByNameIgnoreCase(dto.getName())) {
             throw new IllegalArgumentException("이미 사용 중인 이름입니다.");
         }
-        target = LeaveType.builder()
-                .id(target.getId())
-                .name(dto.getName())
-                .paid(Boolean.TRUE.equals(dto.getPaid()))
-                .build();
-        return LeaveTypeDetailDto.fromEntity(leaveTypeRepository.save(target));
+
+        // 의미 있는 변경 메서드로 갱신 (재조립 저장 금지)
+        target.change(dto.getName(), dto.getPaid());
+        return LeaveTypeDetailDto.fromEntity(target);
     }
 
     @Transactional

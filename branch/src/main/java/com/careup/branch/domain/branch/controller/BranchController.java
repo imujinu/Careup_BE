@@ -2,10 +2,7 @@ package com.careup.branch.domain.branch.controller;
 
 import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
-import com.careup.branch.domain.branch.dto.branch.BranchDto;
-import com.careup.branch.domain.branch.dto.branch.BranchListResDto;
-import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
-import com.careup.branch.domain.branch.dto.branch.BranchUpdateDto;
+import com.careup.branch.domain.branch.dto.branch.*;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.service.BranchService;
 import jakarta.validation.Valid;
@@ -19,6 +16,8 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/branch")
@@ -149,6 +148,65 @@ public class BranchController {
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.BAD_REQUEST.value())
                             .status_message("지점 삭제 실패 : " + e.getMessage())
+            );
+        }
+    }
+
+    /**
+     * Branch ID 목록으로 Branch 정보 조회 (ordering 서비스용)
+     * GET /branch/list-by-ids?branchIds=1,2,3
+     */
+    @GetMapping("/list-by-ids")
+    public ResponseEntity<?> getBranchesByIds(@RequestParam List<Long> branchIds) {
+        try {
+            List<BranchSimpleDto> branches = branchService.getBranchesByIds(branchIds);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branches)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("Branch 정보 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("Branch 정보 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 특정 지점의 인근 지점 조회 (위치 기반)
+     * GET /branch/{branchId}/nearby?radiusKm=10
+     */
+    @GetMapping("/{branchId}/nearby")
+    public ResponseEntity<?> getNearbyBranches(
+            @PathVariable Long branchId,
+            @RequestParam(defaultValue = "10.0") Double radiusKm) {
+        try {
+            List<NearbyBranchDto> nearbyBranches = branchService.getNearbyBranches(branchId, radiusKm);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(nearbyBranches)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("인근 지점 조회 성공")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message(e.getMessage())
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("인근 지점 조회 실패: " + e.getMessage())
+                            .build()
             );
         }
     }
