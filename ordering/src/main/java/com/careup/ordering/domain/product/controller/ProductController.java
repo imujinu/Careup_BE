@@ -18,6 +18,7 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+    //ToDo: 카테고리 상의하고 지울것.
 //    private final CategoryService categoryService;
 
 //    // 카테고리

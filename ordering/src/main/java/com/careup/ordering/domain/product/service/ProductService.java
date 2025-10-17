@@ -4,6 +4,7 @@ import com.careup.ordering.domain.product.dto.ProductRequestDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.entity.ProductAttribute;
 import com.careup.ordering.domain.product.entity.Visibility;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
@@ -24,16 +25,11 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
 
-    // 상품 등록
+    // 상품 등록 (속성 포함)
     public ProductResponseDto createProduct(ProductRequestDto request) {
         // 카테고리 조회
-        Category category;
-        if (request.getCategoryId() != null) {
-            category = categoryRepository.findById(request.getCategoryId())
-                    .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
-        } else {
-            throw new IllegalArgumentException("카테고리 ID가 필요합니다.");
-        }
+        Category category = categoryRepository.findById(request.getCategoryId())
+                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
 
         Visibility visibilityEnum = Visibility.ALL;
         if (request.getVisibility() != null) {
@@ -43,6 +39,7 @@ public class ProductService {
             }
         }
 
+        // 상품 생성
         Product product = Product.builder()
                 .category(category)
                 .name(request.getName())
@@ -53,6 +50,17 @@ public class ProductService {
                 .imageUrl(request.getImageUrl())
                 .visibility(visibilityEnum)
                 .build();
+        // 속성이 있으면 함께 저장
+        if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
+            request.getAttributes().forEach(attrDto -> {
+                ProductAttribute attribute = ProductAttribute.builder()
+                        .product(product)
+                        .attributeName(attrDto.getAttributeName())
+                        .attributeValue(attrDto.getAttributeValue())
+                        .build();
+                product.getAttributes().add(attribute);
+            });
+        }
 
         Product savedProduct = productRepository.save(product);
         return ProductResponseDto.from(savedProduct);
@@ -116,9 +124,24 @@ public class ProductService {
                 request.getMaxPrice(),
                 request.getImageUrl()
         );
+        // 속성 업데이트
+        if (request.getAttributes() != null) {
+            // 기존 속성 전부 삭제
+            product.getAttributes().clear();
+            
+            // 새로운 속성 추가
+            request.getAttributes().forEach(attrDto -> {
+                ProductAttribute attribute = ProductAttribute.builder()
+                        .product(product)
+                        .attributeName(attrDto.getAttributeName())
+                        .attributeValue(attrDto.getAttributeValue())
+                        .build();
+                product.getAttributes().add(attribute);
+            });
+        }
 
         Product updatedProduct = productRepository.save(product);
-        return ProductResponseDto.from(updatedProduct);  // ✅ 변경
+        return ProductResponseDto.from(updatedProduct);
     }
 
     // 상품 삭제

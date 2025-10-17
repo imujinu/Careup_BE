@@ -31,4 +31,15 @@ public class ProductAttribute {
         this.attributeName = attributeName;
         this.attributeValue = attributeValue;
     }
+    /**
+     * 속성 정보 수정
+     */
+    public void updateAttribute(String attributeName, String attributeValue) {
+        if (attributeName != null) {
+            this.attributeName = attributeName;
+        }
+        if (attributeValue != null) {
+            this.attributeValue = attributeValue;
+        }
+    }
 }
