@@ -264,6 +264,26 @@ public class InventoryService {
         branchProductRepository.save(branchProduct);
     }
 
+    // 재고 정보 수정 (안전재고, 단가)
+    public void updateInventoryInfo(Long branchProductId, Long safetyStock, Long unitPrice, Authentication auth) {
+        BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
+                .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+
+        if (auth != null) {
+            validateBranchAccess(auth, branchProduct.getBranchId());
+        }
+
+        if (safetyStock != null) {
+            branchProduct.updateSafetyStock(safetyStock);
+        }
+
+        if (unitPrice != null) {
+            branchProduct.updatePrice(unitPrice);
+        }
+        
+        branchProductRepository.save(branchProduct);
+    }
+
     // 재고 증감 (분산 락 적용)
     public void adjustStock(Long branchProductId, Long quantity, String type, String reason, Authentication auth) {
         // BranchProduct를 조회해서 권한 체크

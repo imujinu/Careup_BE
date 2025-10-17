@@ -4,6 +4,7 @@ import com.careup.ordering.domain.product.dto.BranchProductRequestDto;
 import com.careup.ordering.domain.product.dto.BranchProductResponseDto;
 import com.careup.ordering.domain.product.dto.InventoryFlowRequestDto;
 import com.careup.ordering.domain.product.dto.InventoryFlowResponseDto;
+import com.careup.ordering.domain.product.dto.InventoryUpdateRequestDto;
 import com.careup.ordering.domain.product.dto.SafetyStockRequestDto;
 import com.careup.ordering.domain.product.dto.StockAdjustRequestDto;
 import com.careup.ordering.domain.product.entity.BranchProduct;
@@ -66,6 +67,13 @@ public class InventoryController {
     @PostMapping("/safety-stock")
     public ResponseEntity<Void> updateSafetyStock(@RequestBody SafetyStockRequestDto request, Authentication authentication) {
         inventoryService.updateSafetyStock(request.getBranchProductId(), request.getSafetyStock(), authentication);
+        return ResponseEntity.ok().build();
+    }
+
+    // 재고 정보 수정 (안전재고, 단가)
+    @PostMapping("/update")
+    public ResponseEntity<Void> updateInventoryInfo(@RequestBody InventoryUpdateRequestDto request, Authentication authentication) {
+        inventoryService.updateInventoryInfo(request.getBranchProductId(), request.getSafetyStock(), request.getUnitPrice(), authentication);
         return ResponseEntity.ok().build();
     }
 
