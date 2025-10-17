@@ -58,12 +58,15 @@ spring:
     port: 587
     username: ${MAIL_USER}
     password: ${MAIL_PW}
-    from: no-reply@careup.com
+    from: careup.noreply@gmail.com
     properties:
       mail:
         smtp:
           auth: true
           starttls.enable: true
+
+  main:
+    allow-bean-definition-overriding: true
 
 cloud:
   aws:
@@ -84,8 +87,8 @@ jwt:
   accessTokenExpiryMinutes: 30
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
-  secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
-  secretKeyRt: ${REFRESH_TOKEN_CUSTOMER}
+  secretKeyAt: ${ACCESS_TOKEN}
+  secretKeyRt: ${REFRESH_TOKEN}
 
 security:
   csrf:
