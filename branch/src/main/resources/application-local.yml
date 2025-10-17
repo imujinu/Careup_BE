@@ -42,12 +42,14 @@ spring:
     port: 587
     username: ${MAIL_USER}
     password: ${MAIL_PW}
-    from: no-reply@careup.com
+    from: careup.noreply@gmail.com
     properties:
       mail:
         smtp:
           auth: true
           starttls.enable: true
+  main:
+    allow-bean-definition-overriding: true
 
 cloud:
   aws:
