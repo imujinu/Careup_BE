@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.controller;
 
+import com.careup.ordering.common.dto.ResponseDto;
 import com.careup.ordering.domain.product.dto.BranchProductRequestDto;
 import com.careup.ordering.domain.product.dto.BranchProductResponseDto;
 import com.careup.ordering.domain.product.dto.InventoryFlowRequestDto;
@@ -10,18 +11,74 @@ import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.service.InventoryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * 재고 및 지점 상품 통합 컨트롤러
+ * - 재고 관리 (등록/조회/수정/입출고)
+ * - 지점 상품 조회 (프로모션 포함)
+ */
 @RestController
 @RequestMapping("/inventory")
 @RequiredArgsConstructor
 public class InventoryController {
     
     private final InventoryService inventoryService;
+
+    // ==================== 지점 상품 조회 (프로모션 포함)  ====================
+    
+    /**
+     *  전체 지점 상품 조회 (프로모션 포함)
+     */
+    @GetMapping("/branch-products")
+    public ResponseEntity<ResponseDto> getAllBranchProductsWithPromotion() {
+        List<BranchProductResponseDto> products = inventoryService.getAllBranchProductsWithPromotion();
+        return new ResponseEntity<>(ResponseDto.ok(products, HttpStatus.OK), HttpStatus.OK);
+    }
+    
+    /**
+     *  지점별 상품 조회 (프로모션 포함)
+     */
+    @GetMapping("/branch-products/branch/{branchId}")
+    public ResponseEntity<ResponseDto> getBranchProductsByBranchWithPromotion(@PathVariable Long branchId) {
+        List<BranchProductResponseDto> products = inventoryService.getBranchProductsByBranchWithPromotion(branchId);
+        return new ResponseEntity<>(ResponseDto.ok(products, HttpStatus.OK), HttpStatus.OK);
+    }
+    
+    /**
+     *  지점 상품 상세 조회 (프로모션 포함)
+     */
+    @GetMapping("/branch-products/{branchProductId}")
+    public ResponseEntity<ResponseDto> getBranchProductWithPromotion(@PathVariable Long branchProductId) {
+        BranchProductResponseDto product = inventoryService.getBranchProductWithPromotion(branchProductId);
+        return new ResponseEntity<>(ResponseDto.ok(product, HttpStatus.OK), HttpStatus.OK);
+    }
+    
+    /**
+     *  상품명 검색 (프로모션 포함)
+     */
+    @GetMapping("/branch-products/search")
+    public ResponseEntity<ResponseDto> searchBranchProductsWithPromotion(@RequestParam String keyword) {
+        List<BranchProductResponseDto> products = inventoryService.searchBranchProductsWithPromotion(keyword);
+        return new ResponseEntity<>(ResponseDto.ok(products, HttpStatus.OK), HttpStatus.OK);
+    }
+    
+    /**
+     *  지점별 + 상품명 검색 (프로모션 포함)
+     */
+    @GetMapping("/branch-products/branch/{branchId}/search")
+    public ResponseEntity<ResponseDto> searchBranchProductsByBranchWithPromotion(
+            @PathVariable Long branchId,
+            @RequestParam String keyword) {
+        List<BranchProductResponseDto> products = 
+                inventoryService.searchBranchProductsByBranchWithPromotion(branchId, keyword);
+        return new ResponseEntity<>(ResponseDto.ok(products, HttpStatus.OK), HttpStatus.OK);
+    }
 
     // ==================== 재고 관리 ====================
 
@@ -39,7 +96,7 @@ public class InventoryController {
         return ResponseEntity.ok(convertToBranchProductResponse(branchProduct));
     }
     
-    // 지점별 재고 조회
+    // 지점별 재고 조회 (재고 관리용 - 프로모션 미포함)
     @GetMapping("/branch/{branchId}")
     public ResponseEntity<List<BranchProductResponseDto>> getBranchProducts(@PathVariable Long branchId) {
         List<BranchProduct> branchProducts = inventoryService.getBranchProducts(branchId);
@@ -130,17 +187,7 @@ public class InventoryController {
     // ==================== DTO 변환 메서드 ====================
     
     private BranchProductResponseDto convertToBranchProductResponse(BranchProduct branchProduct) {
-        return new BranchProductResponseDto(
-                branchProduct.getId(),
-                branchProduct.getProduct().getId(),
-                branchProduct.getBranchId(),
-                branchProduct.getSerialNumber(),
-                branchProduct.getStockQuantity(),
-                branchProduct.getSafetystock(),
-                branchProduct.getPrice(),
-                branchProduct.getProduct().getName(),
-                branchProduct.getProduct().getDescription()
-        );
+        return BranchProductResponseDto.from(branchProduct);
     }
 
     private InventoryFlowResponseDto convertToInventoryFlowResponse(InventoryFlowDetail flow) {

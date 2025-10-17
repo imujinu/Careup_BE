@@ -1,6 +1,8 @@
 package com.careup.ordering.domain.product.service;
 
 import com.careup.ordering.common.service.DistributedLockService;
+import com.careup.ordering.domain.product.dto.BranchProductResponseDto;
+import com.careup.ordering.domain.product.dto.PromotionPriceDto;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.entity.Product;
@@ -18,6 +20,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,15 +31,102 @@ public class InventoryService {
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
     private final ProductRepository productRepository;
+    private final PromotionService promotionService;
     
     // redis와 kafka 추가
     private final RedisTemplate<String, Object> redisTemplate;
     private final KafkaTemplate<String, Object> kafkaTemplate;
-
     private final DistributedLockService distributedLockService;
     
     private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
     private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
+
+    // ========== 지점 상품 조회 (프로모션 포함) ==========
+
+    /**
+     *  전체 지점 상품 조회 (프로모션 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<BranchProductResponseDto> getAllBranchProductsWithPromotion() {
+        List<BranchProduct> products = branchProductRepository.findAll();
+        
+        return products.stream()
+                .map(this::convertToDtoWithPromotion)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     *  지점별 상품 조회 (프로모션 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<BranchProductResponseDto> getBranchProductsByBranchWithPromotion(Long branchId) {
+        List<BranchProduct> products = branchProductRepository.findByBranchId(branchId);
+        
+        return products.stream()
+                .map(this::convertToDtoWithPromotion)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     *  지점 상품 상세 조회 (프로모션 포함)
+     */
+    @Transactional(readOnly = true)
+    public BranchProductResponseDto getBranchProductWithPromotion(Long branchProductId) {
+        BranchProduct product = branchProductRepository.findById(branchProductId)
+                .orElseThrow(() -> new IllegalArgumentException("지점 상품을 찾을 수 없습니다."));
+        
+        return convertToDtoWithPromotion(product);
+    }
+    
+    /**
+     *  상품명으로 검색 (프로모션 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<BranchProductResponseDto> searchBranchProductsWithPromotion(String keyword) {
+        List<BranchProduct> products = branchProductRepository
+                .findByProduct_NameContaining(keyword);
+        
+        return products.stream()
+                .map(this::convertToDtoWithPromotion)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     *  지점별 + 상품명 검색 (프로모션 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<BranchProductResponseDto> searchBranchProductsByBranchWithPromotion(Long branchId, String keyword) {
+        List<BranchProduct> products = branchProductRepository
+                .findByBranchIdAndProduct_NameContaining(branchId, keyword);
+        
+        return products.stream()
+                .map(this::convertToDtoWithPromotion)
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * BranchProduct → DTO 변환 (프로모션 정보 포함)
+     */
+    private BranchProductResponseDto convertToDtoWithPromotion(BranchProduct branchProduct) {
+        try {
+            // 프로모션 가격 계산
+            PromotionPriceDto promotionPrice = promotionService.calculatePromotionPrice(
+                    branchProduct.getId()
+            );
+            
+            // 프로모션 정보 포함하여 DTO 생성
+            return BranchProductResponseDto.fromWithPromotion(branchProduct, promotionPrice);
+            
+        } catch (Exception e) {
+            log.warn("프로모션 정보 조회 실패 (branchProductId: {}): {}", 
+                    branchProduct.getId(), e.getMessage());
+            
+            // 프로모션 조회 실패 시 기본 정보만 반환
+            return BranchProductResponseDto.from(branchProduct);
+        }
+    }
+
+    // ========== 기존 재고 관리 기능 ==========
 
     // 지점별 상품 등록
     public BranchProduct createBranchProduct(Long productId, Long branchId, String serialNumber,
@@ -58,7 +148,7 @@ public class InventoryService {
         return branchProductRepository.save(branchProduct);
     }
 
-    // 지점별 재고 조회
+    // 지점별 재고 조회 (프로모션 미포함 - 재고 관리용)
     @Transactional(readOnly = true)
     public List<BranchProduct> getBranchProducts(Long branchId) {
         return branchProductRepository.findByBranchId(branchId);

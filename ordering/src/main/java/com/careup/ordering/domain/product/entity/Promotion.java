@@ -14,6 +14,7 @@ import java.time.LocalDate;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Promotion {
 
     @Id
@@ -37,17 +38,25 @@ public class Promotion {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private PromotionStatus status = PromotionStatus.ACTIVE;
-
-    @Builder
-    public Promotion(BranchProduct branchProduct, BigDecimal discountRate,
-                     LocalDate startDate, LocalDate endDate) {
-        this.branchProduct = branchProduct;
-        this.discountRate = discountRate;
-        this.startDate = startDate;
-        this.endDate = endDate;
+    
+    // 비즈니스 로직 메서드
+    public void updatePromotion(BigDecimal discountRate, LocalDate startDate, LocalDate endDate) {
+        if (discountRate != null) {
+            this.discountRate = discountRate;
+        }
+        if (startDate != null) {
+            this.startDate = startDate;
+        }
+        if (endDate != null) {
+            this.endDate = endDate;
+        }
     }
-
-    public enum PromotionStatus {
-        ACTIVE, INACTIVE
+    
+    public void activate() {
+        this.status = PromotionStatus.ACTIVE;
+    }
+    
+    public void deactivate() {
+        this.status = PromotionStatus.INACTIVE;
     }
 }

@@ -18,4 +18,10 @@ public interface BranchProductRepository extends JpaRepository<BranchProduct, Lo
     // 지점&상품으로 조회
     @Query("SELECT bp FROM BranchProduct bp WHERE bp.branchId = :branchId AND bp.product.id = :productId")
     Optional<BranchProduct> findByBranchIdAndProductId(@Param("branchId") Long branchId, @Param("productId") Long productId);
+    
+    // 상품명으로 검색
+    List<BranchProduct> findByProduct_NameContaining(String keyword);
+    
+    // 지점별 + 상품명 검색
+    List<BranchProduct> findByBranchIdAndProduct_NameContaining(Long branchId, String keyword);
 }
