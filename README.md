@@ -47,3 +47,14 @@
 
 - **화면설계서 (Figma)**  
   https://www.figma.com/design/KFWHtTRfOvJ7kE1tsQruIg/Care-up?node-id=0-1&p=f&t=gtd3O7evry5yZZHQ-0
+
+  ---
+
+  ## 📄 API 명세서 & 단위 테스트
+
+  
+- **Ordering 명세서**
+- https://documenter.getpostman.com/view/48691546/2sB3QQH7M6
+
+- **Branch 명세서**
+- https://documenter.getpostman.com/view/48691546/2sB3QQH7M3
