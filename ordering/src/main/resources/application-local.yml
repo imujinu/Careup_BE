@@ -87,8 +87,8 @@ jwt:
   accessTokenExpiryMinutes: 30
   refreshTokenExpiryDaysPersistent: 180
   refreshTokenExpiryDaysNonPersistent: 1
-  secretKeyAt: ${ACCESS_TOKEN}
-  secretKeyRt: ${REFRESH_TOKEN}
+  secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
+  secretKeyRt: ${REFRESH_TOKEN_CUSTOMER}
 
 security:
   csrf:
