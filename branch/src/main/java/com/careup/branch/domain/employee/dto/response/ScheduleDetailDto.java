@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.dto.response;
 
+import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
 import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
@@ -40,13 +41,20 @@ public class ScheduleDetailDto {
     private LocalDateTime actualBreakEnd;
     private LocalDateTime actualClockOut;
 
-    // ★ 추가: 실제 누적 시간(분)
-    private Integer actualWorkMinutes;   // 출근~퇴근 - 휴게
-    private Integer actualBreakMinutes;  // 휴게 시작~종료
+    private Integer actualWorkMinutes;
+    private Integer actualBreakMinutes;
+
+    private AttendanceStatus status;
+    private String badgeText;
+    private boolean missedCheckout;
 
     public static ScheduleDetailDto from(Schedule s, ScheduleEvent e) {
-        Integer workMin  = (e != null) ? e.getTotalWorkMinutes()   : null;
-        Integer breakMin = (e != null) ? e.getTotalBreakMinutes()  : null;
+        return from(s, e, null, null);
+    }
+
+    public static ScheduleDetailDto from(Schedule s, ScheduleEvent e, AttendanceStatus status, String badgeText) {
+        Integer workMin  = e != null ? e.getTotalWorkMinutes()  : null;
+        Integer breakMin = e != null ? e.getTotalBreakMinutes() : null;
 
         return ScheduleDetailDto.builder()
                 .id(s.getId())
@@ -72,6 +80,9 @@ public class ScheduleDetailDto {
                 .actualClockOut(e != null ? e.getClockOutAt() : null)
                 .actualWorkMinutes(workMin)
                 .actualBreakMinutes(breakMin)
+                .status(status)
+                .badgeText(badgeText)
+                .missedCheckout(e != null && e.isMissedCheckout())
                 .build();
     }
 }

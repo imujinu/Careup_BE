@@ -18,7 +18,7 @@ import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
 import com.careup.branch.domain.employee.repository.WorkTypeRepository;
 import io.jsonwebtoken.Claims;
-import jakarta.persistence.EntityNotFoundException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -44,6 +44,7 @@ public class ScheduleValidationService {
     private final BranchRepository branchRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
     private final ScheduleTimeService time;
+    private final Clock clock;
 
     private static final boolean ALLOW_NIGHT_AFTER_LEAVE = true;
     public static final LocalTime LEAVE_END_CUTOFF = LocalTime.of(18, 0);
@@ -58,7 +59,7 @@ public class ScheduleValidationService {
 
     private Auth readAuth() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getDetails() == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
         }
         Object details = authentication.getDetails();
@@ -67,7 +68,9 @@ public class ScheduleValidationService {
         }
         Long employeeId = c.get("employeeId", Long.class);
         String rawRole = String.valueOf(c.get("role"));
-        if (employeeId == null || rawRole == null) throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+        if (employeeId == null || rawRole == null) {
+            throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+        }
         String role = rawRole.startsWith("ROLE_") ? rawRole.substring(5) : rawRole;
         return new Auth(employeeId, role);
     }
@@ -83,7 +86,7 @@ public class ScheduleValidationService {
         var me = employeeRepository.findById(auth.employeeId())
                 .orElseThrow(() -> new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다."));
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(clock);
         Set<Long> myBranchIds = dispatchStatusRepository
                 .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
                         me, "N", today, today)

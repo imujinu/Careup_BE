@@ -28,19 +28,14 @@ public class ScheduleService {
     @Transactional
     public ScheduleDetailDto create(ScheduleCreateDto dto) {
         var auth = authz.readAuth();
-
-        // 사전 권한/배치 검증
         validator.ensureActorAuthorizedForBranch(dto.getBranchId());
         validator.ensureEmployeeAssignableToBranchOnDate(dto.getEmployeeId(), dto.getBranchId(), dto.getRegisteredDate());
-
         return command.create(auth, dto);
     }
 
     @Transactional
     public List<ScheduleDetailDto> massCreate(ScheduleMassCreateDto dto) {
         var auth = authz.readAuth();
-
-        // blocks 쪽 검증
         if (dto.getBlocks() != null) {
             for (ScheduleMassBlockDto b : dto.getBlocks()) {
                 validator.ensureActorAuthorizedForBranch(b.getBranchId());
@@ -53,15 +48,12 @@ public class ScheduleService {
                 }
             }
         }
-
-        // items 쪽 검증
         if (dto.getItems() != null) {
             for (ScheduleMassItemDto it : dto.getItems()) {
                 validator.ensureActorAuthorizedForBranch(it.getBranchId());
                 validator.ensureEmployeeAssignableToBranchOnDate(it.getEmployeeId(), it.getBranchId(), it.getDate());
             }
         }
-
         return command.massCreate(auth, dto);
     }
 
@@ -84,6 +76,11 @@ public class ScheduleService {
         return query.calendar(auth, employeeId, yearMonth);
     }
 
+    public List<ScheduleCalendarDto> calendarRange(List<Long> employeeIds, LocalDate from, LocalDate to) {
+        var auth = authz.readAuth();
+        return query.calendarRange(auth, employeeIds, from, to);
+    }
+
     public ScheduleDetailDto detail(Long scheduleId) {
         var auth = authz.readAuth();
         return query.detail(auth, scheduleId);
@@ -92,6 +89,7 @@ public class ScheduleService {
     @Transactional
     public ScheduleDetailDto update(Long scheduleId, ScheduleUpdateDto dto) {
         var auth = authz.readAuth();
+        validator.ensureActorAuthorizedForBranch(dto.getBranchId());
         return command.update(auth, scheduleId, dto);
     }
 

@@ -19,7 +19,7 @@ public class ScheduleEvent extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // ★ 낙관적 락(중복 클릭/경합 방지)
+    // 낙관적 락(중복 클릭/경합 방지)
     @Version
     private Long version;
 

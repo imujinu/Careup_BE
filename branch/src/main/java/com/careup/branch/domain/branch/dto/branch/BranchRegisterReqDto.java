@@ -50,9 +50,6 @@ public class BranchRegisterReqDto {
     @Email(message = "이메일 형식이 올바르지 않습니다.")
     private String email; // 대표 이메일
 
-    @NotBlank(message = "출퇴근 위치는 필수입니다.")
-    private String location; // 지정된 출퇴근 위치
-
     @NotNull(message = "출퇴근 반경은 필수입니다.")
     private Integer geofenceRadius; // 출퇴근 가능 반경
 

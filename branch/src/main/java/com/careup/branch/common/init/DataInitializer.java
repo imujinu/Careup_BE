@@ -37,7 +37,6 @@ import com.careup.branch.domain.employee.service.ScheduleService;
 import com.careup.branch.domain.employee.service.WorkTypeService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -45,6 +44,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -218,12 +218,12 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void runAsSystem(Runnable task) {
-        Claims claims = Jwts.claims().setSubject("system@careup.com");
+        Claims claims = Jwts.claims().setSubject("0");
         claims.put("role", "HQ_ADMIN");
         claims.put("employeeId", 0L);
 
         var auth = new UsernamePasswordAuthenticationToken(
-                "system@careup.com", null, List.of(new SimpleGrantedAuthority("ROLE_HQ_ADMIN"))
+                "0", null, List.of(new SimpleGrantedAuthority("ROLE_HQ_ADMIN"))
         );
         auth.setDetails(claims);
 
@@ -665,28 +665,28 @@ public class DataInitializer implements CommandLineRunner {
         optHQ.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), D0)).ifPresent(s -> {
             double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5665);
             double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9780);
-            attendanceService.clockInAt (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(9, 2)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(12, 31)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(13, 29)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(18, 3)));
+            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(9, 2)));
+            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(12, 31)));
+            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 29)));
+            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(18, 3)));
         });
 
         optDJ.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), Dm1)).ifPresent(s -> {
             double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5124);
             double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9399);
-            attendanceService.clockInAt (s.getId(), lat, lng, LocalDateTime.of(Dm1, LocalTime.of(22, 1)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, LocalDateTime.of(D0,  LocalTime.of(2, 5)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, LocalDateTime.of(D0,  LocalTime.of(3, 4)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, LocalDateTime.of(D0,  LocalTime.of(6, 2)));
+            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(Dm1, LocalTime.of(22, 1)));
+            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(2, 5)));
+            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(3, 4)));
+            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(6, 2)));
         });
 
         optDJ2.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), D0)).ifPresent(s -> {
             double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5124);
             double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9399);
-            attendanceService.clockInAt (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(10, 0)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(13, 0)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(13, 59)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, LocalDateTime.of(D0, LocalTime.of(19, 0)));
+            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(10, 0)));
+            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 0)));
+            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 59)));
+            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(19, 0)));
         });
     }
 }

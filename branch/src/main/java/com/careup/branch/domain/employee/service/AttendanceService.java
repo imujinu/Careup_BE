@@ -1,23 +1,27 @@
 package com.careup.branch.domain.employee.service;
 
+import com.careup.branch.domain.employee.config.AttendanceWindowProperties;
 import com.careup.branch.domain.employee.dto.request.AttendanceActionRequest;
 import com.careup.branch.domain.employee.dto.request.ScheduleEventUpdateDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleEventDetailDto;
 import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import com.careup.branch.domain.employee.repository.ScheduleEventRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
 import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.Objects;
+import java.util.stream.Stream;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,70 +33,66 @@ public class AttendanceService {
     private final AttendanceStatusResolver statusResolver;
     private final ScheduleAuthService authz;
     private final GeofenceValidator geofenceValidator;
+    private final Clock clock;
+    private final AttendanceWindowProperties windowProps;
 
     private static final long CHECKOUT_BLOCK_AFTER_MINUTES = 180;
 
     public ScheduleEventDetailDto detail(Long scheduleId) {
         var auth = authz.readAuth();
-
         Schedule s = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
-
         authz.ensurePermissionForRead(auth, s.getEmployee(), s.getRegisteredDate());
-
         ScheduleEvent e = scheduleEventRepository.findByScheduleId(scheduleId).orElse(null);
-        AttendanceStatus st = statusResolver.resolve(s, e, LocalDateTime.now());
+        AttendanceStatus st = statusResolver.resolve(s, e, LocalDateTime.now(clock));
         return ScheduleEventDetailDto.of(s, e, st);
     }
 
-    /* =======================
-       Public APIs (실사용)
-       ======================= */
-
     @Transactional
     public ScheduleEventDetailDto clockIn(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
-        Double lat = (req != null) ? req.getLat() : null;
-        Double lng = (req != null) ? req.getLng() : null;
-        return clockInAt(scheduleId, lat, lng, ts);
+        LocalDateTime ts = resolveActionAt(req);
+        Double lat = req != null ? req.getLat() : null;
+        Double lng = req != null ? req.getLng() : null;
+        Integer acc = req != null ? req.getAccuracyMeters() : null;
+        return clockInAt(scheduleId, lat, lng, acc, ts);
     }
 
     @Transactional
     public ScheduleEventDetailDto breakStart(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
-        Double lat = (req != null) ? req.getLat() : null;
-        Double lng = (req != null) ? req.getLng() : null;
-        return breakStartAt(scheduleId, lat, lng, ts);
+        LocalDateTime ts = resolveActionAt(req);
+        Double lat = req != null ? req.getLat() : null;
+        Double lng = req != null ? req.getLng() : null;
+        Integer acc = req != null ? req.getAccuracyMeters() : null;
+        return breakStartAt(scheduleId, lat, lng, acc, ts);
     }
 
     @Transactional
     public ScheduleEventDetailDto breakEnd(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
-        Double lat = (req != null) ? req.getLat() : null;
-        Double lng = (req != null) ? req.getLng() : null;
-        return breakEndAt(scheduleId, lat, lng, ts);
+        LocalDateTime ts = resolveActionAt(req);
+        Double lat = req != null ? req.getLat() : null;
+        Double lng = req != null ? req.getLng() : null;
+        Integer acc = req != null ? req.getAccuracyMeters() : null;
+        return breakEndAt(scheduleId, lat, lng, acc, ts);
     }
 
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
     public ScheduleEventDetailDto clockOut(Long scheduleId, AttendanceActionRequest req) {
-        LocalDateTime ts = (req != null && req.getAt() != null) ? req.getAt() : LocalDateTime.now();
-        Double lat = (req != null) ? req.getLat() : null;
-        Double lng = (req != null) ? req.getLng() : null;
-        return clockOutAt(scheduleId, lat, lng, ts);
+        LocalDateTime ts = resolveActionAt(req);
+        Double lat = req != null ? req.getLat() : null;
+        Double lng = req != null ? req.getLng() : null;
+        Integer acc = req != null ? req.getAccuracyMeters() : null;
+        return clockOutAt(scheduleId, lat, lng, acc, ts);
     }
 
-    /* =======================================
-       시더/테스트용: 고정 actionAt 지정
-       ======================================= */
-
     @Transactional
-    public ScheduleEventDetailDto clockInAt(Long scheduleId, Double lat, Double lng, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto clockInAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
         var auth = authz.readAuth();
-
         Schedule s = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-
+        ensureNotLeaveCategory(s);
+        ensureWithinRegisteredWindow(s, actionAt);
+        ensureNoOpenEventInOtherSchedules(s);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
                 .orElseGet(() -> scheduleEventRepository.save(
                         ScheduleEvent.builder()
@@ -103,101 +103,86 @@ public class AttendanceService {
                                 .totalWorkMinutes(0)
                                 .build()
                 ));
-
-        geofenceValidator.validateIfRequired(s, lat, lng);
-
+        geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
         if (ev.getClockOutAt() != null) {
             throw new IllegalStateException("이미 퇴근 처리된 스케줄입니다.");
         }
-
+        if (ev.getClockInAt() != null) {
+            throw new IllegalStateException("이미 출근 처리되었습니다.");
+        }
         ev.changeClockIn(actionAt);
         if (lat != null && lng != null) {
             ev.setClockInLatLon(toBig(lat), toBig(lng));
         }
-
         validateTimeline(ev);
         recomputeTotals(ev);
-
-        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
+        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
         return ScheduleEventDetailDto.of(s, ev, st);
     }
 
     @Transactional
-    public ScheduleEventDetailDto breakStartAt(Long scheduleId, Double lat, Double lng, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto breakStartAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
         var auth = authz.readAuth();
-
         Schedule s = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-
+        ensureNotLeaveCategory(s);
+        ensureWithinRegisteredWindow(s, actionAt);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
                 .orElseThrow(() -> new IllegalStateException("출근 기록이 없습니다."));
-
-        geofenceValidator.validateIfRequired(s, lat, lng);
-
+        geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
         if (ev.getClockInAt() == null) {
             throw new IllegalStateException("출근 기록이 먼저 필요합니다.");
         }
         if (ev.getBreakStartAt() != null && ev.getBreakEndAt() == null) {
             throw new IllegalStateException("이미 휴게 중입니다.");
         }
-
+        if (ev.getBreakEndAt() != null) {
+            throw new IllegalStateException("이미 휴게를 종료했습니다. 다음 스케줄에서만 휴게 시작이 가능합니다.");
+        }
         ev.changeBreakStart(actionAt);
-
         validateTimeline(ev);
         recomputeTotals(ev);
-
-        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
+        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
         return ScheduleEventDetailDto.of(s, ev, st);
     }
 
     @Transactional
-    public ScheduleEventDetailDto breakEndAt(Long scheduleId, Double lat, Double lng, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto breakEndAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
         var auth = authz.readAuth();
-
         Schedule s = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-
+        ensureNotLeaveCategory(s);
+        ensureWithinRegisteredWindow(s, actionAt);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
                 .orElseThrow(() -> new IllegalStateException("휴게 시작 기록이 없습니다."));
-
-        geofenceValidator.validateIfRequired(s, lat, lng);
-
+        geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
         if (ev.getBreakStartAt() == null) {
             throw new IllegalStateException("휴게 시작 기록이 먼저 필요합니다.");
         }
-
+        if (ev.getBreakEndAt() != null) {
+            throw new IllegalStateException("이미 휴게 종료 처리되었습니다.");
+        }
         ev.changeBreakEnd(actionAt);
-
         validateTimeline(ev);
         recomputeTotals(ev);
-
-        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
+        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
         return ScheduleEventDetailDto.of(s, ev, st);
     }
 
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
-    public ScheduleEventDetailDto clockOutAt(Long scheduleId, Double lat, Double lng, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto clockOutAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
         try {
             var auth = authz.readAuth();
-
             Schedule s = scheduleRepository.findById(scheduleId)
                     .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
             authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-
+            ensureNotLeaveCategory(s);
             ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
                     .orElseThrow(() -> new IllegalStateException("출근 기록이 없습니다."));
-
-            geofenceValidator.validateIfRequired(s, lat, lng);
-
-            if (ev.getClockInAt() == null) {
-                throw new IllegalStateException("출근 기록이 먼저 필요합니다.");
-            }
-
             var regOut = s.getRegisteredClockOut();
             boolean isAdmin = auth.isHqAdmin() || auth.isBranchOrFranchiseAdmin();
-
             if (!isAdmin && regOut != null && actionAt.isAfter(regOut) && ev.getClockOutAt() == null) {
                 long diffMin = Duration.between(regOut, actionAt).toMinutes();
                 if (diffMin >= CHECKOUT_BLOCK_AFTER_MINUTES) {
@@ -207,34 +192,34 @@ public class AttendanceService {
                     throw new MissedCheckoutLockException("퇴근 예정 시각으로부터 3시간이 경과하여 퇴근 처리가 제한되었습니다.", latest);
                 }
             }
-
+            geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
+            ensureWithinRegisteredWindow(s, actionAt);
+            if (ev.getClockInAt() == null) {
+                throw new IllegalStateException("출근 기록이 먼저 필요합니다.");
+            }
+            if (ev.getClockOutAt() != null) {
+                throw new IllegalStateException("이미 퇴근 처리되었습니다.");
+            }
             ev.changeClockOut(actionAt);
             if (lat != null && lng != null) {
                 ev.setClockOutLatLon(toBig(lat), toBig(lng));
             }
-
             validateTimeline(ev);
             recomputeTotals(ev);
-
-            AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
+            AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
             return ScheduleEventDetailDto.of(s, ev, st);
-
         } catch (MissedCheckoutLockException ex) {
             throw ex;
         }
     }
 
-    /* ===== 기존 PATCH (관리자/보정용) ===== */
-
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
     public ScheduleEventDetailDto upsertEvent(Long scheduleId, ScheduleEventUpdateDto dto) {
         try {
             var auth = authz.readAuth();
-
             Schedule s = scheduleRepository.findById(scheduleId)
                     .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
             authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-
             ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
                     .orElseGet(() -> scheduleEventRepository.save(
                             ScheduleEvent.builder()
@@ -245,17 +230,14 @@ public class AttendanceService {
                                     .totalWorkMinutes(0)
                                     .build()
                     ));
-
             if (dto.getEventDate() != null)    ev.changeEventDate(dto.getEventDate());
             if (dto.getClockInAt() != null)    ev.changeClockIn(dto.getClockInAt());
             if (dto.getBreakStartAt() != null) ev.changeBreakStart(dto.getBreakStartAt());
             if (dto.getBreakEndAt() != null)   ev.changeBreakEnd(dto.getBreakEndAt());
-
             if (dto.getClockOutAt() != null) {
-                LocalDateTime now = LocalDateTime.now();
+                LocalDateTime now = LocalDateTime.now(clock);
                 var regOut = s.getRegisteredClockOut();
                 boolean isAdmin = auth.isHqAdmin() || auth.isBranchOrFranchiseAdmin();
-
                 if (!isAdmin) {
                     if (regOut != null && now.isAfter(regOut)) {
                         long diffMin = Duration.between(regOut, now).toMinutes();
@@ -273,17 +255,14 @@ public class AttendanceService {
                 ev.changeClockOut(dto.getClockOutAt());
             } else if (Boolean.TRUE.equals(dto.getClearMissedCheckout())) {
                 if (!(auth.isHqAdmin() || auth.isBranchOrFranchiseAdmin())) {
-                    throw new AccessDeniedException("관리자 권한이 필요합니다.");
+                    throw new org.springframework.security.access.AccessDeniedException("관리자 권한이 필요합니다.");
                 }
                 ev.clearMissedCheckout();
             }
-
             validateTimeline(ev);
             recomputeTotals(ev);
-
-            AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now());
+            AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
             return ScheduleEventDetailDto.of(s, ev, st);
-
         } catch (MissedCheckoutLockException ex) {
             ScheduleEventDetailDto latest = detail(scheduleId);
             throw new MissedCheckoutLockException(ex.getMessage(), latest);
@@ -293,16 +272,12 @@ public class AttendanceService {
     @Transactional
     public void deleteEvent(Long scheduleId) {
         var auth = authz.readAuth();
-
         Schedule s = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-
         scheduleEventRepository.findByScheduleId(scheduleId)
                 .ifPresent(scheduleEventRepository::delete);
     }
-
-    /* ===== 타임라인/순서 검증 ===== */
 
     private void validateTimeline(ScheduleEvent e) {
         if (e.getBreakStartAt() != null && e.getClockInAt() == null) {
@@ -314,7 +289,6 @@ public class AttendanceService {
         if (e.getClockOutAt() != null && e.getClockInAt() == null) {
             throw new IllegalArgumentException("출근 기록 없이 퇴근은 불가합니다.");
         }
-
         if (e.getClockInAt() != null && e.getBreakStartAt() != null) {
             if (e.getBreakStartAt().isBefore(e.getClockInAt())) {
                 throw new IllegalArgumentException("휴게 시작 시각이 출근 시각보다 빠를 수 없습니다.");
@@ -332,15 +306,12 @@ public class AttendanceService {
         }
     }
 
-    /* ===== 합산 로직 ===== */
-
     private void recomputeTotals(ScheduleEvent e) {
         int breakMin = 0;
         if (e.getBreakStartAt() != null && e.getBreakEndAt() != null) {
             breakMin = safeMinutesBetween(e.getBreakStartAt(), e.getBreakEndAt());
         }
         e.changeTotalBreakMinutes(breakMin);
-
         if (e.getClockInAt() != null && e.getClockOutAt() != null) {
             int total = safeMinutesBetween(e.getClockInAt(), e.getClockOutAt()) - breakMin;
             e.changeTotalWorkMinutes(Math.max(total, 0));
@@ -357,5 +328,49 @@ public class AttendanceService {
 
     private static BigDecimal toBig(Double v) {
         return BigDecimal.valueOf(v).setScale(6, RoundingMode.HALF_UP);
+    }
+
+    private void ensureNoOpenEventInOtherSchedules(Schedule s) {
+        Long empId = s.getEmployee() != null ? s.getEmployee().getId() : null;
+        if (empId == null) return;
+        boolean existsOpenOther =
+                scheduleEventRepository.existsBySchedule_Employee_IdAndSchedule_IdNotAndClockInAtIsNotNullAndClockOutAtIsNull(empId, s.getId());
+        if (existsOpenOther) {
+            throw new IllegalStateException("이전 근무의 퇴근 후 다음 스케줄에서 출근할 수 있습니다.");
+        }
+    }
+
+    private void ensureNotLeaveCategory(Schedule s) {
+        if (s.getCategory() == ScheduleTypeCategory.LEAVE) {
+            throw new IllegalStateException("휴가 일정에서는 출퇴근 기록이 불가합니다.");
+        }
+    }
+
+    private void ensureWithinRegisteredWindow(Schedule s, LocalDateTime actionAt) {
+        if (!windowProps.isEnforce()) return;
+        LocalDateTime min = Stream.of(s.getRegisteredClockIn(), s.getRegisteredBreakStart(), s.getRegisteredBreakEnd(), s.getRegisteredClockOut())
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder())
+                .orElse(null);
+        LocalDateTime max = Stream.of(s.getRegisteredClockIn(), s.getRegisteredBreakStart(), s.getRegisteredBreakEnd(), s.getRegisteredClockOut())
+                .filter(Objects::nonNull)
+                .max(Comparator.naturalOrder())
+                .orElse(null);
+        if (min == null || max == null) {
+            LocalDateTime start = s.getRegisteredDate().atStartOfDay();
+            LocalDateTime end = start.plusDays(1);
+            min = start;
+            max = end;
+        }
+        LocalDateTime allowedStart = min.minusMinutes(Math.max(windowProps.getEarlyMinutes(), 0));
+        LocalDateTime allowedEnd = max.plusMinutes(Math.max(windowProps.getLateMinutes(), 0));
+        if (actionAt.isBefore(allowedStart) || actionAt.isAfter(allowedEnd)) {
+            throw new IllegalStateException("등록된 근무 시간 외에는 기록할 수 없습니다.");
+        }
+    }
+
+    private LocalDateTime resolveActionAt(AttendanceActionRequest req) {
+        if (req != null && req.getAt() != null) return req.getAt();
+        return LocalDateTime.now(clock);
     }
 }
