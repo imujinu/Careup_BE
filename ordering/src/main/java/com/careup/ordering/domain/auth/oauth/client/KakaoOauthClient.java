@@ -47,8 +47,7 @@ public class KakaoOauthClient {
                 .uri("https://kauth.kakao.com/oauth/token")
                 .body(params)
                 .retrieve()
-                .toEntity(OauthTokenDto.class)
-                .getBody();
+                .body(OauthTokenDto.class);
     }
 
     public KakaoProfileDto getProfile(String accessToken) {

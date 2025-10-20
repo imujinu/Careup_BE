@@ -100,6 +100,8 @@ oauth:
     redirect-uri: http://localhost:3000/oauth/kakao/callback
 
 security:
+  cors:
+    allowed-origins: "http://localhost:3000"
   csrf:
     allowed-origins:
       - "http://localhost:3000"

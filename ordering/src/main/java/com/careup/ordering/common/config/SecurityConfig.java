@@ -27,14 +27,13 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable());
         http.httpBasic(b -> b.disable());
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.cors(cors -> {}); // CORS 활성화
+        http.cors(cors -> {});
 
         http.authorizeHttpRequests(auth -> auth
-                // 공용 공개
                 .requestMatchers("/actuator/**", "/public/**", "/health").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // 고객 인증 플로우 공개 + OAuth 공개 엔드포인트
+                // 고객 인증 플로우 + OAuth 엔드포인트 공개
                 .requestMatchers(
                         "/auth/customers/signup",
                         "/auth/customers/login",
@@ -44,10 +43,9 @@ public class SecurityConfig {
                         "/auth/customers/password/reset",
                         "/auth/customers/oauth/google",
                         "/auth/customers/oauth/kakao",
-                        "/auth/customers/oauth/update" // 임시토큰 기반 완료 단계는 permitAll
+                        "/auth/customers/oauth/update"
                 ).permitAll()
 
-                // 상품/카테고리: 조회는 공개, 쓰기/수정/삭제는 관리자 계열만
                 .requestMatchers(HttpMethod.GET, "/products/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -58,7 +56,6 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 인벤토리
                 .requestMatchers("/inventory/flow").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/adjustment-history").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/branch/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -66,20 +63,16 @@ public class SecurityConfig {
                 .requestMatchers("/inventory/adjust").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
 
-                // 쿠폰
                 .requestMatchers(HttpMethod.GET, "/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 고객 전용 영역
                 .requestMatchers("/cart/**", "/orders/**", "/customers/**").hasRole("CUSTOMER")
 
-                // 관리자 전용
                 .requestMatchers("/admin/**", "/management/**", "/product-admin/**")
                 .hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 나머지는 인증 필요
                 .anyRequest().authenticated()
         );
 

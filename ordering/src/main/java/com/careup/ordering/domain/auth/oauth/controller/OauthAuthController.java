@@ -6,6 +6,7 @@ import com.careup.ordering.domain.auth.oauth.dto.OauthUpdateRequest;
 import com.careup.ordering.domain.auth.oauth.dto.ProvideCodeRequest;
 import com.careup.ordering.domain.auth.oauth.service.OauthAuthService;
 import jakarta.validation.Valid;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,19 @@ import org.springframework.web.bind.annotation.*;
 public class OauthAuthController {
 
     private final OauthAuthService service;
+
+    /** 프론트가 먼저 호출하여 서버발급 state를 획득(10분 유효) */
+    @GetMapping("/state")
+    public ResponseEntity<CommonSuccessDto> issueState() {
+        String state = service.issueState();
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("OAuth state 발급 완료")
+                        .result(Map.of("state", state))
+                        .build()
+        );
+    }
 
     @PostMapping("/google")
     public ResponseEntity<CommonSuccessDto> google(@RequestBody @Valid ProvideCodeRequest req) {

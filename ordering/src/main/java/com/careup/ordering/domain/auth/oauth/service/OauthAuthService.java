@@ -5,13 +5,23 @@ import com.careup.ordering.common.auth.JwtTokenProvider;
 import com.careup.ordering.common.util.PhoneUtils;
 import com.careup.ordering.domain.auth.oauth.client.GoogleOauthClient;
 import com.careup.ordering.domain.auth.oauth.client.KakaoOauthClient;
-import com.careup.ordering.domain.auth.oauth.dto.*;
+import com.careup.ordering.domain.auth.oauth.dto.GoogleProfileDto;
+import com.careup.ordering.domain.auth.oauth.dto.KakaoProfileDto;
+import com.careup.ordering.domain.auth.oauth.dto.OauthLoginResponse;
+import com.careup.ordering.domain.auth.oauth.dto.OauthTokenDto;
+import com.careup.ordering.domain.auth.oauth.dto.OauthUpdateRequest;
+import com.careup.ordering.domain.auth.oauth.dto.ProvideCodeRequest;
+import com.careup.ordering.domain.auth.oauth.store.OauthStateStore;
 import com.careup.ordering.domain.auth.oauth.store.OauthTempStore;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.entity.SocialAccount;
 import com.careup.ordering.domain.member.entity.SocialProvider;
 import com.careup.ordering.domain.member.repository.MemberRepository;
 import com.careup.ordering.domain.member.repository.SocialAccountRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Base64;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,9 +41,17 @@ public class OauthAuthService {
     private final GoogleOauthClient googleClient;
     private final KakaoOauthClient kakaoClient;
     private final OauthTempStore tempStore;
+    private final OauthStateStore stateStore;
+
+    /** 프론트가 선발급 요청하는 state */
+    public String issueState() {
+        return stateStore.issue();
+    }
 
     public OauthLoginResponse googleLogin(ProvideCodeRequest req) {
-        OauthTokenDto token = googleClient.exchangeCode(req.getCode());
+        verifyStateOrThrow(req.getState());
+
+        OauthTokenDto token = googleClient.exchangeCode(req.getCode(), req.getCodeVerifier());
         GoogleProfileDto p = googleClient.getProfile(token.getAccessToken());
 
         SocialProvider provider = SocialProvider.GOOGLE;
@@ -46,6 +64,8 @@ public class OauthAuthService {
     }
 
     public OauthLoginResponse kakaoLogin(ProvideCodeRequest req) {
+        verifyStateOrThrow(req.getState());
+
         OauthTokenDto token = kakaoClient.exchangeCode(req.getCode());
         KakaoProfileDto p = kakaoClient.getProfile(token.getAccessToken());
 
@@ -60,9 +80,14 @@ public class OauthAuthService {
         return handleAfterProfile(provider, socialId, email, name, pic);
     }
 
+    private void verifyStateOrThrow(String state) {
+        if (!stateStore.consume(state)) {
+            throw new IllegalArgumentException("유효하지 않은 state 입니다. 다시 시도해 주세요.");
+        }
+    }
+
     private OauthLoginResponse handleAfterProfile(SocialProvider provider, String socialId,
                                                   String email, String name, String profileImageUrl) {
-        // 1) 기존 소셜 연결 여부
         var linked = socialAccountRepository.findByProviderAndSocialId(provider, socialId).orElse(null);
         if (linked != null) {
             Member m = linked.getMember();
@@ -85,7 +110,6 @@ public class OauthAuthService {
                     .build();
         }
 
-        // 2) 이메일 보유 회원과 연결(이미 가입한 사용자)
         if (email != null && !email.isBlank()) {
             var owner = memberRepository.findByEmailIgnoreCase(email).orElse(null);
             if (owner != null) {
@@ -115,7 +139,6 @@ public class OauthAuthService {
             }
         }
 
-        // 3) 신규 가입(추가정보 필요) -> 임시 토큰 발급
         String temp = tempStore.save(new OauthTempStore.Payload(provider, socialId, email, name, profileImageUrl));
         return OauthLoginResponse.builder()
                 .status("INCOMPLETE")
@@ -131,7 +154,6 @@ public class OauthAuthService {
         var payload = tempStore.consume(req.getOauthTempToken())
                 .orElseThrow(() -> new IllegalArgumentException("임시 토큰이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요."));
 
-        // 닉네임/이메일/휴대폰 중복 체크
         if (memberRepository.existsByNickname(req.getNickname().trim())) {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
@@ -143,11 +165,13 @@ public class OauthAuthService {
             throw new IllegalArgumentException("이미 사용 중인 휴대폰 번호입니다.");
         });
 
-        // 신규 Member 생성 (Member 엔티티 형태 그대로)
-        String randomPw = "{noop}OAUTH_" + System.nanoTime(); // 실제 운영 시 강한 난수 + encoder 적용
+        String randomPw = "OAUTH_" + UUID.randomUUID();
+        String finalEmail = (payload.email() != null && !payload.email().isBlank())
+                ? payload.email().trim()
+                : placeholderEmail(payload.provider(), payload.socialId());
+
         Member m = Member.builder()
-                .email(payload.email() != null ? payload.email().trim()
-                        : (payload.provider().name().toLowerCase() + "_" + payload.socialId() + "@placeholder.local"))
+                .email(finalEmail)
                 .password(passwordEncoder.encode(randomPw))
                 .nickname(req.getNickname().trim())
                 .name(req.getName().trim())
@@ -157,7 +181,6 @@ public class OauthAuthService {
                 .build();
         memberRepository.save(m);
 
-        // 소셜 연결 생성
         socialAccountRepository.save(
                 SocialAccount.builder()
                         .member(m)
@@ -167,7 +190,6 @@ public class OauthAuthService {
                         .build()
         );
 
-        // 토큰 발급
         String at = jwt.createAccessToken(m.getId(), "CUSTOMER");
         String rt = jwt.createRefreshToken(m.getId(), true);
 
@@ -186,5 +208,18 @@ public class OauthAuthService {
                 .provider(payload.provider().name())
                 .socialId(payload.socialId())
                 .build();
+    }
+
+    /** 이메일 컬럼(50자) 내에서 충돌·길이 안전한 placeholder 생성 */
+    private String placeholderEmail(SocialProvider provider, String socialId) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest((provider.name() + ":" + socialId).getBytes(StandardCharsets.UTF_8));
+            String hash = Base64.getUrlEncoder().withoutPadding().encodeToString(digest).substring(0, 22);
+            return provider.name().toLowerCase() + "_" + hash + "@placeholder.local";
+        } catch (Exception e) {
+            int fallback = Math.abs((provider.name() + ":" + socialId).hashCode());
+            return provider.name().toLowerCase() + "_" + fallback + "@placeholder.local";
+        }
     }
 }
