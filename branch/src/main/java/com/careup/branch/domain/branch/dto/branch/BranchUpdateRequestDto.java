@@ -1,5 +1,6 @@
 package com.careup.branch.domain.branch.dto.branch;
 
+import com.careup.branch.domain.branch.entity.BranchUpdateRequest;
 import com.careup.branch.domain.branch.entity.OwnershipType;
 import lombok.*;
 
@@ -32,5 +33,27 @@ public class BranchUpdateRequestDto {
     private String remark; // 비고
     private String attorneyName; // 대리인명
     private String attorneyPhoneNumber; // 대리인 연락처
+
+    public static BranchUpdateRequestDto fromEntity(BranchUpdateRequest request) {
+        return BranchUpdateRequestDto.builder()
+                .name(request.getRequestedName())
+                .businessDomain(request.getRequestedBusinessDomain())
+                .ownershipType(request.getRequestedOwnershipType())
+                .openDate(request.getRequestedOpenDate())
+                .businessNumber(request.getRequestedBusinessNumber())
+                .corporationNumber(request.getRequestedCorporationNumber())
+                .zipcode(request.getRequestedZipcode())
+                .address(request.getRequestedAddress())
+                .addressDetail(request.getRequestedAddressDetail())
+                .phone(request.getRequestedPhone())
+                .email(request.getRequestedEmail())
+                .latitude(request.getRequestedLatitude())
+                .longitude(request.getRequestedLongitude())
+                .geofenceRadius(request.getRequestedGeofenceRadius())
+                .remark(request.getRequestedRemark())
+                .attorneyName(request.getRequestedAttorneyName())
+                .attorneyPhoneNumber(request.getRequestedAttorneyPhoneNumber())
+                .build();
+    }
 }
 

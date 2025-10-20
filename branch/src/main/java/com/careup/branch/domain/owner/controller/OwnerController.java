@@ -1,5 +1,6 @@
 package com.careup.branch.domain.owner.controller;
 
+import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.owner.dto.request.OwnerAssignRequestDto;
 import com.careup.branch.domain.owner.dto.request.OwnerUpdateRequestDto;
@@ -26,15 +27,24 @@ public class OwnerController {
      */
     @PostMapping("/assign")
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    public ResponseEntity<CommonSuccessDto> assignOwner(@Valid @RequestBody OwnerAssignRequestDto request) {
-        OwnerResponseDto result = ownerService.assignOwner(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.CREATED.value())
-                        .status_message("점주 등록 및 할당 완료")
-                        .build()
-        );
+    public ResponseEntity<?> assignOwner(@Valid @RequestBody OwnerAssignRequestDto request) {
+        try {
+            OwnerResponseDto result = ownerService.assignOwner(request);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(result)
+                            .status_code(HttpStatus.CREATED.value())
+                            .status_message("점주 등록 및 할당 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("점주 등록 및 할당 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 
     /**
@@ -42,17 +52,26 @@ public class OwnerController {
      */
     @PatchMapping("/update/{employeeId}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    public ResponseEntity<CommonSuccessDto> updateOwner(
+    public ResponseEntity<?> updateOwner(
             @PathVariable Long employeeId,
             @Valid @RequestBody OwnerUpdateRequestDto request) {
-        OwnerResponseDto result = ownerService.updateOwner(employeeId, request);
-        return ResponseEntity.status(HttpStatus.OK).body(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("점주 정보 수정 완료")
-                        .build()
-        );
+        try {
+            OwnerResponseDto result = ownerService.updateOwner(employeeId, request);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(result)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("점주 정보 수정 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("점주 정보 수정 실패")
+                            .build()
+            );
+        }
     }
 
     /**
@@ -60,15 +79,24 @@ public class OwnerController {
      */
     @DeleteMapping("/remove/{employeeId}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    public ResponseEntity<CommonSuccessDto> removeOwner(@PathVariable Long employeeId) {
-        ownerService.removeOwner(employeeId);
-        return ResponseEntity.status(HttpStatus.OK).body(
-                CommonSuccessDto.builder()
-                        .result("ok")
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("점주 삭제(권한 해제) 완료")
-                        .build()
-        );
+    public ResponseEntity<?> removeOwner(@PathVariable Long employeeId) {
+        try {
+            ownerService.removeOwner(employeeId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result("ok")
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("점주 삭제(권한 해제) 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("점주 삭제(권한 해제) 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 
     /**
@@ -76,15 +104,24 @@ public class OwnerController {
      */
     @GetMapping("/branch/{branchId}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    public ResponseEntity<CommonSuccessDto> getOwnerByBranch(@PathVariable Long branchId) {
-        OwnerResponseDto result = ownerService.getOwnerByBranch(branchId);
-        return ResponseEntity.status(HttpStatus.OK).body(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("지점 점주 조회 완료")
-                        .build()
-        );
+    public ResponseEntity<?> getOwnerByBranch(@PathVariable Long branchId) {
+        try {
+            OwnerResponseDto result = ownerService.getOwnerByBranch(branchId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(result)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 점주 조회 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("지점 점주 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 
     /**
@@ -92,15 +129,24 @@ public class OwnerController {
      */
     @GetMapping("/list")
     @PreAuthorize("hasRole('HQ_ADMIN')")
-    public ResponseEntity<CommonSuccessDto> getAllOwners() {
-        List<OwnerResponseDto> result = ownerService.getAllOwners();
-        return ResponseEntity.status(HttpStatus.OK).body(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("전체 점주 목록 조회 완료")
-                        .build()
-        );
+    public ResponseEntity<?> getAllOwners() {
+        try {
+            List<OwnerResponseDto> result = ownerService.getAllOwners();
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(result)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("전체 점주 목록 조회 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("전체 점주 목록 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 }
 
