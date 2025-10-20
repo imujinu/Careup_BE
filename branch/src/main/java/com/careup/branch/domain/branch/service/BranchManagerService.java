@@ -3,9 +3,9 @@ package com.careup.branch.domain.branch.service;
 import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.common.util.AuthenticationUtils;
 import com.careup.branch.domain.branch.dto.branch.BranchDto;
+import com.careup.branch.domain.branch.dto.branch.BranchUpdateRequestDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.BranchUpdateRequest;
-import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.branch.repository.BranchUpdateRequestRepository;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
@@ -26,7 +26,6 @@ import java.util.Optional;
 public class BranchManagerService {
 
     private final DispatchStatusRepository dispatchStatusRepository;
-    private final BranchRepository branchRepository;
     private final BranchUpdateRequestRepository branchUpdateRequestRepository;
     private final EmployeeRepository employeeRepository;
     private final AwsS3Uploader awsS3Uploader;
@@ -41,10 +40,10 @@ public class BranchManagerService {
     }
 
     /**
-     * 지점 정보(지점명, 프로필 사진) 수정 요청
+     * 지점 정보 전체 수정 요청
      */
     @Transactional
-    public void requestBranchUpdate(String name, MultipartFile profileImageFile) {
+    public void requestBranchUpdate(BranchUpdateRequestDto requestDto, MultipartFile profileImageFile) {
         Long employeeId = AuthenticationUtils.getAuthenticatedEmployeeId();
         Branch myBranch = findMyBranchByEmployeeId(employeeId);
         Employee requester = employeeRepository.findById(employeeId)
@@ -56,21 +55,35 @@ public class BranchManagerService {
                     throw new IllegalStateException("이미 처리 대기 중인 수정 요청이 존재합니다.");
                 });
 
-        String requestedProfileImageUrl = myBranch.getProfileImageUrl();
+        // 현재 지점 정보를 기반으로 수정 요청 생성 (팩토리 메서드 활용)
+        BranchUpdateRequest updateRequest = BranchUpdateRequest.from(myBranch, requester);
 
-        // 새 프로필 이미지 파일이 제공된 경우 S3에 없로드하고 URL을 갱신
+        // DTO에서 받은 변경사항 적용
+        updateRequest.updateRequestedData(
+                requestDto.getName(),
+                requestDto.getBusinessDomain(),
+                requestDto.getOwnershipType(),
+                requestDto.getOpenDate(),
+                requestDto.getBusinessNumber(),
+                requestDto.getCorporationNumber(),
+                requestDto.getZipcode(),
+                requestDto.getAddress(),
+                requestDto.getAddressDetail(),
+                requestDto.getPhone(),
+                requestDto.getEmail(),
+                requestDto.getLatitude(),
+                requestDto.getLongitude(),
+                requestDto.getGeofenceRadius(),
+                requestDto.getRemark(),
+                requestDto.getAttorneyName(),
+                requestDto.getAttorneyPhoneNumber()
+        );
+
+        // 프로필 이미지가 업로드된 경우에만 처리
         if (profileImageFile != null && !profileImageFile.isEmpty()) {
-            requestedProfileImageUrl = awsS3Uploader.uploadFile("branch", myBranch.getId(), profileImageFile);
+            String uploadedImageUrl = awsS3Uploader.uploadFile("branch", myBranch.getId(), profileImageFile);
+            updateRequest.updateProfileImageUrl(uploadedImageUrl);
         }
-
-        // 수정 요청 엔티티 생성 및 저장
-        BranchUpdateRequest updateRequest = BranchUpdateRequest.builder()
-                .branch(myBranch)
-                .requester(requester)
-                .requestedName(name)
-                .requestedProfileImageUrl(requestedProfileImageUrl)
-                .status(BranchUpdateRequest.RequestStatus.PENDING)
-                .build();
 
         branchUpdateRequestRepository.save(updateRequest);
     }
