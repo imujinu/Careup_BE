@@ -1,18 +1,17 @@
 package com.careup.ordering.domain.auth.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.time.Instant;
+import lombok.Getter;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class AuthLogoutResponse {
-    private boolean tokenRevoked; // 항상 true
+    private boolean tokenRevoked;
     private Long memberId;
     private String email;
     private String nickname;

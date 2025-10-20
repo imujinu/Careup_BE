@@ -1,22 +1,21 @@
 package com.careup.ordering.domain.auth.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.time.Instant;
+import lombok.Getter;
+import lombok.Builder;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class AuthRefreshResponse {
-    private String tokenType;         // "Bearer"
-    private String accessToken;       // 새 AT
-    private int expiresInMinutes;     // AT 만료(분)
+    private String tokenType;
+    private String accessToken;
+    private int expiresInMinutes;
     private Long memberId;
-    private String role;              // CUSTOMER
+    private String role;
     private String email;
     private String nickname;
     private Instant issuedAt;
