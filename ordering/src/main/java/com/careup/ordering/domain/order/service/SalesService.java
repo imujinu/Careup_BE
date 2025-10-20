@@ -7,6 +7,7 @@ import com.careup.ordering.domain.order.dto.ProductSalesDto;
 import com.careup.ordering.domain.order.dto.SalesForecastDto;
 import com.careup.ordering.domain.order.dto.SalesStatisticsDto;
 import com.careup.ordering.domain.order.dto.request.SalesStatisticsRequestDto;
+import com.careup.ordering.domain.order.dto.response.OrderSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.ProductSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.SalesStatisticsResponseDto;
 import com.careup.ordering.domain.order.dto.response.SalesForecastResponseDto;
@@ -571,5 +572,39 @@ public class SalesService {
         statistics.put("endDate", endDate);
 
         return statistics;
+    }
+
+    /**
+     * 로열티 계산을 위한 월별 매출 조회
+     * @param branchId 지점 ID
+     * @param applicableMonth 적용 연월 (YYYYMM 형식)
+     * @return 해당 월의 총 매출액
+     */
+    public OrderSalesResponseDto getBranchSalesByMonth(Long branchId, String applicableMonth) {
+        log.info("지점 월별 매출 조회 - branchId: {}, month: {}", branchId, applicableMonth);
+
+        // YYYYMM 형식을 LocalDate로 변환
+        int year = Integer.parseInt(applicableMonth.substring(0, 4));
+        int month = Integer.parseInt(applicableMonth.substring(4, 6));
+
+        LocalDate startDate = LocalDate.of(year, month, 1);
+        LocalDate endDate = startDate.plusMonths(1).minusDays(1); // 해당 월의 마지막 날
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        // 해당 지점의 확정된 주문 내역 조회하여 매출 합계 계산
+        Long totalSales = orderRepository.calculateTotalSalesByBranchAndPeriod(
+                branchId, OrderStatus.CONFIRMED, startDateTime, endDateTime);
+
+        if (totalSales == null) {
+            totalSales = 0L;
+        }
+
+        return OrderSalesResponseDto.builder()
+                .branchId(branchId)
+                .applicableMonth(applicableMonth)
+                .totalSales(totalSales)
+                .build();
     }
 }

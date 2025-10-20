@@ -27,6 +27,8 @@ public class Royalty extends BaseTimeEntity {
     private Branch branch;
 
     //로열티 산정 기준
+    @Enumerated(EnumType.STRING)
+    @Column(name = "calculation_method", nullable = false)
     private CalculationMethod calculationMethod;
 
     //매출액 비율

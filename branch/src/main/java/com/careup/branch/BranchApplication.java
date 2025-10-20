@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
-@EnableFeignClients(basePackages = "com.careup.branch.common.client")
+@EnableFeignClients(basePackages = {"com.careup.branch.common.client", "com.careup.branch.domain.branch.client"})
 public class BranchApplication {
 
 	public static void main(String[] args) {
