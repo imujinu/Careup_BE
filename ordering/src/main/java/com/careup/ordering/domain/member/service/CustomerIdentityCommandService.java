@@ -7,15 +7,17 @@ import com.careup.ordering.domain.member.dto.request.CustomerIdentityChangeReque
 import com.careup.ordering.domain.member.dto.response.CustomerIdentityChangeResponse;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
-import io.jsonwebtoken.Claims;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -58,6 +60,7 @@ public class CustomerIdentityCommandService {
 
         memberRepository.save(me);
 
+        // 보안 컷오프 + RT 폐기: 10초 지연 후 적용
         revokeStore.scheduleCutoverAfterSeconds(meId, 10);
         jwt.revokeRefreshToken(meId);
 
@@ -67,19 +70,39 @@ public class CustomerIdentityCommandService {
                 .build();
     }
 
-    private static boolean hasText(String s) { return s != null && !s.isBlank(); }
+    private static boolean hasText(String s) {
+        return s != null && !s.isBlank();
+    }
 
+    /**
+     * JwtTokenFilter가 설정한 컨벤션에 맞춰
+     *  - details: Map { realm="CUS" | "EMP", ... }
+     *  - principal: Long(고객 ID)
+     */
     private Long readMemberId() {
         Authentication a = SecurityContextHolder.getContext().getAuthentication();
-        if (a == null || a.getDetails() == null || !a.isAuthenticated()) {
+        if (a == null || !a.isAuthenticated()) {
             throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
         }
+
         Object details = a.getDetails();
-        if (!(details instanceof Claims claims)) {
+        if (!(details instanceof Map<?, ?> m)) {
             throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
         }
-        Long id = claims.get("memberId", Long.class);
-        if (id == null) throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
-        return id;
+        Object realm = m.get("realm");
+        if (!"CUS".equals(realm)) {
+            // 임직원 토큰(EMP) 또는 기타 영역 접근 차단
+            throw new AccessDeniedException("고객 권한이 필요합니다.");
+        }
+
+        Object principal = a.getPrincipal();
+        if (principal instanceof Long id) {
+            return id;
+        }
+        // 혹시 String으로 전달된 경우(환경에 따라)
+        if (principal instanceof String s && s.matches("\\d+")) {
+            return Long.valueOf(s);
+        }
+        throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
     }
 }

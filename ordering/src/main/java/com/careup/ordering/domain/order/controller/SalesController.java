@@ -4,6 +4,7 @@ import com.careup.ordering.common.dto.CommonErrorDto;
 import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.domain.order.dto.BranchComparisonDto;
 import com.careup.ordering.domain.order.dto.request.SalesStatisticsRequestDto;
+import com.careup.ordering.domain.order.dto.response.OrderSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.ProductSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.SalesStatisticsResponseDto;
 import com.careup.ordering.domain.order.dto.response.SalesForecastResponseDto;
@@ -180,6 +181,35 @@ public class SalesController {
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.NOT_FOUND.value())
                             .status_message("조회 실폐. error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 로열티 계산을 위한 월별 매출 조회 (branch 모듈 전용)
+     * GET /sales/branch-sales?branchId=1&applicableMonth=202501
+     */
+    @GetMapping("/branch-sales")
+    public ResponseEntity<?> getBranchSalesByMonth(
+            @RequestParam Long branchId,
+            @RequestParam String applicableMonth) {
+
+        try {
+            OrderSalesResponseDto response = salesService.getBranchSalesByMonth(branchId, applicableMonth);
+
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(response)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("월별 매출 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("월별 매출 조회 실패: " + e.getMessage())
                             .build()
             );
         }

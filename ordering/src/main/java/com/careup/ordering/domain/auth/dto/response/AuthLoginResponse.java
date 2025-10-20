@@ -1,22 +1,21 @@
 package com.careup.ordering.domain.auth.dto.response;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 @Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class AuthLoginResponse {
-    private String tokenType;      // "Bearer"
+    private String tokenType;
     private String accessToken;
-    private String refreshToken;   // rememberMe=false면 null 가능
-    private int expiresInMinutes;  // AT 만료(분)
-
+    private String refreshToken;
+    private int expiresInMinutes;
     private Long memberId;
-    private String role;           // CUSTOMER 고정
+    private String role;
     private String name;
     private String email;
     private String nickname;
