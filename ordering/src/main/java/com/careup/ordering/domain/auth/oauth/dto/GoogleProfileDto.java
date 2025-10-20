@@ -16,4 +16,5 @@ public class GoogleProfileDto {
     private String email;
     private String picture;
     private String name;
+    private Boolean email_verified;
 }

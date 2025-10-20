@@ -71,7 +71,7 @@ jwt:
 security:
   csrf:
     allowed-origins:
-      - "http://localhost:3000"
+      - "http://localhost:5173"
     skip-paths:
       - "/health"
 
@@ -83,7 +83,7 @@ attendance:
 
 careup:
   mail:
-    reset-base-url: "http://localhost:3000/reset-password"  # 비밀번호 재설정 링크 프론트 URL
+    reset-base-url: "http://localhost:5173/reset-password"  # 비밀번호 재설정 링크 프론트 URL
 
 logging:
   level:

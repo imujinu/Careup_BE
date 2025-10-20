@@ -41,6 +41,7 @@ public class SecurityConfig {
                         "/auth/customers/logout",
                         "/auth/customers/password/forgot",
                         "/auth/customers/password/reset",
+                        "/auth/customers/oauth/state",   // ★ 추가: state 발급은 비인증 공개
                         "/auth/customers/oauth/google",
                         "/auth/customers/oauth/kakao",
                         "/auth/customers/oauth/update"

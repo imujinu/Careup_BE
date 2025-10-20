@@ -1,13 +1,12 @@
 package com.careup.ordering.common.auth;
 
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Component;
-
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
 
 @Component
 public class PasswordResetTokenStore {
@@ -19,7 +18,13 @@ public class PasswordResetTokenStore {
         this.redis = redis;
     }
 
-    private static String key(String email) { return "ORDERING:PWRESET:" + email; }
+    private static String norm(String email) {
+        return email == null ? "" : email.trim().toLowerCase();
+    }
+
+    private static String key(String email) {
+        return "ORDERING:PWRESET:" + norm(email);
+    }
 
     public String issue(String email) {
         String token = generateToken();
@@ -31,7 +36,9 @@ public class PasswordResetTokenStore {
         return Optional.ofNullable(redis.opsForValue().get(key(email)));
     }
 
-    public void delete(String email) { redis.delete(key(email)); }
+    public void delete(String email) {
+        redis.delete(key(email));
+    }
 
     private static String generateToken() {
         byte[] buf = new byte[18];

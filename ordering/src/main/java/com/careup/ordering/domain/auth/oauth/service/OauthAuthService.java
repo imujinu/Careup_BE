@@ -43,10 +43,7 @@ public class OauthAuthService {
     private final OauthTempStore tempStore;
     private final OauthStateStore stateStore;
 
-    /** 프론트가 선발급 요청하는 state */
-    public String issueState() {
-        return stateStore.issue();
-    }
+    public String issueState() { return stateStore.issue(); }
 
     public OauthLoginResponse googleLogin(ProvideCodeRequest req) {
         verifyStateOrThrow(req.getState());
@@ -60,6 +57,10 @@ public class OauthAuthService {
         String name = p.getName();
         String pic = p.getPicture();
 
+        if (Boolean.FALSE.equals(p.getEmail_verified())) {
+            email = null;
+        }
+
         return handleAfterProfile(provider, socialId, email, name, pic);
     }
 
@@ -71,11 +72,22 @@ public class OauthAuthService {
 
         SocialProvider provider = SocialProvider.KAKAO;
         String socialId = p.getId();
-        String email = (p.getKakao_account() != null) ? p.getKakao_account().getEmail() : null;
-        String name = (p.getKakao_account() != null && p.getKakao_account().getProfile() != null)
-                ? p.getKakao_account().getProfile().getNickname() : null;
-        String pic = (p.getKakao_account() != null && p.getKakao_account().getProfile() != null)
-                ? p.getKakao_account().getProfile().getProfile_image_url() : null;
+
+        String email = null;
+        String name = null;
+        String pic = null;
+
+        var acc = p.getKakao_account();
+        if (acc != null) {
+            boolean emailOk = Boolean.TRUE.equals(acc.getIs_email_valid()) && Boolean.TRUE.equals(acc.getIs_email_verified());
+            if (emailOk) {
+                email = acc.getEmail();
+            }
+            if (acc.getProfile() != null) {
+                name = acc.getProfile().getNickname();
+                pic = acc.getProfile().getProfile_image_url();
+            }
+        }
 
         return handleAfterProfile(provider, socialId, email, name, pic);
     }
@@ -88,9 +100,15 @@ public class OauthAuthService {
 
     private OauthLoginResponse handleAfterProfile(SocialProvider provider, String socialId,
                                                   String email, String name, String profileImageUrl) {
+        // (A) 이미 소셜 계정 연결된 경우
         var linked = socialAccountRepository.findByProviderAndSocialId(provider, socialId).orElse(null);
         if (linked != null) {
             Member m = linked.getMember();
+            // 비활성 계정 차단
+            if (!"N".equalsIgnoreCase(m.getIsDelYn())) {
+                throw new IllegalArgumentException("비활성화된 계정입니다.");
+            }
+
             String at = jwt.createAccessToken(m.getId(), "CUSTOMER");
             String rt = jwt.createRefreshToken(m.getId(), true);
             return OauthLoginResponse.builder()
@@ -110,15 +128,22 @@ public class OauthAuthService {
                     .build();
         }
 
+        // (B) 같은 이메일의 기존 회원이 있으면 연결 후 로그인
         if (email != null && !email.isBlank()) {
             var owner = memberRepository.findByEmailIgnoreCase(email).orElse(null);
             if (owner != null) {
+                // 비활성 계정 차단
+                if (!"N".equalsIgnoreCase(owner.getIsDelYn())) {
+                    throw new IllegalArgumentException("비활성화된 계정입니다.");
+                }
+
                 socialAccountRepository.save(SocialAccount.builder()
                         .member(owner)
                         .provider(provider)
                         .socialId(socialId)
                         .profileImageUrl(profileImageUrl)
                         .build());
+
                 String at = jwt.createAccessToken(owner.getId(), "CUSTOMER");
                 String rt = jwt.createRefreshToken(owner.getId(), true);
                 return OauthLoginResponse.builder()
@@ -139,6 +164,7 @@ public class OauthAuthService {
             }
         }
 
+        // (C) 신규 가입(추가정보 흐름)
         String temp = tempStore.save(new OauthTempStore.Payload(provider, socialId, email, name, profileImageUrl));
         return OauthLoginResponse.builder()
                 .status("INCOMPLETE")
@@ -210,7 +236,6 @@ public class OauthAuthService {
                 .build();
     }
 
-    /** 이메일 컬럼(50자) 내에서 충돌·길이 안전한 placeholder 생성 */
     private String placeholderEmail(SocialProvider provider, String socialId) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
