@@ -26,10 +26,10 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-    private final AwsS3Uploader awsS3Uploader;  // ⭐ S3 Uploader 추가
+    private final AwsS3Uploader awsS3Uploader;
 
     /**
-     * 상품 등록 (이미지 포함) ⭐ 수정
+     * 상품 등록 (이미지 포함)
      */
     public ProductResponseDto createProduct(ProductRequestDto request, MultipartFile imageFile) {
         // 카테고리 조회
@@ -81,13 +81,13 @@ public class ProductService {
     }
 
     /**
-     * 상품 수정 (이미지 포함) ⭐ 수정
+     * 상품 수정 (이미지 포함)
      */
     public ProductResponseDto updateProduct(Long productId, ProductRequestDto request, MultipartFile imageFile) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
 
-        // ⭐ 새 이미지 업로드 (있으면)
+        // 새 이미지 업로드 (있으면)
         String newImageUrl = null;
         if (imageFile != null && !imageFile.isEmpty()) {
             // 기존 이미지 삭제 (default 이미지가 아니면)
