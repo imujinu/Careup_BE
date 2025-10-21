@@ -2,12 +2,11 @@ package com.careup.ordering.domain.member.entity;
 
 import com.careup.ordering.common.domain.BaseTimeEntity;
 import jakarta.persistence.*;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
 
 @Entity
 @Table(name = "member")
@@ -43,6 +42,9 @@ public class Member extends BaseTimeEntity {
     @Column(name = "gender", nullable = false)
     private Gender gender;
 
+    /**
+     * N: 정상 / Y: 소프트탈퇴(비활성)
+     */
     @Column(name = "is_del_yn", nullable = false, length = 1)
     private String isDelYn = "N";
 
@@ -58,15 +60,24 @@ public class Member extends BaseTimeEntity {
         this.gender = gender;
     }
 
-    public void changePassword(String encoded) {
-        this.password = encoded;
+    public void changePassword(String encoded) { this.password = encoded; }
+    public void changeEmail(String email) { this.email = email; }
+    public void changePhone(String phone) { this.phone = phone; }
+
+    /** 프로필 일괄 변경(닉네임/이름/생일/성별) */
+    public void changeProfile(String nickname, String name, LocalDate birthday, Gender gender) {
+        this.nickname = nickname;
+        this.name = name;
+        this.birthday = birthday;
+        this.gender = gender;
     }
 
-    public void changeEmail(String email) {
-        this.email = email;
-    }
+    /** 소프트 삭제(탈퇴) → isDelYn = "Y" */
+    public void deactivate() { this.isDelYn = "Y"; }
 
-    public void changePhone(String phone) {
-        this.phone = phone;
-    }
+    /** 재활성화 → isDelYn = "N" */
+    public void reactivate() { this.isDelYn = "N"; }
+
+    /** 탈퇴 여부(Y면 true) */
+    public boolean isDeactivated() { return "Y".equalsIgnoreCase(this.isDelYn); }
 }
