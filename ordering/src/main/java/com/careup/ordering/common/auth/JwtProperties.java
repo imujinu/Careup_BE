@@ -1,17 +1,29 @@
 package com.careup.ordering.common.auth;
 
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.annotation.Validated;
 
 @Component
+@Validated
 @ConfigurationProperties(prefix = "jwt")
 public class JwtProperties {
 
+    @Min(1)
     private int accessTokenExpiryMinutes;
+
+    @Min(1)
     private int refreshTokenExpiryDaysPersistent;
+
+    @Min(1)
     private int refreshTokenExpiryDaysNonPersistent;
 
+    @NotBlank
     private String secretKeyAt;
+
+    @NotBlank
     private String secretKeyRt;
 
     public int getAccessTokenExpiryMinutes() { return accessTokenExpiryMinutes; }

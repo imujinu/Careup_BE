@@ -41,11 +41,28 @@ public class SocialAccount extends BaseTimeEntity {
     @Column(name = "profile_image_url", length = 300)
     private String profileImageUrl;
 
+    /** Google revocation 용으로 보관(있을 때만). Kakao는 AdminKey로 언링크하므로 불필요. */
+    @Column(name = "provider_refresh_token", length = 300)
+    private String providerRefreshToken;
+
     @Builder
-    public SocialAccount(Member member, SocialProvider provider, String socialId, String profileImageUrl) {
+    public SocialAccount(Member member, SocialProvider provider, String socialId, String profileImageUrl, String providerRefreshToken) {
         this.member = member;
         this.provider = provider;
         this.socialId = socialId;
         this.profileImageUrl = profileImageUrl;
+        this.providerRefreshToken = providerRefreshToken;
+    }
+
+    /** 새 refresh token 수신 시 갱신(널이면 무시) */
+    public void updateRefreshToken(String refreshToken) {
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            this.providerRefreshToken = refreshToken;
+        }
+    }
+
+    /** 민감 토큰 즉시 파기 */
+    public void clearRefreshToken() {
+        this.providerRefreshToken = null;
     }
 }
