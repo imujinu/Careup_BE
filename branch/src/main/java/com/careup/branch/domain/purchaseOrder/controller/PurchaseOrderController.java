@@ -4,11 +4,16 @@ import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
+import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderExcelService;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -17,6 +22,7 @@ import java.util.List;
 public class PurchaseOrderController {
     
     private final PurchaseOrderService purchaseOrderService;
+    private final PurchaseOrderExcelService excelService;
 
      // 발주 생성 (가맹점용)
     @PostMapping
@@ -75,6 +81,30 @@ public class PurchaseOrderController {
     public ResponseEntity<PurchaseOrderResponseDto> completePurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto completedOrder = purchaseOrderService.completePurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(completedOrder);
+    }
+
+
+    // 발주 내역 엑셀 다운로드 (본사/가맹점)
+    @GetMapping("/export/excel")
+    public ResponseEntity<byte[]> exportToExcel(
+            @RequestParam Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        byte[] excelBytes = excelService.exportToExcel(branchId, startDate, endDate);
+        
+        // 파일명 생성
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "purchase_orders_" + timestamp + ".xlsx";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentLength(excelBytes.length);
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelBytes);
     }
 
 }

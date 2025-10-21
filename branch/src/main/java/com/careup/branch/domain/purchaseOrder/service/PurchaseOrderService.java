@@ -1,6 +1,8 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
 import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
@@ -10,13 +12,17 @@ import com.careup.branch.domain.purchaseOrder.entity.PurchaseOrder;
 import com.careup.branch.domain.purchaseOrder.entity.PurchaseOrderDetail;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderRepository;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderDetailRepository;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,6 +39,7 @@ public class PurchaseOrderService {
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
     private final KafkaTemplate<String, Object> purchaseOrderKafkaTemplate;
     private final OrderingInventoryClient orderingInventoryClient;
+    private final EmployeeRepository employeeRepository;
     
     // 발주 생성 (가맹점용)
     @Transactional
@@ -108,6 +115,9 @@ public class PurchaseOrderService {
             throw new IllegalArgumentException("가맹점 ID는 필수입니다.");
         }
         
+        // 지점 권한 검증
+        validateBranchAccess(requestDto.getBranchId());
+        
         if (requestDto.getOrderDetails() == null || requestDto.getOrderDetails().isEmpty()) {
             throw new IllegalArgumentException("발주 상품을 선택해주세요.");
         }
@@ -121,10 +131,74 @@ public class PurchaseOrderService {
         }
     }
 
+    /**
+     * 지점 접근 권한 검증
+     * - 본사 관리자: 모든 지점 접근 가능
+     * - 가맹점주/직원: 자신의 지점만 접근 가능
+     */
+    private void validateBranchAccess(Long branchId) {
+        try {
+            // 1. 현재 인증된 사용자 정보 가져오기
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                throw new SecurityException("인증되지 않은 사용자입니다.");
+            }
+
+            // 2. JWT Claims에서 사용자 정보 추출
+            Claims claims = (Claims) auth.getDetails();
+            if (claims == null) {
+                throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
+            }
+            
+            Long employeeId = claims.get("employeeId", Long.class);
+            String role = claims.get("role", String.class);
+
+            // 3. 본사 관리자는 모든 지점 접근 가능
+            if ("HQ_ADMIN".equals(role)) {
+                log.info("본사 관리자 권한으로 모든 지점 접근 허용");
+                return;
+            }
+
+            // 4. 가맹점주/직원인 경우 자신의 지점만 접근 가능
+            Employee employee = employeeRepository.findWithDispatchStatusesById(employeeId)
+                    .orElseThrow(() -> new SecurityException("사용자 정보를 찾을 수 없습니다."));
+
+            // 5. 현재 활성화된 지점 배치 확인
+            List<Long> accessibleBranchIds = getAccessibleBranchIds(employee);
+            
+            if (!accessibleBranchIds.contains(branchId)) {
+                log.warn("지점 접근 권한 없음 - employeeId: {}, accessibleBranches: {}, requestedBranch: {}", 
+                        employeeId, accessibleBranchIds, branchId);
+                throw new SecurityException("해당 지점에 대한 접근 권한이 없습니다.");
+            }
+
+
+        } catch (Exception e) {
+            throw new SecurityException("지점 접근 권한 검증에 실패했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 사용자가 접근 가능한 지점 ID 목록 조회
+     */
+    private List<Long> getAccessibleBranchIds(Employee employee) {
+        LocalDate now = LocalDate.now();
+        
+        return employee.getDispatchStatuses().stream()
+                .filter(dispatch -> dispatch.getAssignedFrom().isBefore(now) || dispatch.getAssignedFrom().isEqual(now))
+                .filter(dispatch -> dispatch.getAssignedTo().isAfter(now) || dispatch.getAssignedTo().isEqual(now))
+                .map(dispatch -> dispatch.getBranch().getId())
+                .distinct()
+                .toList();
+    }
+
 
 
     // 발주 목록 조회
     public List<PurchaseOrderListResponseDto> getPurchaseOrders(Long branchId) {
+        // 지점 접근 권한 검증
+        validateBranchAccess(branchId);
+        
         if (branchId.equals(HEAD_OFFICE_BRANCH_ID)) {
             return getAllPurchaseOrders(); // 본사용 - 모든 발주 조회
         } else {
@@ -154,6 +228,9 @@ public class PurchaseOrderService {
     public PurchaseOrderResponseDto getPurchaseOrder(Long purchaseOrderId) {
         PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(purchaseOrderId)
                 .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
+        
+        // 발주가 속한 지점에 대한 접근 권한 검증
+        validateBranchAccess(purchaseOrder.getBranchId());
 
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(purchaseOrder);
 

@@ -9,23 +9,23 @@ import java.util.List;
 public interface OrderingInventoryClient {
 
      // 상품 목록 조회
-    @GetMapping("/products")
+    @GetMapping("/api/products")
     List<ProductResponseDto> getProducts();
-
+    
      // 상품 상세 조회
-    @GetMapping("/products/{productId}")
+    @GetMapping("/api/products/{productId}")
     ProductResponseDto getProduct(@PathVariable Long productId);
 
      // 상품 등록
-    @PostMapping("/products")
+    @PostMapping("/api/products")
     ProductResponseDto createProduct(@RequestBody ProductRequestDto request);
 
      // 상품 수정
-    @PutMapping("/products/{productId}")
+    @PutMapping("/api/products/{productId}")
     ProductResponseDto updateProduct(@PathVariable Long productId, @RequestBody ProductRequestDto request);
 
      // 상품 삭제
-    @DeleteMapping("/products/{productId}")
+    @DeleteMapping("/api/products/{productId}")
     void deleteProduct(@PathVariable Long productId);
 
     // 재고 관리
