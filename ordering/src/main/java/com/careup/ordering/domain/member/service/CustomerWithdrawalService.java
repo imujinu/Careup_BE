@@ -3,6 +3,7 @@ package com.careup.ordering.domain.member.service;
 import com.careup.ordering.common.auth.CustomerRevokeStore;
 import com.careup.ordering.common.auth.JwtTokenProvider;
 import com.careup.ordering.domain.auth.oauth.client.KakaoOauthClient;
+import com.careup.ordering.domain.auth.oauth.client.GoogleOauthClient;
 import com.careup.ordering.domain.member.dto.request.CustomerWithdrawRequest;
 import com.careup.ordering.domain.member.dto.response.CustomerWithdrawResponse;
 import com.careup.ordering.domain.member.entity.Member;
@@ -34,8 +35,8 @@ public class CustomerWithdrawalService {
     private final CustomerRevokeStore revokeStore;
     private final JwtTokenProvider jwt;
 
-    /** 카카오 언링크(Disconnect) 클라이언트 */
     private final KakaoOauthClient kakaoClient;
+    private final GoogleOauthClient googleClient;
 
     public CustomerWithdrawResponse withdraw(CustomerWithdrawRequest req) {
         Long meId = readCustomerIdFromContext();
@@ -47,12 +48,8 @@ public class CustomerWithdrawalService {
             throw new IllegalArgumentException("이미 탈퇴(비활성)된 계정입니다.");
         }
 
-        // 소셜 연동 여부
         boolean hasSocial = socialAccountRepository.existsByMember(me);
 
-        // 검증 규칙:
-        //  - 소셜 연동 없음(순수 일반 계정): 비밀번호 필수
-        //  - 소셜 연동 있음: 비밀번호 없이도 허용 (OAuth 가입자는 랜덤PW일 수 있음)
         if (!hasSocial) {
             if (req.getCurrentPassword() == null || req.getCurrentPassword().isBlank()) {
                 throw new IllegalArgumentException("현재 비밀번호가 필요합니다.");
@@ -68,28 +65,34 @@ public class CustomerWithdrawalService {
             }
         }
 
-        // (1) 카카오 언링크: 서버 Admin Key로 사용자를 앱에서 연결 해제 → 다음 로그인 시 동의창 재노출
         List<SocialAccount> links = socialAccountRepository.findAllByMember(me);
         for (SocialAccount link : links) {
             if (link.getProvider() == SocialProvider.KAKAO) {
-                String kakaoUserId = link.getSocialId();
-                kakaoClient.unlinkByAdmin(kakaoUserId);
+                try {
+                    kakaoClient.unlinkByAdmin(link.getSocialId());
+                } catch (Exception e) {
+                    log.warn("[KAKAO][UNLINK] failed user_id={}, err={}", link.getSocialId(), e.toString());
+                }
+            } else if (link.getProvider() == SocialProvider.GOOGLE) {
+                try {
+                    String rt = link.getProviderRefreshToken();
+                    if (rt != null && !rt.isBlank()) {
+                        googleClient.revokeRefreshToken(rt);
+                    } else {
+                        log.warn("[GOOGLE][REVOKE] refresh_token not stored for socialId={}", link.getSocialId());
+                    }
+                } catch (Exception e) {
+                    log.warn("[GOOGLE][REVOKE] failed socialId={}, err={}", link.getSocialId(), e.toString());
+                }
             }
-            // (선택) GOOGLE은 이미 동의창 재노출 이슈가 적어 별도 처리 생략
-            // 필요시 Google Grant Revoke 로직을 추가할 수 있습니다.
         }
+        socialAccountRepository.deleteAll(links);
 
-        // (2) 소프트 삭제 (isDelYn = 'Y')
         me.deactivate();
         memberRepository.save(me);
 
-        // (3) 즉시 세션 무효화 전략 (10초 후 AT 컷오프 + RT 폐기)
         revokeStore.scheduleCutoverAfterSeconds(meId, 10);
         jwt.revokeRefreshToken(meId);
-
-        // (4) 소셜 매핑은 남겨둠(선택). 남겨두면 재로그인 시 자동 재활성화 정책 사용 가능.
-        // 개인정보 최소화가 필요하면 아래 주석 해제로 매핑 삭제.
-        // socialAccountRepository.deleteAll(links);
 
         return CustomerWithdrawResponse.builder()
                 .deactivated(true)
@@ -99,7 +102,6 @@ public class CustomerWithdrawalService {
                 .build();
     }
 
-    /** JwtTokenFilter 컨벤션에 맞춘 고객 ID 추출 */
     private Long readCustomerIdFromContext() {
         Authentication a = SecurityContextHolder.getContext().getAuthentication();
         if (a == null || !a.isAuthenticated()) {

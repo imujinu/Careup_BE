@@ -52,11 +52,13 @@ public class OauthTempStore {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(buf);
     }
 
+    /** refreshToken은 Google에서만 의미가 있을 수 있음(없으면 null) */
     public static record Payload(
             SocialProvider provider,
             String socialId,
             String email,
             String name,
-            String profileImageUrl
+            String profileImageUrl,
+            String refreshToken
     ) {}
 }
