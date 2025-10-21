@@ -18,14 +18,17 @@ import com.careup.ordering.domain.member.entity.SocialAccount;
 import com.careup.ordering.domain.member.entity.SocialProvider;
 import com.careup.ordering.domain.member.repository.MemberRepository;
 import com.careup.ordering.domain.member.repository.SocialAccountRepository;
+import jakarta.persistence.EntityExistsException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -45,10 +48,8 @@ public class OauthAuthService {
 
     public String issueState() { return stateStore.issue(); }
 
-    // ===================== Google =====================
     public OauthLoginResponse googleLogin(ProvideCodeRequest req) {
         verifyStateOrThrow(req.getState());
-
         OauthTokenDto token = googleClient.exchangeCode(req.getCode(), req.getCodeVerifier());
         GoogleProfileDto p = googleClient.getProfile(token.getAccessToken());
 
@@ -57,70 +58,57 @@ public class OauthAuthService {
         String email = p.getEmail();
         String name = p.getName();
         String pic = p.getPicture();
-        String refreshToken = token.getRefreshToken(); // 처음 동의 시에만 내려올 수 있음
+        String refreshToken = token.getRefreshToken();
 
         if (Boolean.FALSE.equals(p.getEmail_verified())) {
             email = null;
         }
-
         return handleAfterProfile(provider, socialId, email, name, pic, refreshToken);
     }
 
-    // ===================== Kakao =====================
     public OauthLoginResponse kakaoLogin(ProvideCodeRequest req) {
         verifyStateOrThrow(req.getState());
-
         OauthTokenDto token = kakaoClient.exchangeCode(req.getCode());
         KakaoProfileDto p = kakaoClient.getProfile(token.getAccessToken());
 
         SocialProvider provider = SocialProvider.KAKAO;
         String socialId = p.getId();
-
         String email = null;
         String name = null;
         String pic = null;
-        String refreshToken = null; // Kakao는 AdminKey로 언링크할 것이므로 저장 불필요
+        String refreshToken = null;
 
         var acc = p.getKakao_account();
         if (acc != null) {
             boolean emailOk = Boolean.TRUE.equals(acc.getIs_email_valid()) && Boolean.TRUE.equals(acc.getIs_email_verified());
-            if (emailOk) {
-                email = acc.getEmail();
-            }
+            if (emailOk) email = acc.getEmail();
             if (acc.getProfile() != null) {
                 name = acc.getProfile().getNickname();
                 pic = acc.getProfile().getProfile_image_url();
             }
         }
-
         return handleAfterProfile(provider, socialId, email, name, pic, refreshToken);
     }
 
-    // ===================== 공통 후처리 =====================
     private OauthLoginResponse handleAfterProfile(
             SocialProvider provider, String socialId, String email, String name, String profileImageUrl, String refreshToken) {
 
         var linkedOpt = socialAccountRepository.findByProviderAndSocialId(provider, socialId);
-
         if (linkedOpt.isPresent()) {
             SocialAccount linked = linkedOpt.get();
             Member m = linked.getMember();
 
             if (m.isDeactivated()) {
-                // 비활성 계정이면 매핑 제거 후 최초가입(INCOMPLETE)로
                 socialAccountRepository.delete(linked);
                 return startFirstJoinFlow(provider, socialId, email, name, profileImageUrl, refreshToken);
             }
 
-            // 활성 계정이면 정상 로그인 + Google refresh_token 갱신(있다면)
             if (provider == SocialProvider.GOOGLE && refreshToken != null && !refreshToken.isBlank()) {
                 linked.updateRefreshToken(refreshToken);
                 socialAccountRepository.save(linked);
             }
             return finishLogin(m, provider.name(), socialId);
         }
-
-        // 매핑 없음 → 최초가입(INCOMPLETE), 필요한 경우 refresh_token도 임시 보관
         return startFirstJoinFlow(provider, socialId, email, name, profileImageUrl, refreshToken);
     }
 
@@ -130,7 +118,6 @@ public class OauthAuthService {
         }
     }
 
-    // ===================== 응답 빌더 =====================
     private OauthLoginResponse finishLogin(Member m, String providerName, String socialId) {
         String at = jwt.createAccessToken(m.getId(), "CUSTOMER");
         String rt = jwt.createRefreshToken(m.getId(), true);
@@ -164,10 +151,9 @@ public class OauthAuthService {
                 .build();
     }
 
-    // ===================== 추가정보 완료 =====================
+    @Transactional
     public OauthLoginResponse completeAdditionalInfo(OauthUpdateRequest req) {
-        var payload = tempStore.consume(req.getOauthTempToken())
-                .orElseThrow(() -> new IllegalArgumentException("임시 토큰이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요."));
+        var payload = tempStore.require(req.getOauthTempToken());
 
         String nickname = req.getNickname().trim();
         String finalEmail = (payload.email() != null && !payload.email().isBlank())
@@ -175,20 +161,18 @@ public class OauthAuthService {
                 : placeholderEmail(payload.provider(), payload.socialId());
         String normalizedPhone = PhoneUtils.normalize(req.getPhone());
 
-        // (1) 이메일 기준 재활성화 후보
         var emailOwnerOpt = memberRepository.findByEmailIgnoreCase(finalEmail);
         if (emailOwnerOpt.isPresent()) {
             Member emailOwner = emailOwnerOpt.get();
             if (emailOwner.isDeactivated()) {
-                // 닉네임/휴대폰 충돌 검사
                 memberRepository.findByNickname(nickname).ifPresent(other -> {
                     if (!other.getId().equals(emailOwner.getId())) {
-                        throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+                        throw new EntityExistsException("이미 사용 중인 닉네임입니다.");
                     }
                 });
                 memberRepository.findByPhone(normalizedPhone).ifPresent(other -> {
                     if (!other.getId().equals(emailOwner.getId())) {
-                        throw new IllegalArgumentException("이미 사용 중인 휴대폰 번호입니다.");
+                        throw new EntityExistsException("이미 사용 중인 휴대폰 번호입니다.");
                     }
                 });
 
@@ -208,7 +192,6 @@ public class OauthAuthService {
                                     .build()
                     );
                 } else {
-                    // 존재한다면 Google refresh_token 갱신 가능
                     socialAccountRepository.findByProviderAndSocialId(payload.provider(), payload.socialId())
                             .ifPresent(sa -> {
                                 sa.updateRefreshToken(payload.refreshToken());
@@ -216,22 +199,22 @@ public class OauthAuthService {
                             });
                 }
 
+                consumeAfterCommit(req.getOauthTempToken());
                 return finishLogin(emailOwner, payload.provider().name(), payload.socialId());
             }
         }
 
-        // (2) 휴대폰 기준 재활성화 후보
         var phoneOwnerOpt = memberRepository.findByPhone(normalizedPhone);
         if (phoneOwnerOpt.isPresent()) {
             Member phoneOwner = phoneOwnerOpt.get();
             if (phoneOwner.isDeactivated()) {
                 var emailOtherOpt = memberRepository.findByEmailIgnoreCase(finalEmail);
                 if (emailOtherOpt.isPresent() && !emailOtherOpt.get().getId().equals(phoneOwner.getId())) {
-                    throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+                    throw new EntityExistsException("이미 사용 중인 이메일입니다.");
                 }
                 memberRepository.findByNickname(nickname).ifPresent(other -> {
                     if (!other.getId().equals(phoneOwner.getId())) {
-                        throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+                        throw new EntityExistsException("이미 사용 중인 닉네임입니다.");
                     }
                 });
 
@@ -258,25 +241,24 @@ public class OauthAuthService {
                             });
                 }
 
+                consumeAfterCommit(req.getOauthTempToken());
                 return finishLogin(phoneOwner, payload.provider().name(), payload.socialId());
             } else {
-                throw new IllegalArgumentException("이미 사용 중인 휴대폰 번호입니다.");
+                throw new EntityExistsException("이미 사용 중인 휴대폰 번호입니다.");
             }
         }
 
-        // (3) 신규 생성 — 중복 체크
         if (memberRepository.existsByEmailIgnoreCase(finalEmail)) {
-            throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
+            throw new EntityExistsException("이미 사용 중인 이메일입니다.");
         }
         memberRepository.findByNickname(nickname).ifPresent(m -> {
-            throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
+            throw new EntityExistsException("이미 사용 중인 닉네임입니다.");
         });
         memberRepository.findByPhone(normalizedPhone).ifPresent(m -> {
-            throw new IllegalArgumentException("이미 사용 중인 휴대폰 번호입니다.");
+            throw new EntityExistsException("이미 사용 중인 휴대폰 번호입니다.");
         });
 
         String randomPw = "OAUTH_" + UUID.randomUUID();
-
         Member m = Member.builder()
                 .email(finalEmail)
                 .password(passwordEncoder.encode(randomPw))
@@ -298,10 +280,19 @@ public class OauthAuthService {
                         .build()
         );
 
+        consumeAfterCommit(req.getOauthTempToken());
         return finishLogin(m, payload.provider().name(), payload.socialId());
     }
 
-    // ===================== 유틸 =====================
+    private void consumeAfterCommit(String token) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                tempStore.consume(token);
+            }
+        });
+    }
+
     private String placeholderEmail(SocialProvider provider, String socialId) {
         try {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
