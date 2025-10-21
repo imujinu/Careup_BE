@@ -97,6 +97,7 @@ oauth:
     redirect-uri: http://localhost:5173/oauth/google/callback
   kakao:
     client-id: ${KAKAO_CLIENT_ID}
+    admin-key: ${KAKAO_ADMIN_KEY}
     redirect-uri: http://localhost:5173/oauth/kakao/callback
 
 security:
