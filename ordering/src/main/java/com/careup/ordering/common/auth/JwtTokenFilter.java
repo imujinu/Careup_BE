@@ -1,22 +1,24 @@
 package com.careup.ordering.common.auth;
 
+import com.careup.ordering.common.dto.CommonErrorDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -44,10 +46,12 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
             boolean ok = tryAuthenticateOrderingCustomer(token, response);
             if (!ok) {
+                if (response.isCommitted()) return;
                 tryAuthenticateBranchEmployee(token);
             }
         }
 
+        if (response.isCommitted()) return;
         chain.doFilter(request, response);
     }
 
@@ -61,8 +65,13 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             Long memberId = Long.valueOf(String.valueOf(c.get("memberId")));
             if (memberId != null && customerRevokeStore.isTokenObsolete(memberId, iatMs)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json;charset=UTF-8");
-                response.getWriter().write("{\"status_code\":401,\"status_message\":\"세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.\"}");
+                response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                CommonErrorDto body = CommonErrorDto.builder()
+                        .status_code(HttpServletResponse.SC_UNAUTHORIZED)
+                        .status_message("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.")
+                        .build();
+                new ObjectMapper().writeValue(response.getWriter(), body);
+                response.getWriter().flush();
                 return false;
             }
 
@@ -71,7 +80,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
             var auth = new UsernamePasswordAuthenticationToken(memberId, null, authorities);
-            auth.setDetails(c);
+            auth.setDetails(Map.of("realm", "CUS", "claims", c));
             SecurityContextHolder.getContext().setAuthentication(auth);
             return true;
         } catch (Exception e) {

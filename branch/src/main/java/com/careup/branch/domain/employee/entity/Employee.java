@@ -144,4 +144,5 @@ public class Employee extends BaseTimeEntity {
 
     public void changeEmail(String email)   { this.email = email; }
     public void changeMobile(String mobile) { this.mobile = mobile; }
+    public void changeAuthorityType(AuthorityType authorityType) { this.authorityType = authorityType; }
 }

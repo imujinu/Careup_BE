@@ -71,4 +71,16 @@ public interface DispatchStatusRepository extends JpaRepository<DispatchStatus, 
             @Param("employeeId") Long employeeId,
             @Param("currentDate") LocalDate currentDate
     );
+
+    // 지점별 활성 배치 조회 (점주 관리용)
+    @EntityGraph(attributePaths = {"employee", "employee.jobGrade"})
+    List<DispatchStatus> findByBranchAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+            Branch branch, String placementYn, LocalDate fromInclusive, LocalDate toInclusive
+    );
+
+    // 전체 활성 배치 조회 (점주 목록 조회용)
+    @EntityGraph(attributePaths = {"employee", "employee.jobGrade", "branch"})
+    List<DispatchStatus> findByPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+            String placementYn, LocalDate fromInclusive, LocalDate toInclusive
+    );
 }

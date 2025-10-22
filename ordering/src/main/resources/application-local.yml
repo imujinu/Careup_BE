@@ -90,17 +90,30 @@ jwt:
   secretKeyAt: ${ACCESS_TOKEN_CUSTOMER}
   secretKeyRt: ${REFRESH_TOKEN_CUSTOMER}
 
+oauth:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID}
+    client-secret: ${GOOGLE_CLIENT_SECRET}
+    redirect-uri: http://localhost:5173/oauth/google/callback
+
+  kakao:
+    client-id: ${KAKAO_CLIENT_ID}
+    admin-key: ${KAKAO_ADMIN_KEY}
+    redirect-uri: http://localhost:5173/oauth/kakao/callback
+
 security:
+  cors:
+    allowed-origins: "http://localhost:5173"
   csrf:
     allowed-origins:
-      - "http://localhost:3000"
+      - "http://localhost:5173"
     skip-paths:
       - "/health"
 
 careup:
   mail:
     customer:
-      reset-base-url: "http://localhost:3000/reset-password"
+      reset-base-url: "http://localhost:5173/reset-password"
 
 logging:
   level:

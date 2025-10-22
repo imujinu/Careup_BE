@@ -1,18 +1,19 @@
 package com.careup.ordering.domain.member.repository;
 
 import com.careup.ordering.domain.member.entity.Member;
+import java.time.LocalDate;
+import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-
-import java.time.LocalDate;
-import java.util.Optional;
 
 public interface MemberRepository extends JpaRepository<Member, Long> {
 
     Optional<Member> findByEmailIgnoreCase(String email);
 
     Optional<Member> findByPhone(String phone);
+
+    Optional<Member> findByNickname(String nickname); // ★ 추가: 자기 자신 제외 중복검사용
 
     boolean existsByEmailIgnoreCase(String email);
 
