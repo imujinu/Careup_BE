@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Optional;
+
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
     /**
@@ -27,7 +29,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Page<Product> searchByCategoryAndKeyword(@Param("categoryId") Long categoryId, @Param("keyword") String keyword, Pageable pageable);
 
     /**
-     * 가격 범위로 상품 검색 (선택적 사용)
+     * 가격 범위로 상품 검색
      */
     @Query("SELECT p FROM Product p WHERE " +
             "(:categoryId IS NULL OR p.category.id = :categoryId) AND " +
@@ -53,4 +55,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      */
     @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
     Page<Product> findActiveByCategoryId(@Param("categoryId") Long categoryId, Pageable pageable);
+
+    // ========== 더미 데이터 초기화용 메서드 ==========
+
+    /**
+     * 상품명 존재 여부 확인
+     */
+    boolean existsByName(String name);
+
+    /**
+     * 상품명으로 첫 번째 상품 조회
+     */
+    Optional<Product> findFirstByName(String name);
 }
