@@ -23,4 +23,8 @@ public class OauthTokenDto {
     private String idToken;
     @JsonProperty("token_type")
     private String tokenType;
+
+    /** Google에서 최초 동의/오프라인 액세스 시 내려올 수 있는 refresh_token */
+    @JsonProperty("refresh_token")
+    private String refreshToken;
 }

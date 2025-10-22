@@ -14,7 +14,7 @@ public class CorsConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
-            @Value("${security.cors.allowed-origins:http://localhost:3000}") String originsCsv
+            @Value("${security.cors.allowed-origins:http://localhost:5173}") String originsCsv
     ) {
         CorsConfiguration cfg = new CorsConfiguration();
         cfg.setAllowedOrigins(Arrays.asList(originsCsv.split(",")));

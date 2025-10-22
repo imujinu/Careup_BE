@@ -115,6 +115,30 @@ public class Branch extends BaseTimeEntity {
         this.openDate = request.getOpenDate(); // 필요 시 수정 허용
     }
 
+    /**
+     * 수정 요청(BranchUpdateRequest)으로부터 변경사항 적용
+     */
+    public void updateFromRequest(BranchUpdateRequest request) {
+        this.name = request.getRequestedName();
+        this.businessDomain = request.getRequestedBusinessDomain();
+        this.ownershipType = request.getRequestedOwnershipType();
+        this.openDate = request.getRequestedOpenDate();
+        this.businessNumber = request.getRequestedBusinessNumber();
+        this.corporationNumber = request.getRequestedCorporationNumber();
+        this.zipcode = request.getRequestedZipcode();
+        this.address = request.getRequestedAddress();
+        this.addressDetail = request.getRequestedAddressDetail();
+        this.profileImageUrl = request.getRequestedProfileImageUrl();
+        this.phone = request.getRequestedPhone();
+        this.email = request.getRequestedEmail();
+        this.latitude = request.getRequestedLatitude();
+        this.longitude = request.getRequestedLongitude();
+        this.geofenceRadius = request.getRequestedGeofenceRadius();
+        this.remark = request.getRequestedRemark();
+        this.attorneyName = request.getRequestedAttorneyName();
+        this.attorneyPhoneNumber = request.getRequestedAttorneyPhoneNumber();
+    }
+
     // --- 자기수정(HQ 승인 후 적용)용 보조 메서드 ---
     public void changeName(String name) {
         this.name = name;

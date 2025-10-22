@@ -3,6 +3,7 @@ package com.careup.branch.domain.branch.controller;
 import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.dto.branch.BranchDto;
+import com.careup.branch.domain.branch.dto.branch.BranchUpdateRequestDto;
 import com.careup.branch.domain.branch.service.BranchManagerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -46,11 +47,11 @@ public class BranchManagerController {
     @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
     @PutMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<?> requestBranchUpdate(
-            @RequestParam("name") String name,
+            @RequestPart("data") BranchUpdateRequestDto requestDto,
             @RequestPart(value = "profileImage", required = false) MultipartFile profileImageFile
             ) {
         try {
-            branchManagerService.requestBranchUpdate(name, profileImageFile);
+            branchManagerService.requestBranchUpdate(requestDto, profileImageFile);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result("수정 요청이 정상적으로 처리되었습니다.")

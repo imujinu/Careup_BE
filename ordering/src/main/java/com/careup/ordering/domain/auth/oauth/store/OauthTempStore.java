@@ -35,9 +35,32 @@ public class OauthTempStore {
         }
     }
 
-    public Optional<Payload> consume(String token) {
+    /** consumption 없이 조회만(유효성 검증/가입 시도 전용) */
+    public Payload require(String token) {
+        if (token == null || token.isBlank()) {
+            throw new IllegalStateException("임시 토큰이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.");
+        }
+        String raw = redis.opsForValue().get(KEY + token);
+        if (raw == null) {
+            throw new IllegalStateException("임시 토큰이 만료되었거나 유효하지 않습니다. 다시 시도해 주세요.");
+        }
+        try {
+            return om.readValue(raw, Payload.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("임시 토큰 파싱 실패", e);
+        }
+    }
+
+    /** 성공 커밋 이후 실제 소모 */
+    public void consume(String token) {
+        if (token == null || token.isBlank()) return;
+        redis.delete(KEY + token);
+    }
+
+    /** 기존 사용처 호환용: 가능하면 사용하지 말 것 */
+    public Optional<Payload> consumeLegacy(String token) {
         if (token == null || token.isBlank()) return Optional.empty();
-        String raw = redis.opsForValue().getAndDelete(KEY + token); // 원자적 소비
+        String raw = redis.opsForValue().getAndDelete(KEY + token);
         if (raw == null) return Optional.empty();
         try {
             return Optional.of(om.readValue(raw, Payload.class));
@@ -57,6 +80,7 @@ public class OauthTempStore {
             String socialId,
             String email,
             String name,
-            String profileImageUrl
+            String profileImageUrl,
+            String refreshToken
     ) {}
 }
