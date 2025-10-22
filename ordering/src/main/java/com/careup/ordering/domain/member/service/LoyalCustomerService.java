@@ -26,7 +26,7 @@ public class LoyalCustomerService {
     private final MemberRepository memberRepository;
 
     /**
-     * REQ-074: 단골 고객 조회 (지점별)
+     * 단골 고객 조회 (지점별)
      */
     public List<LoyalCustomerResponseDto> getLoyalCustomersByBranch(Long branchId) {
         List<LoyalCustomer> loyalCustomers = loyalCustomerRepository.findByBranchId(branchId);
@@ -36,7 +36,7 @@ public class LoyalCustomerService {
     }
 
     /**
-     * REQ-074: 단골 고객 상세 조회
+     * 단골 고객 상세 조회
      */
     public LoyalCustomerResponseDto getLoyalCustomer(Long loyalCustomerId) {
         LoyalCustomer loyalCustomer = loyalCustomerRepository.findById(loyalCustomerId)
@@ -45,7 +45,7 @@ public class LoyalCustomerService {
     }
 
     /**
-     * REQ-075: 단골 고객 등록
+     * 단골 고객 등록
      * 수동 등록 또는 자동 등록 (주문 금액 기준)
      */
     @Transactional
@@ -77,7 +77,7 @@ public class LoyalCustomerService {
     }
 
     /**
-     * REQ-076: 단골 고객 수정
+     *  단골 고객 수정
      */
     @Transactional
     public LoyalCustomerResponseDto updateLoyalCustomer(Long loyalCustomerId,
@@ -96,7 +96,7 @@ public class LoyalCustomerService {
     }
 
     /**
-     * REQ-076: 단골 고객 삭제
+     * 단골 고객 삭제
      */
     @Transactional
     public void deleteLoyalCustomer(Long loyalCustomerId) {
