@@ -11,12 +11,11 @@ import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -45,8 +44,8 @@ public class ProductService {
             }
         }
 
-        // ⭐ 이미지 업로드 (있으면)
-        String imageUrl = request.getImageUrl(); // 기존 URL 우선
+        // 이미지 업로드 (있으면)
+        String imageUrl = request.getImageUrl();
         if (imageFile != null && !imageFile.isEmpty()) {
             imageUrl = awsS3Uploader.uploadFile("products", 0L, imageFile);
             log.info("상품 이미지 업로드 완료 - URL: {}", imageUrl);
@@ -60,7 +59,7 @@ public class ProductService {
                 .supplyPrice(request.getSupplyPrice())
                 .minPrice(request.getMinPrice())
                 .maxPrice(request.getMaxPrice())
-                .imageUrl(imageUrl != null ? imageUrl : "default-image.jpg") // 기본 이미지
+                .imageUrl(imageUrl != null ? imageUrl : "default-image.jpg")
                 .visibility(visibilityEnum)
                 .build();
 
@@ -90,7 +89,7 @@ public class ProductService {
         // 새 이미지 업로드 (있으면)
         String newImageUrl = null;
         if (imageFile != null && !imageFile.isEmpty()) {
-            // 기존 이미지 삭제 (default 이미지가 아니면)
+            // 기존 이미지 삭제
             if (product.getImageUrl() != null && !product.getImageUrl().equals("default-image.jpg")) {
                 try {
                     awsS3Uploader.deleteByUrl(product.getImageUrl());
@@ -99,8 +98,7 @@ public class ProductService {
                     log.warn("기존 이미지 삭제 실패 (계속 진행): {}", e.getMessage());
                 }
             }
-            
-            // 새 이미지 업로드
+
             newImageUrl = awsS3Uploader.uploadFile("products", productId, imageFile);
             log.info("새 상품 이미지 업로드 완료 - URL: {}", newImageUrl);
         }
@@ -112,15 +110,13 @@ public class ProductService {
                 request.getSupplyPrice(),
                 request.getMinPrice(),
                 request.getMaxPrice(),
-                newImageUrl != null ? newImageUrl : request.getImageUrl() // 새 이미지 우선
+                newImageUrl != null ? newImageUrl : request.getImageUrl()
         );
 
-        // 속성 업데이트 (있으면)
+        // 속성 업데이트
         if (request.getAttributes() != null) {
-            // 기존 속성 전부 삭제
             product.getAttributes().clear();
-            
-            // 새로운 속성 추가
+
             request.getAttributes().forEach(attrDto -> {
                 ProductAttribute attribute = ProductAttribute.builder()
                         .product(product)
@@ -135,16 +131,18 @@ public class ProductService {
         return ProductResponseDto.from(updatedProduct);
     }
 
-    // ========== 조회 메서드 (기존 유지) ==========
-    
+    /**
+     * 전체 상품 조회 (페이지네이션)
+     */
     @Transactional(readOnly = true)
-    public List<ProductResponseDto> getAllProducts() {
-        List<Product> products = productRepository.findAll();
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
+    public Page<ProductResponseDto> getAllProducts(Pageable pageable) {
+        Page<Product> products = productRepository.findAll(pageable);
+        return products.map(ProductResponseDto::from);
     }
 
+    /**
+     * 상품 상세 조회
+     */
     @Transactional(readOnly = true)
     public ProductResponseDto getProduct(Long productId) {
         Product product = productRepository.findById(productId)
@@ -152,35 +150,41 @@ public class ProductService {
         return ProductResponseDto.from(product);
     }
 
+    /**
+     * 카테고리별 상품 조회 (페이지네이션)
+     */
     @Transactional(readOnly = true)
-    public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
-        List<Product> products = productRepository.findByCategoryId(categoryId);
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
+    public Page<ProductResponseDto> getProductsByCategory(Long categoryId, Pageable pageable) {
+        Page<Product> products = productRepository.findByCategoryId(categoryId, pageable);
+        return products.map(ProductResponseDto::from);
     }
 
+    /**
+     * 상품 검색 (페이지네이션)
+     */
     @Transactional(readOnly = true)
-    public List<ProductResponseDto> searchProducts(String keyword) {
-        List<Product> products = productRepository.searchByKeyword(keyword);
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
+    public Page<ProductResponseDto> searchProducts(String keyword, Pageable pageable) {
+        Page<Product> products = productRepository.searchByKeyword(keyword, pageable);
+        return products.map(ProductResponseDto::from);
     }
 
+    /**
+     * 카테고리 + 검색 (페이지네이션)
+     */
     @Transactional(readOnly = true)
-    public List<ProductResponseDto> searchProductsByCategoryAndKeyword(Long categoryId, String keyword) {
-        List<Product> products = productRepository.searchByCategoryAndKeyword(categoryId, keyword);
-        return products.stream()
-                .map(ProductResponseDto::from)
-                .collect(Collectors.toList());
+    public Page<ProductResponseDto> searchProductsByCategoryAndKeyword(Long categoryId, String keyword, Pageable pageable) {
+        Page<Product> products = productRepository.searchByCategoryAndKeyword(categoryId, keyword, pageable);
+        return products.map(ProductResponseDto::from);
     }
 
+    /**
+     * 상품 삭제
+     */
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
-        
-        // ⭐ 이미지도 삭제
+
+        // 이미지도 삭제
         if (product.getImageUrl() != null && !product.getImageUrl().equals("default-image.jpg")) {
             try {
                 awsS3Uploader.deleteByUrl(product.getImageUrl());
@@ -189,7 +193,7 @@ public class ProductService {
                 log.warn("이미지 삭제 실패 (상품은 삭제됨): {}", e.getMessage());
             }
         }
-        
+
         product.delete();
         productRepository.save(product);
     }
