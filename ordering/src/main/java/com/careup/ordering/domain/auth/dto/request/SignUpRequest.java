@@ -2,12 +2,11 @@ package com.careup.ordering.domain.auth.dto.request;
 
 import com.careup.ordering.domain.member.entity.Gender;
 import jakarta.validation.constraints.*;
+import java.time.LocalDate;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
 
 @Getter
 @Builder
@@ -38,4 +37,16 @@ public class SignUpRequest {
 
     @NotNull
     private Gender gender; // M or W
+
+    @NotBlank
+    @Size(max = 10)
+    private String zipcode;
+
+    @NotBlank
+    @Size(max = 200)
+    private String address;
+
+    @NotBlank
+    @Size(max = 200)
+    private String addressDetail;
 }
