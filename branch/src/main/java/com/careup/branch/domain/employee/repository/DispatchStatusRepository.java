@@ -83,4 +83,18 @@ public interface DispatchStatusRepository extends JpaRepository<DispatchStatus, 
     List<DispatchStatus> findByPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
             String placementYn, LocalDate fromInclusive, LocalDate toInclusive
     );
+
+    // 지점별 직원 조회 (페이지네이션 지원)
+    @EntityGraph(attributePaths = {"employee", "employee.jobGrade"})
+    @Query("""
+           select ds from DispatchStatus ds
+           where ds.branch.id = :branchId
+           and ds.placementYn = 'N'
+           and ds.assignedFrom <= :currentDate
+           and ds.assignedTo >= :currentDate
+           """)
+    List<DispatchStatus> findActiveDispatchesByBranchId(
+            @Param("branchId") Long branchId,
+            @Param("currentDate") LocalDate currentDate
+    );
 }
