@@ -1,7 +1,9 @@
+// src/main/java/com/careup/ordering/domain/auth/oauth/service/OauthAuthService.java
 package com.careup.ordering.domain.auth.oauth.service;
 
 import com.careup.ordering.common.auth.JwtProperties;
 import com.careup.ordering.common.auth.JwtTokenProvider;
+import com.careup.ordering.common.service.EmailSender;
 import com.careup.ordering.common.util.PhoneUtils;
 import com.careup.ordering.domain.auth.oauth.client.GoogleOauthClient;
 import com.careup.ordering.domain.auth.oauth.client.KakaoOauthClient;
@@ -18,18 +20,24 @@ import com.careup.ordering.domain.member.entity.SocialAccount;
 import com.careup.ordering.domain.member.entity.SocialProvider;
 import com.careup.ordering.domain.member.repository.MemberRepository;
 import com.careup.ordering.domain.member.repository.SocialAccountRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityExistsException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.client.RestClient;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -45,6 +53,14 @@ public class OauthAuthService {
     private final KakaoOauthClient kakaoClient;
     private final OauthTempStore tempStore;
     private final OauthStateStore stateStore;
+
+    private final EmailSender emailSender;
+
+    // 환영 CTA/문의 메시지
+    private final String welcomeCtaUrl = "https://ordering.careup.com/customer/home";
+    private final String supportEmail = "support@careup.com";
+
+    private final ObjectMapper om = new ObjectMapper();
 
     public String issueState() { return stateStore.issue(); }
 
@@ -63,7 +79,7 @@ public class OauthAuthService {
         if (Boolean.FALSE.equals(p.getEmail_verified())) {
             email = null;
         }
-        return handleAfterProfile(provider, socialId, email, name, pic, refreshToken);
+        return handleAfterProfile(provider, socialId, email, name, pic, refreshToken, null);
     }
 
     public OauthLoginResponse kakaoLogin(ProvideCodeRequest req) {
@@ -87,11 +103,14 @@ public class OauthAuthService {
                 pic = acc.getProfile().getProfile_image_url();
             }
         }
-        return handleAfterProfile(provider, socialId, email, name, pic, refreshToken);
+        String accessToken = token.getAccessToken(); // 톡 메모용
+
+        return handleAfterProfile(provider, socialId, email, name, pic, refreshToken, accessToken);
     }
 
     private OauthLoginResponse handleAfterProfile(
-            SocialProvider provider, String socialId, String email, String name, String profileImageUrl, String refreshToken) {
+            SocialProvider provider, String socialId, String email, String name, String profileImageUrl,
+            String refreshToken, String accessTokenForTalkMemo) {
 
         var linkedOpt = socialAccountRepository.findByProviderAndSocialId(provider, socialId);
         if (linkedOpt.isPresent()) {
@@ -100,16 +119,17 @@ public class OauthAuthService {
 
             if (m.isDeactivated()) {
                 socialAccountRepository.delete(linked);
-                return startFirstJoinFlow(provider, socialId, email, name, profileImageUrl, refreshToken);
+                return startFirstJoinFlow(provider, socialId, email, name, profileImageUrl, refreshToken, accessTokenForTalkMemo);
             }
 
             if (provider == SocialProvider.GOOGLE && refreshToken != null && !refreshToken.isBlank()) {
                 linked.updateRefreshToken(refreshToken);
                 socialAccountRepository.save(linked);
             }
+            // 기존 회원은 환영 톡 메모 X
             return finishLogin(m, provider.name(), socialId);
         }
-        return startFirstJoinFlow(provider, socialId, email, name, profileImageUrl, refreshToken);
+        return startFirstJoinFlow(provider, socialId, email, name, profileImageUrl, refreshToken, accessTokenForTalkMemo);
     }
 
     private void verifyStateOrThrow(String state) {
@@ -139,8 +159,11 @@ public class OauthAuthService {
     }
 
     private OauthLoginResponse startFirstJoinFlow(
-            SocialProvider provider, String socialId, String email, String name, String profileImageUrl, String refreshToken) {
-        String temp = tempStore.save(new OauthTempStore.Payload(provider, socialId, email, name, profileImageUrl, refreshToken));
+            SocialProvider provider, String socialId, String email, String name, String profileImageUrl,
+            String refreshToken, String accessTokenForTalkMemo) {
+        String temp = tempStore.save(new OauthTempStore.Payload(
+                provider, socialId, email, name, profileImageUrl, refreshToken, accessTokenForTalkMemo
+        ));
         return OauthLoginResponse.builder()
                 .status("INCOMPLETE")
                 .oauthTempToken(temp)
@@ -155,11 +178,27 @@ public class OauthAuthService {
     public OauthLoginResponse completeAdditionalInfo(OauthUpdateRequest req) {
         var payload = tempStore.require(req.getOauthTempToken());
 
+        // [추가] 카카오가 이메일을 주지 않은 경우, 사용자 입력 이메일을 필수로 강제
+        boolean providerEmailMissing = (payload.email() == null || payload.email().isBlank());
+        boolean requestEmailMissing  = (req.getEmail() == null || req.getEmail().isBlank());
+        if (payload.provider() == SocialProvider.KAKAO && providerEmailMissing && requestEmailMissing) {
+            throw new IllegalArgumentException("카카오 계정에서 이메일이 제공되지 않았습니다. 이메일을 입력해 주세요.");
+        }
+
         String nickname = req.getNickname().trim();
+
+        String suppliedEmail = (req.getEmail() != null && !req.getEmail().isBlank())
+                ? req.getEmail().trim() : null;
         String finalEmail = (payload.email() != null && !payload.email().isBlank())
                 ? payload.email().trim()
-                : placeholderEmail(payload.provider(), payload.socialId());
+                : (suppliedEmail != null ? suppliedEmail : placeholderEmail(payload.provider(), payload.socialId()));
+
         String normalizedPhone = PhoneUtils.normalize(req.getPhone());
+        String zipcode = req.getZipcode().trim();
+        String address = req.getAddress().trim();
+        String addressDetail = req.getAddressDetail().trim();
+
+        String displayName = buildDisplayName(req.getName().trim(), nickname);
 
         var emailOwnerOpt = memberRepository.findByEmailIgnoreCase(finalEmail);
         if (emailOwnerOpt.isPresent()) {
@@ -178,25 +217,15 @@ public class OauthAuthService {
 
                 emailOwner.changePhone(normalizedPhone);
                 emailOwner.changeProfile(nickname, req.getName().trim(), req.getBirthday(), req.getGender());
+                emailOwner.changeAddress(zipcode, address, addressDetail);
                 emailOwner.reactivate();
                 memberRepository.save(emailOwner);
 
-                if (!socialAccountRepository.existsByProviderAndSocialId(payload.provider(), payload.socialId())) {
-                    socialAccountRepository.save(
-                            SocialAccount.builder()
-                                    .member(emailOwner)
-                                    .provider(payload.provider())
-                                    .socialId(payload.socialId())
-                                    .profileImageUrl(payload.profileImageUrl())
-                                    .providerRefreshToken(payload.refreshToken())
-                                    .build()
-                    );
-                } else {
-                    socialAccountRepository.findByProviderAndSocialId(payload.provider(), payload.socialId())
-                            .ifPresent(sa -> {
-                                sa.updateRefreshToken(payload.refreshToken());
-                                socialAccountRepository.save(sa);
-                            });
+                upsertSocialAccount(payload, emailOwner);
+
+                sendWelcomeAfterCommit(emailOwner.getEmail(), emailOwner.getName(), emailOwner.getNickname());
+                if (payload.provider() == SocialProvider.KAKAO) {
+                    sendKakaoWelcomeMemoAfterCommit(payload.accessToken(), displayName);
                 }
 
                 consumeAfterCommit(req.getOauthTempToken());
@@ -220,25 +249,15 @@ public class OauthAuthService {
 
                 phoneOwner.changeEmail(finalEmail);
                 phoneOwner.changeProfile(nickname, req.getName().trim(), req.getBirthday(), req.getGender());
+                phoneOwner.changeAddress(zipcode, address, addressDetail);
                 phoneOwner.reactivate();
                 memberRepository.save(phoneOwner);
 
-                if (!socialAccountRepository.existsByProviderAndSocialId(payload.provider(), payload.socialId())) {
-                    socialAccountRepository.save(
-                            SocialAccount.builder()
-                                    .member(phoneOwner)
-                                    .provider(payload.provider())
-                                    .socialId(payload.socialId())
-                                    .profileImageUrl(payload.profileImageUrl())
-                                    .providerRefreshToken(payload.refreshToken())
-                                    .build()
-                    );
-                } else {
-                    socialAccountRepository.findByProviderAndSocialId(payload.provider(), payload.socialId())
-                            .ifPresent(sa -> {
-                                sa.updateRefreshToken(payload.refreshToken());
-                                socialAccountRepository.save(sa);
-                            });
+                upsertSocialAccount(payload, phoneOwner);
+
+                sendWelcomeAfterCommit(phoneOwner.getEmail(), phoneOwner.getName(), phoneOwner.getNickname());
+                if (payload.provider() == SocialProvider.KAKAO) {
+                    sendKakaoWelcomeMemoAfterCommit(payload.accessToken(), displayName);
                 }
 
                 consumeAfterCommit(req.getOauthTempToken());
@@ -267,6 +286,9 @@ public class OauthAuthService {
                 .birthday(req.getBirthday())
                 .phone(normalizedPhone)
                 .gender(req.getGender())
+                .zipcode(zipcode)
+                .address(address)
+                .addressDetail(addressDetail)
                 .build();
         memberRepository.save(m);
 
@@ -280,28 +302,107 @@ public class OauthAuthService {
                         .build()
         );
 
+        sendWelcomeAfterCommit(m.getEmail(), m.getName(), m.getNickname());
+        if (payload.provider() == SocialProvider.KAKAO) {
+            sendKakaoWelcomeMemoAfterCommit(payload.accessToken(), displayName);
+        }
+
         consumeAfterCommit(req.getOauthTempToken());
         return finishLogin(m, payload.provider().name(), payload.socialId());
     }
 
+    private void upsertSocialAccount(OauthTempStore.Payload payload, Member owner) {
+        if (!socialAccountRepository.existsByProviderAndSocialId(payload.provider(), payload.socialId())) {
+            socialAccountRepository.save(
+                    SocialAccount.builder()
+                            .member(owner)
+                            .provider(payload.provider())
+                            .socialId(payload.socialId())
+                            .profileImageUrl(payload.profileImageUrl())
+                            .providerRefreshToken(payload.refreshToken())
+                            .build()
+            );
+        } else {
+            socialAccountRepository.findByProviderAndSocialId(payload.provider(), payload.socialId())
+                    .ifPresent(sa -> {
+                        sa.updateRefreshToken(payload.refreshToken());
+                        socialAccountRepository.save(sa);
+                    });
+        }
+    }
+
     private void consumeAfterCommit(String token) {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override
-            public void afterCommit() {
+            @Override public void afterCommit() {
                 tempStore.consume(token);
             }
         });
     }
 
-    private String placeholderEmail(SocialProvider provider, String socialId) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest((provider.name() + ":" + socialId).getBytes(StandardCharsets.UTF_8));
-            String hash = Base64.getUrlEncoder().withoutPadding().encodeToString(digest).substring(0, 22);
-            return provider.name().toLowerCase() + "_" + hash + "@placeholder.local";
-        } catch (Exception e) {
-            int fallback = Math.abs((provider.name() + ":" + socialId).hashCode());
-            return provider.name().toLowerCase() + "_" + fallback + "@placeholder.local";
+    private void sendWelcomeAfterCommit(String email, String name, String nickname) {
+        if (email == null || email.toLowerCase().endsWith("@placeholder.local")) {
+            log.info("[MAIL][WELCOME] skipped(non-deliverable) email={}", email);
+            return;
         }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                try { emailSender.sendWelcomeEmail(email, name, nickname); }
+                catch (Exception e) { log.warn("[MAIL][WELCOME] send failed to={} : {}", email, e.getMessage()); }
+            }
+        });
+    }
+
+    private void sendKakaoWelcomeMemoAfterCommit(String kakaoAccessToken, String displayName) {
+        if (kakaoAccessToken == null || kakaoAccessToken.isBlank()) {
+            log.info("[KAKAO][TALK] skipped: no access token");
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                try {
+                    Map<String, Object> link = new HashMap<>();
+                    link.put("web_url", welcomeCtaUrl);
+                    link.put("mobile_web_url", welcomeCtaUrl);
+
+                    Map<String, Object> obj = new HashMap<>();
+                    obj.put("object_type", "text");
+                    obj.put("text",
+                            "환영합니다 " + displayName + " 님.\n\n"
+                                    + "SHARK 가입이 정상적으로 완료되었습니다.\n\n"
+                                    + "바로가기: " + welcomeCtaUrl + "\n"
+                                    + "문의: " + supportEmail);
+                    obj.put("link", link);
+                    obj.put("button_title", "서비스 바로가기");
+
+                    String templateJson = om.writeValueAsString(obj);
+                    String body = "template_object=" + URLEncoder.encode(templateJson, StandardCharsets.UTF_8);
+
+                    RestClient.create("https://kapi.kakao.com")
+                            .post()
+                            .uri("/v2/api/talk/memo/default/send")
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                            .header("Authorization", "Bearer " + kakaoAccessToken)
+                            .body(body)
+                            .retrieve()
+                            .toBodilessEntity();
+
+                    log.info("[KAKAO][TALK] welcome memo sent");
+                } catch (Exception e) {
+                    log.warn("[KAKAO][TALK] memo send failed: {}", e.getMessage());
+                }
+            }
+        });
+    }
+
+    private String buildDisplayName(String name, String nickname) {
+        String n = name == null ? "" : name.trim();
+        String nn = nickname == null ? "" : nickname.trim();
+        if (!nn.isBlank() && !nn.equalsIgnoreCase(n)) return n.isBlank() ? nn : n + " (" + nn + ")";
+        return n.isBlank() ? nn : n;
+    }
+
+    private String placeholderEmail(SocialProvider provider, String socialId) {
+        int fallback = Math.abs((provider.name() + ":" + socialId).hashCode());
+        return provider.name().toLowerCase() + "_" + fallback + "@placeholder.local";
     }
 }

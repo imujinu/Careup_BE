@@ -59,11 +59,21 @@ spring:
     username: ${MAIL_USER}
     password: ${MAIL_PW}
     from: careup.noreply@gmail.com
+    from.name: Care-Up
+    default-encoding: UTF-8
     properties:
       mail:
+        debug: true
         smtp:
           auth: true
-          starttls.enable: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          ssl:
+            trust: smtp.gmail.com
 
   main:
     allow-bean-definition-overriding: true
@@ -116,6 +126,7 @@ security:
 
 careup:
   mail:
+    support-email: support@careup.com
     customer:
       reset-base-url: "http://localhost:5173/reset-password"
 

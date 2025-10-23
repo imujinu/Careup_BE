@@ -18,6 +18,9 @@ public class MemberMyPageDto {
     private String name;
     private String phone;
     private Gender gender;
+    private String zipcode;
+    private String address;
+    private String addressDetail;
 
     public static MemberMyPageDto from(Member m) {
         return MemberMyPageDto.builder()
@@ -27,6 +30,9 @@ public class MemberMyPageDto {
                 .name(m.getName())
                 .phone(m.getPhone())
                 .gender(m.getGender())
+                .zipcode(m.getZipcode())
+                .address(m.getAddress())
+                .addressDetail(m.getAddressDetail())
                 .build();
     }
 }

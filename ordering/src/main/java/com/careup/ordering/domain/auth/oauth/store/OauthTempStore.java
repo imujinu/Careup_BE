@@ -81,6 +81,7 @@ public class OauthTempStore {
             String email,
             String name,
             String profileImageUrl,
-            String refreshToken
+            String refreshToken,
+            String accessToken // 추가: 톡 메모 전송용 사용자 액세스 토큰
     ) {}
 }

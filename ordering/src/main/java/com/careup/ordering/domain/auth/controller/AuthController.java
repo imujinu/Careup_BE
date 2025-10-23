@@ -10,7 +10,6 @@ import com.careup.ordering.domain.auth.dto.request.SignUpRequest;
 import com.careup.ordering.domain.auth.dto.response.AuthLoginResponse;
 import com.careup.ordering.domain.auth.dto.response.AuthLogoutResponse;
 import com.careup.ordering.domain.auth.dto.response.AuthRefreshResponse;
-import com.careup.ordering.domain.auth.dto.response.SignUpResponse;
 import com.careup.ordering.domain.auth.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -26,14 +25,15 @@ public class AuthController {
 
     private final AuthService authService;
 
+    /** 회원가입 완료 후 자동 로그인 토큰까지 발급 */
     @PostMapping("/signup")
     public ResponseEntity<CommonSuccessDto> signUp(@RequestBody @Valid SignUpRequest req) {
-        SignUpResponse result = authService.signUp(req);
+        AuthLoginResponse result = authService.signUp(req);
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 CommonSuccessDto.builder()
                         .result(result)
                         .status_code(HttpStatus.CREATED.value())
-                        .status_message("회원가입 성공")
+                        .status_message("회원가입 성공(자동 로그인)")
                         .build()
         );
     }

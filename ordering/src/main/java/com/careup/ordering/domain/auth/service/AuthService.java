@@ -11,7 +11,6 @@ import com.careup.ordering.domain.auth.dto.request.SignUpRequest;
 import com.careup.ordering.domain.auth.dto.response.AuthLoginResponse;
 import com.careup.ordering.domain.auth.dto.response.AuthLogoutResponse;
 import com.careup.ordering.domain.auth.dto.response.AuthRefreshResponse;
-import com.careup.ordering.domain.auth.dto.response.SignUpResponse;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
 import io.jsonwebtoken.Claims;
@@ -39,22 +38,24 @@ public class AuthService {
     private final EmailSender emailSender;
     private final CustomerRevokeStore revokeStore;
 
+    /** 회원가입 후 자동 로그인(AT/RT 발급) */
     @Transactional
-    public SignUpResponse signUp(SignUpRequest req) {
+    public AuthLoginResponse signUp(SignUpRequest req) {
         String email = req.getEmail().trim();
         String nickname = req.getNickname().trim();
         String phoneNorm = PhoneUtils.normalize(req.getPhone());
+        String zipcode = req.getZipcode().trim();
+        String address = req.getAddress().trim();
+        String addressDetail = req.getAddressDetail().trim();
 
         if (!isStrongPassword(req.getPassword())) {
             throw new IllegalArgumentException("비밀번호는 8자 이상이며 영문/숫자를 포함해야 합니다.");
         }
 
-        // 1) 이메일 보유자 조회
         Optional<Member> emailOwnerOpt = memberRepository.findByEmailIgnoreCase(email);
         if (emailOwnerOpt.isPresent()) {
             Member emailOwner = emailOwnerOpt.get();
             if (emailOwner.isDeactivated()) {
-                // 닉네임/휴대폰 충돌(본인 제외) 확인
                 memberRepository.findByNickname(nickname).ifPresent(other -> {
                     if (!other.getId().equals(emailOwner.getId())) {
                         throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
@@ -66,74 +67,47 @@ public class AuthService {
                     }
                 });
 
-                // 재활성화
                 emailOwner.changePassword(passwordEncoder.encode(req.getPassword()));
                 emailOwner.changePhone(phoneNorm);
                 emailOwner.changeProfile(nickname, req.getName().trim(), req.getBirthday(), req.getGender());
+                emailOwner.changeAddress(zipcode, address, addressDetail);
                 emailOwner.reactivate();
                 memberRepository.save(emailOwner);
 
-                // 웰컴 메일 (선택) — 기존과 동일하게 afterCommit에서 시도
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override public void afterCommit() {
-                        try { emailSender.sendWelcomeEmail(emailOwner.getEmail(), emailOwner.getName()); }
-                        catch (Exception e) { log.warn("[MAIL][WELCOME] send failed to={} : {}", emailOwner.getEmail(), e.getMessage()); }
-                    }
-                });
-
-                return SignUpResponse.builder()
-                        .memberId(emailOwner.getId())
-                        .email(emailOwner.getEmail())
-                        .nickname(emailOwner.getNickname())
-                        .build();
+                scheduleWelcomeMail(emailOwner.getEmail(), emailOwner.getName(), emailOwner.getNickname());
+                return issueTokensAndBuildLoginResponse(emailOwner);
             }
-            // 이미 정상 계정
             throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
         }
 
-        // 2) 휴대폰 보유자 조회
         Optional<Member> phoneOwnerOpt = memberRepository.findByPhone(phoneNorm);
         if (phoneOwnerOpt.isPresent()) {
             Member phoneOwner = phoneOwnerOpt.get();
             if (phoneOwner.isDeactivated()) {
-                // 새 이메일이 타인에게 점유되었는지 확인
                 Optional<Member> emailOther = memberRepository.findByEmailIgnoreCase(email);
                 if (emailOther.isPresent() && !emailOther.get().getId().equals(phoneOwner.getId())) {
                     throw new IllegalArgumentException("이미 사용 중인 이메일입니다.");
                 }
-                // 닉네임 충돌(본인 제외) 확인
                 memberRepository.findByNickname(nickname).ifPresent(other -> {
                     if (!other.getId().equals(phoneOwner.getId())) {
                         throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
                     }
                 });
 
-                // 재활성화(이메일 덮어쓰기 포함)
                 phoneOwner.changeEmail(email);
                 phoneOwner.changePassword(passwordEncoder.encode(req.getPassword()));
                 phoneOwner.changeProfile(nickname, req.getName().trim(), req.getBirthday(), req.getGender());
+                phoneOwner.changeAddress(zipcode, address, addressDetail);
                 phoneOwner.reactivate();
                 memberRepository.save(phoneOwner);
 
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override public void afterCommit() {
-                        try { emailSender.sendWelcomeEmail(phoneOwner.getEmail(), phoneOwner.getName()); }
-                        catch (Exception e) { log.warn("[MAIL][WELCOME] send failed to={} : {}", phoneOwner.getEmail(), e.getMessage()); }
-                    }
-                });
-
-                return SignUpResponse.builder()
-                        .memberId(phoneOwner.getId())
-                        .email(phoneOwner.getEmail())
-                        .nickname(phoneOwner.getNickname())
-                        .build();
+                scheduleWelcomeMail(phoneOwner.getEmail(), phoneOwner.getName(), phoneOwner.getNickname());
+                return issueTokensAndBuildLoginResponse(phoneOwner);
             } else {
-                // 정상 계정이 이미 해당 휴대폰을 점유
                 throw new IllegalArgumentException("이미 사용 중인 휴대폰 번호입니다.");
             }
         }
 
-        // 3) 신규 생성 — 닉네임/휴대폰 중복 체크
         if (memberRepository.existsByNickname(nickname)) {
             throw new IllegalArgumentException("이미 사용 중인 닉네임입니다.");
         }
@@ -146,21 +120,14 @@ public class AuthService {
                 .birthday(req.getBirthday())
                 .phone(phoneNorm)
                 .gender(req.getGender())
+                .zipcode(zipcode)
+                .address(address)
+                .addressDetail(addressDetail)
                 .build();
         memberRepository.save(m);
 
-        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-            @Override public void afterCommit() {
-                try { emailSender.sendWelcomeEmail(m.getEmail(), m.getName()); }
-                catch (Exception e) { log.warn("[MAIL][WELCOME] send failed to={} : {}", m.getEmail(), e.getMessage()); }
-            }
-        });
-
-        return SignUpResponse.builder()
-                .memberId(m.getId())
-                .email(m.getEmail())
-                .nickname(m.getNickname())
-                .build();
+        scheduleWelcomeMail(m.getEmail(), m.getName(), m.getNickname());
+        return issueTokensAndBuildLoginResponse(m);
     }
 
     public AuthLoginResponse login(AuthLoginRequest req) {
@@ -210,7 +177,6 @@ public class AuthService {
         Long memberId = Long.valueOf(claims.getSubject());
         long rtIatMs = claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : 0L;
 
-        // 컷오프 도래 이후 + 컷오프 이전 발급 RT 는 차단
         Optional<Long> cutOpt = revokeStore.readCutoverAt(memberId);
         if (cutOpt.isPresent()) {
             long cut = cutOpt.get();
@@ -295,7 +261,6 @@ public class AuthService {
 
         m.changePassword(passwordEncoder.encode(newPassword));
 
-        // 10초 후 컷오프 + RT 폐기
         revokeStore.scheduleCutoverAfterSeconds(m.getId(), 10);
         jwt.revokeRefreshToken(m.getId());
 
@@ -305,5 +270,36 @@ public class AuthService {
     private boolean isStrongPassword(String raw) {
         if (raw == null) return false;
         return raw.length() >= 8 && raw.matches(".*[A-Za-z].*") && raw.matches(".*\\d.*");
+    }
+
+    private void scheduleWelcomeMail(String email, String name, String nickname) {
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override public void afterCommit() {
+                log.info("[MAIL][WELCOME] after-commit send schedule to={}", email);
+                try { emailSender.sendWelcomeEmail(email, name, nickname); }
+                catch (Exception e) { log.warn("[MAIL][WELCOME] send failed to={} : {}", email, e.getMessage()); }
+            }
+        });
+    }
+
+    private AuthLoginResponse issueTokensAndBuildLoginResponse(Member member) {
+        String role = "CUSTOMER";
+        Long memberId = member.getId();
+        String at = jwt.createAccessToken(memberId, role);
+        // OAuth와 동일하게 첫 가입은 rememberMe=true로 RT 발급
+        String rt = jwt.createRefreshToken(memberId, true);
+
+        return AuthLoginResponse.builder()
+                .tokenType("Bearer")
+                .accessToken(at)
+                .refreshToken(rt)
+                .expiresInMinutes(jwtProps.getAccessTokenExpiryMinutes())
+                .role(role)
+                .memberId(memberId)
+                .name(member.getName())
+                .email(member.getEmail())
+                .nickname(member.getNickname())
+                .phone(member.getPhone())
+                .build();
     }
 }
