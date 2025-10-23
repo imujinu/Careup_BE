@@ -12,15 +12,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class ProductAttributeResponseDto {
     private Long attributeId;
-    private String attributeName;
-    private String attributeValue;
-
-    /**
-     * Entity -> DTO 변환
-     */
+    private Long productId;
+    private String attributeName;   // 색상, 사이즈
+    private String attributeValue;  // 빨강, L
+    
     public static ProductAttributeResponseDto from(ProductAttribute attribute) {
         return ProductAttributeResponseDto.builder()
                 .attributeId(attribute.getId())
+                .productId(attribute.getProduct().getId())
                 .attributeName(attribute.getAttributeName())
                 .attributeValue(attribute.getAttributeValue())
                 .build();

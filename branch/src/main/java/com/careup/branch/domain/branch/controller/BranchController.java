@@ -210,4 +210,59 @@ public class BranchController {
             );
         }
     }
+
+    // ==================== 고객용 공개 API ====================
+
+    /**
+     * 고객용 전체 지점 목록 조회 (권한 제한 없음)
+     * GET /branch/public/list
+     */
+    @GetMapping("/public/list")
+    public ResponseEntity<?> getPublicBranchList() {
+        try {
+            List<BranchSimpleDto> branches = branchService.getPublicBranchList();
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branches)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점 목록 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("지점 목록 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 고객용 위치 기반 인근 지점 조회
+     * GET /branch/public/nearby?latitude=37.5&longitude=127.0&radiusKm=10
+     */
+    @GetMapping("/public/nearby")
+    public ResponseEntity<?> getPublicNearbyBranches(
+            @RequestParam Double latitude,
+            @RequestParam Double longitude,
+            @RequestParam(defaultValue = "10.0") Double radiusKm) {
+        try {
+            List<NearbyBranchDto> branches = branchService.getNearbyBranchesByCoordinate(latitude, longitude, radiusKm);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(branches)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("인근 지점 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("인근 지점 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
 }

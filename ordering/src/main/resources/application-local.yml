@@ -78,9 +78,13 @@ cloud:
     s3:
       bucket: ${S3_BUCKET}
 
+# ========== 토스 결제 설정 ⭐ ==========
 payment:
   toss:
-    secret-key: test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6  # 토스 테스트 키
+    client-key: test_ck_Z61JOxRQVEE6gXGaDjv2VW0X9bAq    # 클라이언트 키
+    secret-key: test_sk_P9BRQmyarYleRRplKdkZVJ07KzLN    # 시크릿 키 (Base64 인코딩 필요)
+    security-key: 9e164b0107777969ccefd888fe6f416b949c04bd051c9a07ff69f6ab38fe680c  # 보안키
+    api-url: https://api.tosspayments.com  # 토스 API URL
 
 
 jwt:
