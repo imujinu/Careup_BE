@@ -2,13 +2,12 @@ package com.careup.ordering.domain.member.dto.response;
 
 import com.careup.ordering.domain.member.entity.Gender;
 import com.careup.ordering.domain.member.entity.Member;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Getter
 @Builder
@@ -22,6 +21,9 @@ public class MemberListDto {
     private String phone;
     private Gender gender;
     private LocalDate birthday;
+    private String zipcode;
+    private String address;
+    private String addressDetail;
     private String isDelYn;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -35,6 +37,9 @@ public class MemberListDto {
                 .phone(m.getPhone())
                 .gender(m.getGender())
                 .birthday(m.getBirthday())
+                .zipcode(m.getZipcode())
+                .address(m.getAddress())
+                .addressDetail(m.getAddressDetail())
                 .isDelYn(m.getIsDelYn())
                 .createdAt(m.getCreatedAt())
                 .updatedAt(m.getUpdatedAt())

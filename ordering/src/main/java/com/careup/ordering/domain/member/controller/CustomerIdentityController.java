@@ -46,15 +46,14 @@ public class CustomerIdentityController {
         String id = email.substring(0, at);
         String domain = email.substring(at + 1);
         if (id.length() == 1) return id + "***@" + domain;
-        if (id.length() == 2) return id.substring(0, 1) + "*" + "***@" + domain; // 2글자면 1글자만 노출
+        if (id.length() == 2) return id.substring(0, 1) + "***@" + domain; // ★ 버그 수정: 별 1개 추가하던 오류 제거
         return id.substring(0, 2) + "***@" + domain;
     }
 
     private String maskPhone(String phone) {
         if (phone == null || phone.isBlank()) return phone;
-        // 하이픈 보존
         String digits = phone.replaceAll("\\D", "");
-        if (digits.length() < 7) return phone; // 너무 짧으면 원본 유지
+        if (digits.length() < 7) return phone;
         String head = digits.substring(0, 3);
         String tail = digits.substring(digits.length() - 4);
         return head + "-****-" + tail;
