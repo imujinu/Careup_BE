@@ -3,10 +3,9 @@ package com.careup.ordering.domain.product.service;
 import com.careup.ordering.common.file.AwsS3Uploader;
 import com.careup.ordering.domain.product.dto.ProductRequestDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
-import com.careup.ordering.domain.product.entity.Category;
-import com.careup.ordering.domain.product.entity.Product;
-import com.careup.ordering.domain.product.entity.ProductAttribute;
-import com.careup.ordering.domain.product.entity.Visibility;
+import com.careup.ordering.domain.product.dto.ProductWithBranchesDto;
+import com.careup.ordering.domain.product.entity.*;
+import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +16,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -26,6 +28,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final AwsS3Uploader awsS3Uploader;
+    private final BranchProductRepository branchProductRepository;
 
     /**
      * 상품 등록 (이미지 포함)
@@ -196,5 +199,39 @@ public class ProductService {
 
         product.delete();
         productRepository.save(product);
+    }
+    /**
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     */
+    @Transactional(readOnly = true)
+    public List<ProductWithBranchesDto> getPublicProductsWithBranches() {
+        List<Product> products = productRepository.findAll();
+
+        return products.stream()
+                .map(product -> {
+                    // 해당 상품을 판매하는 모든 지점 정보 조회
+                    List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
+
+                    List<ProductWithBranchesDto.BranchInfoDto> branchInfos = branchProducts.stream()
+                            .filter(bp -> bp.getStockQuantity() > 0)  // 재고 있는 지점만
+                            .map(bp -> ProductWithBranchesDto.BranchInfoDto.builder()
+                                    .branchId(bp.getBranchId())
+                                    .branchName("지점명")  // Branch 서비스에서 조회 필요
+                                    .stockQuantity(bp.getStockQuantity())
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return ProductWithBranchesDto.builder()
+                            .productId(product.getId())
+                            .productName(product.getName())
+                            .description(product.getDescription())
+                            .imageUrl(product.getImageUrl())
+                            .categoryName(product.getCategory().getName())
+                            .availableBranchCount(branchInfos.size())
+                            .availableBranches(branchInfos)
+                            .build();
+                })
+                .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
+                .collect(Collectors.toList());
     }
 }

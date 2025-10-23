@@ -3,6 +3,7 @@ package com.careup.ordering.domain.product.controller;
 import com.careup.ordering.common.dto.ResponseDto;
 import com.careup.ordering.domain.product.dto.ProductRequestDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
+import com.careup.ordering.domain.product.dto.ProductWithBranchesDto;
 import com.careup.ordering.domain.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,18 @@ import java.util.List;
 public class ProductController {
 
     private final ProductService productService;
+
+
+    /**
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     */
+    @GetMapping("/public/products")
+    public ResponseEntity<ResponseDto<List<ProductWithBranchesDto>>> getPublicProducts() {
+        log.info("고객용 상품 목록 조회");
+
+        List<ProductWithBranchesDto> response = productService.getPublicProductsWithBranches();
+        return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
+    }
 
     /**
      * 상품 등록 (이미지 포함)

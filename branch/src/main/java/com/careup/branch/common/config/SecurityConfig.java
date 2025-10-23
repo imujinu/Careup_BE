@@ -45,7 +45,8 @@ public class SecurityConfig {
                         "/auth/employees/id-lookup" ,   // 직원 아이디(이메일/휴대폰) 찾기
                         "/inventory/**",
                         "/categories/",
-                        "/products/**"
+                        "/products/**",
+                        "/api/products/public/**"
                 ).permitAll()
 
                 // 나머지는 인증 필요

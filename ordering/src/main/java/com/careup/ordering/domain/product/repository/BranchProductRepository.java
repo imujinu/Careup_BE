@@ -1,6 +1,7 @@
 package com.careup.ordering.domain.product.repository;
 
 import com.careup.ordering.domain.product.entity.BranchProduct;
+import com.careup.ordering.domain.product.entity.Product;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -31,4 +32,9 @@ public interface BranchProductRepository extends JpaRepository<BranchProduct, Lo
 
     // 지점별 + 상품명 검색
     List<BranchProduct> findByBranchIdAndProduct_NameContaining(Long branchId, String keyword);
+
+    /**
+     * 특정 상품을 판매하는 모든 지점별 상품 조회
+     */
+    List<BranchProduct> findByProduct(Product product);
 }
