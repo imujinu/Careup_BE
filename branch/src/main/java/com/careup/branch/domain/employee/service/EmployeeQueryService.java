@@ -29,6 +29,7 @@ public class EmployeeQueryService {
 
     private final EmployeeRepository employeeRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
+    private final com.careup.branch.domain.branch.repository.BranchRepository branchRepository;
 
     // 상세 조회
     public EmployeeDetailDto getDetail(Long targetEmployeeId) {
@@ -131,6 +132,103 @@ public class EmployeeQueryService {
         }
 
         throw new AccessDeniedException("권한이 없습니다.");
+    }
+
+    // 지점별 소속 직원 목록 조회 (페이지네이션, 정렬 지원)
+    public Page<EmployeeDetailDto> listByBranch(Long branchId, Pageable pageable) {
+        // 지점 존재 여부 확인
+        Branch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
+
+        LocalDate today = LocalDate.now();
+
+        // 해당 지점의 활성 배치 목록 조회
+        List<DispatchStatus> activeDispatches = dispatchStatusRepository
+                .findActiveDispatchesByBranchId(branchId, today);
+
+        if (activeDispatches.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        // 직원 목록 추출 (중복 제거)
+        List<Employee> distinctEmployees = activeDispatches.stream()
+                .map(DispatchStatus::getEmployee)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(Employee::getId, e -> e, (a, b) -> a, LinkedHashMap::new),
+                        m -> new ArrayList<>(m.values())
+                ));
+
+        // 정렬 처리 (고용 상태, 고용 유형, 성별)
+        Sort sort = pageable.getSort();
+        if (sort.isSorted()) {
+            Comparator<Employee> comparator = null;
+            for (Sort.Order order : sort) {
+                Comparator<Employee> currentComparator = getEmployeeComparator(order);
+                if (comparator == null) {
+                    comparator = currentComparator;
+                } else {
+                    comparator = comparator.thenComparing(currentComparator);
+                }
+            }
+            if (comparator != null) {
+                distinctEmployees.sort(comparator);
+            }
+        }
+
+        // 페이지네이션 처리
+        int from = (int) pageable.getOffset();
+        int to = Math.min(from + pageable.getPageSize(), distinctEmployees.size());
+        if (from >= to) {
+            return new PageImpl<>(List.of(), pageable, distinctEmployees.size());
+        }
+
+        List<Employee> pageEmployees = distinctEmployees.subList(from, to);
+
+        // 배치 정보 매핑
+        final Map<Long, List<EmployeeDispatchDto>> activeMap = activeDispatches.stream()
+                .collect(Collectors.groupingBy(
+                        ds -> ds.getEmployee().getId(),
+                        Collectors.mapping(EmployeeDispatchDto::fromEntity, Collectors.toList())
+                ));
+
+        // DTO 변환
+        List<EmployeeDetailDto> content = pageEmployees.stream()
+                .map(e -> EmployeeDetailDto.fromEntity(e, activeMap.getOrDefault(e.getId(), List.of())))
+                .toList();
+
+        return new PageImpl<>(content, pageable, distinctEmployees.size());
+    }
+
+    // 정렬을 위한 Comparator 생성
+    private Comparator<Employee> getEmployeeComparator(Sort.Order order) {
+        String property = order.getProperty();
+        boolean ascending = order.getDirection().isAscending();
+
+        Comparator<Employee> comparator = switch (property) {
+            case "employmentStatus" -> Comparator.comparing(
+                    e -> e.getEmploymentStatus() != null ? e.getEmploymentStatus().name() : "",
+                    Comparator.nullsLast(String::compareTo)
+            );
+            case "employmentType" -> Comparator.comparing(
+                    e -> e.getEmploymentType() != null ? e.getEmploymentType().name() : "",
+                    Comparator.nullsLast(String::compareTo)
+            );
+            case "gender" -> Comparator.comparing(
+                    e -> e.getGender() != null ? e.getGender().name() : "",
+                    Comparator.nullsLast(String::compareTo)
+            );
+            case "name" -> Comparator.comparing(
+                    Employee::getName,
+                    Comparator.nullsLast(String::compareTo)
+            );
+            case "hireDate" -> Comparator.comparing(
+                    Employee::getHireDate,
+                    Comparator.nullsLast(LocalDate::compareTo)
+            );
+            default -> Comparator.comparing(Employee::getId);
+        };
+
+        return ascending ? comparator : comparator.reversed();
     }
 
     // 마이페이지
