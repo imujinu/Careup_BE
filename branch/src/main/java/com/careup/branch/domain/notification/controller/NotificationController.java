@@ -23,7 +23,7 @@ public class NotificationController {
     }
 
     // 알림 읽음상태 변경
-    @PatchMapping("/updateState/{notiId}")
+    @PatchMapping("/read/{notiId}")
     public ResponseEntity<?> readNotification(@PathVariable Long notificationId) {
         notificationService.readNotification(notificationId);
         return new ResponseEntity<>(new CommonSuccessDto(notificationId, HttpStatus.OK.value(), "알림상태 읽음으로 수정 성공"), HttpStatus.OK);

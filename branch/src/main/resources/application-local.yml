@@ -26,7 +26,7 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show_sql: true
   servlet:
     multipart:
@@ -51,6 +51,15 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
+  ai:
+    openai:
+      api-key: ${OpenAi-Api-Key}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
 cloud:
   aws:
     credentials:
@@ -62,10 +71,11 @@ cloud:
       bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 30   # 테스트용
-  refreshTokenExpiryDaysPersistent: 180
-  refreshTokenExpiryDaysNonPersistent: 1
+  accessTokenExpiryMinutes: 3000 # 30분
   secretKeyAt: ${ACCESS_TOKEN}
+  #  refreshTokenExpiryDays: 180 # 180일
+  refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
+  refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
   secretKeyRt: ${REFRESH_TOKEN}
 
 security:

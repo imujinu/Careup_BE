@@ -53,4 +53,7 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     List<Schedule> findByAttendanceTemplateAndRegisteredDateBetween(
             AttendanceTemplate template, LocalDate from, LocalDate to
     );
+
+
+    Optional<Schedule> findByEmployeeAndRegisteredDate(Employee employee, LocalDate today);
 }
