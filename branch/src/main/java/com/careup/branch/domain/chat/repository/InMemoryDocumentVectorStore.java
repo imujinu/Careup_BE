@@ -1,8 +1,10 @@
 package com.careup.branch.domain.chat.repository;
 
+import com.careup.branch.domain.chat.config.VectorStoreConfig;
 import com.careup.branch.domain.chat.dto.DocumentSearchResultDto;
 import com.careup.branch.domain.chat.service.DocumentProcessingService;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import io.qdrant.client.QdrantClient;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,10 +16,16 @@ import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.qdrant.QdrantVectorStore;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Repository;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -36,8 +44,44 @@ import java.util.stream.Collectors;
 @Slf4j
 public class InMemoryDocumentVectorStore {
     private final DocumentProcessingService documentProcessingService;
+    public QdrantVectorStore vectorStore;
+    private final VectorStoreConfig vectorStoreConfig;
+    private final EmployeeRepository employeeRepository;
+    private final QdrantClient qdrantClient;
     private final EmbeddingModel embeddingModel;
-    private final VectorStore vectorStore;
+    private final RestTemplate restTemplate = new RestTemplate();
+
+    public QdrantVectorStore createVectorStore(Long userId) {
+        String collectionName = "documents_" + userId;
+        createCollectionIfNotExists(collectionName);
+
+        return QdrantVectorStore.builder(qdrantClient, embeddingModel)
+                .collectionName(collectionName)
+                .build();
+    }
+
+    private void createCollectionIfNotExists(String collectionName) {
+        String url = "http://localhost:6333/collections/" + collectionName;
+        try {
+            restTemplate.getForObject(url, String.class); // 존재 확인
+            // 컬렉션이 있으면 그냥 리턴
+            return;
+        } catch (Exception e) {
+            // 존재하지 않으면 생성
+            Map<String, Object> vectorsMap = new HashMap<>();
+            vectorsMap.put("size", 1536);
+            vectorsMap.put("distance", "Cosine");
+            Map<String, Object> body = new HashMap<>();
+            body.put("vectors", vectorsMap);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+            restTemplate.put(url, entity);
+        }
+    }
+
+
     public void addDocument(String id, String fileText, Map<String, Object> metadata) {
         log.info("문서 추가 시작 - ID: {}, 내용 길이: {}", id, fileText.length());
         log.info("fileText 내용: '{}'", fileText);
@@ -46,8 +90,8 @@ public class InMemoryDocumentVectorStore {
         try {
             Document document = new Document(fileText, Map.of("id", id));
             TokenTextSplitter textSplitter = TokenTextSplitter.builder()
-                    .withChunkSize(512)
-                    .withMinChunkSizeChars(350)
+                    .withChunkSize(300)
+                    .withMinChunkSizeChars(150)
                     .withMinChunkLengthToEmbed(5)
                     .withMaxNumChunks(10000)
                     .withKeepSeparator(true)
@@ -58,6 +102,7 @@ public class InMemoryDocumentVectorStore {
                 throw new IllegalArgumentException("문서 내용이 없거나 chunk 생성에 실패했습니다.");
             }
 
+            resetVectorStore();
             vectorStore.add(chunks);
 
 
@@ -66,6 +111,15 @@ public class InMemoryDocumentVectorStore {
             log.error("문서 추가 실패 - ID: {}", id, e);
             throw new IllegalArgumentException("문서 임베딩 및 저장 실패: " + e.getMessage(), e);
         }
+    }
+
+    private void resetVectorStore() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Map<String, Object> details = (Map<String, Object>) auth.getDetails();
+
+        Long employeeId = ((Number) details.get("employeeId")).longValue();
+
+        vectorStore = createVectorStore(employeeId);
     }
 
     public void addDocumentFile(String id, File file, Map<String, Object> metadata) {
@@ -93,11 +147,12 @@ public class InMemoryDocumentVectorStore {
     }
 
     public List<DocumentSearchResultDto> similaritySearch(String query, int maxResults) {
+        resetVectorStore();
         log.info("유사도 검색 시작 - 질의: '{}', 최대 결과: {}", query, maxResults);
         try {
             SearchRequest request = SearchRequest.builder()
                     .query(query)
-                    .topK(maxResults)
+                    .topK(5)
                     .build();
 
 

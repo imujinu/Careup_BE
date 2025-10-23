@@ -41,6 +41,21 @@ public class ChatConfig {
         return new OpenAiChatModel(openAiApi, options);
     }
 
+    @Bean
+    public OpenAiEmbeddingModel embeddingModel(OpenAiApi openAiApi) {
+        OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
+                .model(embeddingModelName)
+                .build();
+
+        return new OpenAiEmbeddingModel(openAiApi, MetadataMode.EMBED, options, RetryUtils.DEFAULT_RETRY_TEMPLATE);
+    }
+
+    @Bean("ragChatClient")
+    public ChatClient ragChatClient(OpenAiChatModel chatModel) {
+        return ChatClient.builder(chatModel)
+                .defaultSystem("Document RAG assistant prompt...")
+                .build();
+    }
 
 
     @Bean
@@ -149,15 +164,6 @@ Examples:
 
 
 
-
-    @Bean
-    public OpenAiEmbeddingModel embeddingModel(OpenAiApi openAiApi) {
-        OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
-                .model(embeddingModelName)
-                .build();
-
-        return new OpenAiEmbeddingModel(openAiApi, MetadataMode.EMBED, options, RetryUtils.DEFAULT_RETRY_TEMPLATE);
-    }
 
 
 }

@@ -16,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -38,6 +39,7 @@ public class ChatController {
         long step1Start = System.currentTimeMillis();
         List<DocumentSearchResultDto> list = ragService.retrieve(dto.getMessage(), dto.getMaxResult());
         log.info("유사도 검색 완료 - 걸린 시간: {} ms", System.currentTimeMillis() - step1Start);
+        log.info("유사도 검색 완료 - 문서내용: {} ms", list);
         String response = ragService.generateAnswerWithContexts(dto.getMessage(), list);
         return new ResponseEntity<>(new CommonSuccessDto(response, HttpStatus.ACCEPTED.value(), "챗봇 응답 완료"), HttpStatus.ACCEPTED);
     }

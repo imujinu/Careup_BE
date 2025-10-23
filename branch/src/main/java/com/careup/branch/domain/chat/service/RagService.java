@@ -1,12 +1,18 @@
 package com.careup.branch.domain.chat.service;
 
+import com.careup.branch.domain.chat.config.VectorStoreConfig;
 import com.careup.branch.domain.chat.dto.DocumentSearchResultDto;
 import com.careup.branch.domain.chat.repository.InMemoryDocumentVectorStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 
 import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.qdrant.QdrantVectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -25,8 +31,10 @@ import java.util.stream.Collectors;
 @Slf4j
 public class RagService {
 
-    private final InMemoryDocumentVectorStore vectorStore;
-    private final ChatService chatService;
+    @Qualifier("ragChatClient")
+    private final ChatClient ragChatClient;
+    private QdrantVectorStore vectorStore;
+    private final InMemoryDocumentVectorStore inMemoryDocumentVectorStore;
 
     public String uploadPdfFile(File file, String originalFilename) {
         if (file == null || file.length() == 0) {
@@ -41,7 +49,7 @@ public class RagService {
         docMetadata.put("uploadTime", System.currentTimeMillis());
 
         try {
-            vectorStore.addDocumentFile(documentId, file, docMetadata);
+            inMemoryDocumentVectorStore.addDocumentFile(documentId, file, docMetadata);
             log.info("PDF 문서 업로드 완료. ID: {}", documentId);
             return documentId;
         } catch (Exception e) {
@@ -52,12 +60,16 @@ public class RagService {
     public List<DocumentSearchResultDto> retrieve(String question, int maxResult){
 
         log.info("검색 시작 : {}, 최대 결과 수 : {} ", question, maxResult);
-        return vectorStore.similaritySearch(question, maxResult);
+        return inMemoryDocumentVectorStore.similaritySearch(question, maxResult);
     }
 
 
     public String generateAnswerWithContexts(String question, List<DocumentSearchResultDto> relevantDocs) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Map<String, Object> details = (Map<String, Object>) auth.getDetails();
+        Long employeeId = ((Number) details.get("employeeId")).longValue();
 
+        vectorStore = inMemoryDocumentVectorStore.createVectorStore(employeeId);
 
         log.info("RAG 응답 생성 시작: '{}'", question);
 
@@ -87,7 +99,11 @@ public class RagService {
         try {
 
             long step1Start = System.currentTimeMillis();
-            String response = chatService.getResponseAsync(question, systemPromptText);
+            String response = ragChatClient.prompt()
+                    .system(systemPromptText)
+                    .user("질문: " + question + "\n\n참고 문서:\n" + context)
+                    .call()
+                    .content();
             log.info("챗봇 응답 완료 - 걸린 시간: {} ms", System.currentTimeMillis() - step1Start);
             log.info("AI 응답 생성: {}", response);
 
