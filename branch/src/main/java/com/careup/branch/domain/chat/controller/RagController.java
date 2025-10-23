@@ -28,7 +28,6 @@ import java.io.IOException;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/rag")
-@Tag(name = "RAG API", description = "Retrieval-Augmented Generation 기능을 위한 API")
 public class RagController {
     private final RagService ragService;
 

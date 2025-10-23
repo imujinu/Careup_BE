@@ -1,6 +1,5 @@
 package com.careup.branch.domain.chat.repository;
 
-import com.careup.branch.domain.chat.config.VectorStoreConfig;
 import com.careup.branch.domain.chat.dto.DocumentSearchResultDto;
 import com.careup.branch.domain.chat.service.DocumentProcessingService;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
@@ -15,6 +14,8 @@ import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.multipart.MultipartFile;
@@ -35,10 +36,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class InMemoryDocumentVectorStore {
     private final DocumentProcessingService documentProcessingService;
-    private final VectorStoreConfig vectorStoreConfig;
+    private final EmbeddingModel embeddingModel;
     private final VectorStore vectorStore;
-    private final EmployeeRepository employeeRepository;
-
     public void addDocument(String id, String fileText, Map<String, Object> metadata) {
         log.info("문서 추가 시작 - ID: {}, 내용 길이: {}", id, fileText.length());
         log.info("fileText 내용: '{}'", fileText);

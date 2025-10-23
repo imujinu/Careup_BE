@@ -80,6 +80,12 @@ dependencies {
 	//json
 	implementation 'org.json:json:20240303'
 
+	//qdrant
+	implementation 'org.springframework.ai:spring-ai-qdrant-store:1.0.0-M6'
+
+
+
+
 }
 dependencyManagement {
 	imports {

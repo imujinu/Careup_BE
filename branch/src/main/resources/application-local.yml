@@ -60,6 +60,11 @@ spring:
       embedding:
         options:
           model: text-embedding-3-small
+qdrant:
+  host: localhost
+  port: 6333
+
+
 cloud:
   aws:
     credentials:
