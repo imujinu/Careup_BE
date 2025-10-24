@@ -7,6 +7,8 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -16,5 +18,7 @@ public class DocumentsCreateReqDto {
     private DocumentType documentType;
     private String title;
     private MultipartFile documentUrl; // 업로드 파일로 변경
+    private LocalDate expiryDate; // 만료일 (선택)
+    private String description; // 설명 (선택)
 
 }
