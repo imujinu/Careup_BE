@@ -113,13 +113,13 @@ public class ChatService {
         System.out.println("[Chat][Action] : " + action);
         switch (intent) {
                 case "SALES" -> {
-                return chatUserService.handleSalesAction(action, parameters , dto.getBranchId());
+                return chatUserService.handleSalesAction(action, parameters, dto.getBranchId() );
                 }
               case "ATTENDANCE" -> {
-                return chatUserService.handleAttendanceAction(action, parameters, dto.getBranchId());
+                return chatUserService.handleAttendanceAction(action, parameters,  dto.getBranchId());
               }
               case "STOCK" -> {
-                return chatUserService.handleStockAction(action, parameters, dto.getBranchId());
+                return chatUserService.handleStockAction(action, parameters,  dto.getBranchId());
               }
               case "ORDER" -> {
                 return chatUserService.handleOrderAction(action, parameters, dto.getBranchId());

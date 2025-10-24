@@ -13,6 +13,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneId;
+
 @Configuration
 @Slf4j
 public class ChatConfig {
@@ -60,6 +64,11 @@ public class ChatConfig {
 
     @Bean
     public ChatClient chatClient(OpenAiChatModel chatModel) {
+        String today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString();
+        YearMonth currentMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+        String start = currentMonth.atDay(1).toString();
+        String end = currentMonth.atEndOfMonth().toString();
+
         return ChatClient.builder(chatModel)
                 .defaultSystem("""
 You are an AI assistant for an ERP system.
@@ -97,8 +106,9 @@ Rules:
     * If the user requests "상품별 매출", "제품별 매출", or "각 상품 매출", include `"productSales": true`.
     * If `productSales` or `products` are missing, assume total branch or overall sales.
 - For attendance queries:
-    * If the user asks for "근태 전체 목록", "전체 직원 근태 조회", include `"allAttendance": true` and `"action": "GET"`.
-    * If the user asks for their own attendance ("내 근태", "나의 출퇴근 기록"), include `"self": true` and `"action": "GET"`.
+   * If the user asks for "근태 전체 목록", "전체 직원 근태 조회", "근태 목록", "전체 근태 조회", or similar,
+                                 set `"intent": "ATTENDANCE"`, `"action": "GET"`,
+                                 and include `"allAttendance": true`, `"periodType": "MONTH"`,
     * If the user is a manager comparing employees' attendance ("김민수와 박진우 근태 비교", "직원 근태 비교"), 
       set `"action": "COMPARE"`, and include `"employees": ["김민수","박진우"]` with `"compareBy": "attendance"`.
     * Attendance comparisons are made after fetching all records, by filtering based on the listed employees.
@@ -106,14 +116,21 @@ Rules:
     ---
     ADDITIONAL RULES (ENHANCED LOGIC)
     - Attendance queries no longer require `"allAttendance"`. By default, return the full list for the specified period.
-    - If no employee is mentioned, assume it refers to all attendance records for that period.
+    - If the user explicitly mentions "전체 직원 근태", always include `"allAttendance": true` and `"action": "GET"`.
     - When the user mentions a month (e.g., "1월 근태 목록", "2월 근태 조회"):
         * Interpret it as a monthly period within the year 2025 by default.
         * Example: "1월 근태 목록" → 
           {"intent":"ATTENDANCE","action":"GET","parameters":{"periodType":"MONTH","range":{"start":"2025-01-01","end":"2025-01-31"}}}
     - If no year is mentioned in the query, assume 2025 by default.
     - If the user mentions a specific year (e.g., "2024년 3월 근태"), use that year instead.
-    - Do not add `"allAttendance"` unless the user explicitly says "전체 직원 근태" or similar.
+     - If the user requests "금일 근태", "오늘 근태", or similar (meaning today's attendance),
+     set `"intent": "ATTENDANCE"`, `"action": "GET"`,
+     and include {"periodType": "DAY", "date": "<today>"} using Asia/Seoul time zone.
+    - If the user does not mention any date or month, assume the current month (based on Asia/Seoul time) and
+    - automatically add {"periodType":"MONTH","range":{"start":"<currentMonthStart>","end":"<currentMonthEnd>"}}.
+    - The current date is %s.
+                            - If the user does not mention any date or month, assume the current month (%s ~ %s)
+                              and automatically add {"periodType":"MONTH","range":{"start":"%s","end":"%s"}}.
     ---
 
 - For inventory (STOCK):
@@ -146,7 +163,7 @@ Examples:
 {"intent":"ATTENDANCE","action":"GET","parameters":{"periodType":"MONTH","range":{"start":"2025-01-01","end":"2025-01-31"}}}
 
 "Show my attendance for this week." →
-{"intent":"ATTENDANCE","action":"GET","parameters":{"self":true,"periodType":"WEEK","range":{"start":"2025-10-20","end":"2025-10-26"}}}
+{"intent":"ATTENDANCE","action":"GET","parameters":{"periodType":"WEEK","range":{"start":"2025-10-20","end":"2025-10-26"}}}
 
 "Compare attendance between Kim Minsoo and Park Jinwoo." →
 {"intent":"ATTENDANCE","action":"COMPARE","parameters":{"employees":["Kim Minsoo","Park Jinwoo"],"compareBy":"attendance"}}
@@ -156,9 +173,10 @@ Examples:
 
 "Order 100 bottles of water and 200 cans of soda." →
 {"intent":"ORDER","action":"CREATE","parameters":{"items":[{"productId":1,"product":"water","quantity":100},{"productId":2,"product":"soda","quantity":200}]}}
-""")
+""".formatted(today, start, end, start, end))
                 .build();
     }
+
 
 
 
