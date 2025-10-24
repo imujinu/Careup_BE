@@ -1,16 +1,19 @@
 package com.careup.branch.domain.auth.controller;
 
+import com.careup.branch.common.api.ApiEnvelope;
 import com.careup.branch.common.dto.CommonSuccessDto;
-import com.careup.branch.common.auth.JwtTokenProvider;
 import com.careup.branch.domain.auth.dto.request.AuthLoginRequest;
 import com.careup.branch.domain.auth.dto.request.ForgotPasswordRequest;
 import com.careup.branch.domain.auth.dto.request.LogoutRequest;
 import com.careup.branch.domain.auth.dto.request.RefreshRequest;
 import com.careup.branch.domain.auth.dto.request.ResetPasswordRequest;
 import com.careup.branch.domain.auth.dto.response.AuthLoginResponse;
-import com.careup.branch.domain.auth.dto.response.AuthRefreshResponse;
 import com.careup.branch.domain.auth.dto.response.AuthLogoutResponse;
+import com.careup.branch.domain.auth.dto.response.AuthRefreshResponse;
+import com.careup.branch.domain.auth.exception.LoginException;
+import com.careup.branch.domain.auth.service.AuthErrorCodes;
 import com.careup.branch.domain.auth.service.AuthService;
+import com.careup.branch.domain.auth.utils.LoginValidators;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,61 +27,70 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final JwtTokenProvider jwt; // NEW
 
     @PostMapping("/login")
-    public ResponseEntity<CommonSuccessDto> login(@RequestBody AuthLoginRequest req) {
-        AuthLoginResponse result = authService.login(req);
-        return ResponseEntity.status(HttpStatus.OK).body(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("로그인 성공")
-                        .build()
-        );
+    public ResponseEntity<ApiEnvelope<AuthLoginResponse>> login(@RequestBody AuthLoginRequest req) {
+        if (!LoginValidators.isValidId(req.getId())) {
+            boolean looksEmail = LoginValidators.looksLikeEmail(req.getId());
+            String msg = looksEmail ? "잘못된 이메일 형식입니다." : "잘못된 휴대폰 번호 형식입니다.";
+            return ResponseEntity.badRequest().body(
+                    ApiEnvelope.of(400, msg, AuthErrorCodes.ID_FORMAT_INVALID)
+            );
+        }
+        if (!LoginValidators.isValidPassword(req.getPassword())) {
+            return ResponseEntity.badRequest().body(
+                    ApiEnvelope.of(400, "비밀번호 형식이 올바르지 않습니다.", AuthErrorCodes.PWD_FORMAT_INVALID)
+            );
+        }
+
+        try {
+            AuthLoginResponse result = authService.login(req);
+            return ResponseEntity.ok(ApiEnvelope.ok(result));
+        } catch (LoginException e) {
+            return ResponseEntity.status(e.getStatus()).body(
+                    ApiEnvelope.of(e.getStatus(), e.getMessage(), e.getCode())
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiEnvelope.of(401, "아이디 또는 비밀번호가 올바르지 않습니다.", AuthErrorCodes.AUTH_INVALID_CREDENTIALS)
+            );
+        }
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<CommonSuccessDto> refresh(@RequestBody RefreshRequest req) {
+    public ResponseEntity<ApiEnvelope<AuthRefreshResponse>> refresh(@RequestBody RefreshRequest req) {
         if (!StringUtils.hasText(req.getRefreshToken())) {
             return ResponseEntity.badRequest().body(
-                    CommonSuccessDto.builder()
-                            .status_code(HttpStatus.BAD_REQUEST.value())
-                            .status_message("refreshToken은 필수입니다.")
-                            .build()
+                    ApiEnvelope.of(400, "refreshToken은 필수입니다.", AuthErrorCodes.REFRESH_TOKEN_REQUIRED)
             );
         }
-        AuthRefreshResponse result = authService.refresh(req.getRefreshToken());
-        return ResponseEntity.ok(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("액세스 토큰 재발급 완료")
-                        .build()
-        );
+        try {
+            AuthRefreshResponse result = authService.refresh(req.getRefreshToken());
+            return ResponseEntity.ok(ApiEnvelope.ok(result));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiEnvelope.of(401, "리프레시 토큰이 유효하지 않습니다.", AuthErrorCodes.AUTH_INVALID_CREDENTIALS)
+            );
+        }
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<CommonSuccessDto> logout(@RequestBody LogoutRequest req) {
+    public ResponseEntity<ApiEnvelope<AuthLogoutResponse>> logout(@RequestBody LogoutRequest req) {
         if (!StringUtils.hasText(req.getRefreshToken())) {
             return ResponseEntity.badRequest().body(
-                    CommonSuccessDto.builder()
-                            .status_code(HttpStatus.BAD_REQUEST.value())
-                            .status_message("refreshToken은 필수입니다.")
-                            .build()
+                    ApiEnvelope.of(400, "refreshToken은 필수입니다.", AuthErrorCodes.REFRESH_TOKEN_REQUIRED)
             );
         }
-        AuthLogoutResponse result = authService.logout(req.getRefreshToken());
-        return ResponseEntity.ok(
-                CommonSuccessDto.builder()
-                        .result(result)
-                        .status_code(HttpStatus.OK.value())
-                        .status_message("로그아웃 완료")
-                        .build()
-        );
+        try {
+            AuthLogoutResponse result = authService.logout(req.getRefreshToken());
+            return ResponseEntity.ok(ApiEnvelope.ok(result));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiEnvelope.of(401, "리프레시 토큰이 유효하지 않습니다.", AuthErrorCodes.AUTH_INVALID_CREDENTIALS)
+            );
+        }
     }
 
-    /** 비밀번호 재설정 메일 요청 */
     @PostMapping("/password/forgot")
     public ResponseEntity<CommonSuccessDto> forgot(@RequestBody @Valid ForgotPasswordRequest req) {
         authService.issueResetTokenByIdentity(req.getEmail().trim(), req.getMobile().trim());
@@ -91,7 +103,6 @@ public class AuthController {
         );
     }
 
-    /** 비밀번호 재설정 완료 */
     @PostMapping("/password/reset")
     public ResponseEntity<CommonSuccessDto> reset(@RequestBody @Valid ResetPasswordRequest req) {
         authService.resetPassword(
