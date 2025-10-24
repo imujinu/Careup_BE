@@ -1,3 +1,4 @@
+// src/main/java/com/careup/branch/domain/auth/service/AuthService.java
 package com.careup.branch.domain.auth.service;
 
 import com.careup.branch.common.auth.ForceLogoutStore;
@@ -10,19 +11,19 @@ import com.careup.branch.domain.auth.dto.request.AuthLoginRequest;
 import com.careup.branch.domain.auth.dto.response.AuthLoginResponse;
 import com.careup.branch.domain.auth.dto.response.AuthLogoutResponse;
 import com.careup.branch.domain.auth.dto.response.AuthRefreshResponse;
+import com.careup.branch.domain.auth.exception.LoginException;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import io.jsonwebtoken.Claims;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.time.LocalDate;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,9 +43,9 @@ public class AuthService {
 
     public AuthLoginResponse login(AuthLoginRequest req) {
         if (req.getId() == null || req.getId().isBlank())
-            throw new IllegalArgumentException("아이디(이메일 또는 휴대폰 번호)는 필수입니다.");
+            throw LoginException.idFormatInvalid("아이디는 필수입니다.");
         if (req.getPassword() == null || req.getPassword().isBlank())
-            throw new IllegalArgumentException("비밀번호는 필수입니다.");
+            throw LoginException.pwdFormatInvalid("비밀번호는 필수입니다.");
 
         final String rawId = req.getId().trim();
         final boolean emailLogin = rawId.contains("@");
@@ -52,19 +53,18 @@ public class AuthService {
 
         Employee emp = emailLogin
                 ? employeeRepository.findByEmailIgnoreCase(loginId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 이메일입니다."))
+                .orElseThrow(LoginException::emailNotFound)
                 : employeeRepository.findByMobile(loginId)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 휴대폰 번호입니다."));
+                .orElseThrow(LoginException::mobileNotFound);
 
         if (!Boolean.TRUE.equals(emp.getEnabled()))
-            throw new IllegalArgumentException("비활성화된 계정입니다.");
+            throw LoginException.accountInactive();
+
         if (!passwordEncoder.matches(req.getPassword(), emp.getPasswordHash()))
-            throw new IllegalArgumentException("아이디 또는 비밀번호가 일치하지 않습니다.");
+            throw LoginException.passwordMismatch();
 
         String role = emp.getAuthorityType().name();
         Long employeeId = emp.getId();
-
-        // 전역 컷오프 방식에서는 재로그인 시 clear() 하지 않음
 
         LocalDate today = LocalDate.now();
         Optional<DispatchStatus> active = dispatchStatusRepository
@@ -103,7 +103,6 @@ public class AuthService {
         Long employeeId = Long.valueOf(claims.getSubject());
         long rtIatMs = claims.getIssuedAt() != null ? claims.getIssuedAt().getTime() : 0L;
 
-        // 컷오프 도래 이후 + 컷오프 이전 발급 RT는 차단 (존재만으로 차단하지 않음)
         Optional<Long> cutOpt = forceLogoutStore.readCutoverAt(employeeId);
         if (cutOpt.isPresent()) {
             long cut = cutOpt.get();
@@ -116,8 +115,6 @@ public class AuthService {
                 .orElseThrow(() -> new IllegalArgumentException("계정을 찾을 수 없습니다."));
         String role = emp.getAuthorityType().name();
 
-        String at = jwt.createAccessToken(employeeId, role);
-
         LocalDate today = LocalDate.now();
         Optional<DispatchStatus> active = dispatchStatusRepository
                 .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
@@ -128,6 +125,8 @@ public class AuthService {
             branchId = active.get().getBranch().getId();
             branchName = active.get().getBranch().getName();
         }
+
+        String at = jwt.createAccessToken(employeeId, role, branchId);
 
         return AuthRefreshResponse.builder()
                 .tokenType("Bearer")

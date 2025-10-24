@@ -3,6 +3,7 @@ package com.careup.branch.common.config;
 import com.careup.branch.common.auth.JwtAccessDeniedHandler;
 import com.careup.branch.common.auth.JwtAuthenticationEntryPoint;
 import com.careup.branch.common.auth.JwtTokenFilter;
+import java.util.List;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -13,6 +14,9 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableMethodSecurity
@@ -26,12 +30,10 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable());
         http.httpBasic(b -> b.disable());
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+        http.cors(c -> {});
 
         http.authorizeHttpRequests(auth -> auth
-                // CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                // 공개 엔드포인트
                 .requestMatchers(
                         "/actuator/**",
                         "/public/**",
@@ -41,15 +43,12 @@ public class SecurityConfig {
                         "/auth/logout",
                         "/auth/password/forgot",
                         "/auth/password/reset",
-                        "/auth/introspect",            // Ordering 서버에서 토큰 검증용
-                        "/auth/employees/id-lookup" ,   // 직원 아이디(이메일/휴대폰) 찾기
+                        "/auth/introspect",
                         "/inventory/**",
-                        "/categories/",
+                        "/categories/**",
                         "/products/**",
                         "/api/products/public/**"
                 ).permitAll()
-
-                // 나머지는 인증 필요
                 .anyRequest().authenticated()
         );
 
@@ -65,5 +64,17 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration cfg = new CorsConfiguration();
+        cfg.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
+        cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        cfg.setAllowedHeaders(List.of("*"));
+        cfg.setAllowCredentials(false); // 쿠키 미사용
+        UrlBasedCorsConfigurationSource src = new UrlBasedCorsConfigurationSource();
+        src.registerCorsConfiguration("/**", cfg);
+        return src;
     }
 }

@@ -1,10 +1,15 @@
 package com.careup.branch.common.auth;
 
+import com.careup.branch.common.dto.CommonErrorDto;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Date;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -12,10 +17,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.Date;
-import java.util.List;
 
 @Slf4j
 @Component
@@ -47,16 +48,22 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 if (employeeId != null && forceLogoutStore.isTokenObsolete(employeeId, iatMs)) {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"status_code\":401,\"status_message\":\"세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.\"}");
+                    CommonErrorDto body = CommonErrorDto.builder()
+                            .status_code(HttpServletResponse.SC_UNAUTHORIZED)
+                            .status_message("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.")
+                            .build();
+                    new ObjectMapper().writeValue(response.getWriter(), body);
+                    response.getWriter().flush();
                     return;
                 }
 
                 String role = String.valueOf(c.get("role"));
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-                var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), null, authorities);
-                auth.setDetails(c);
-                SecurityContextHolder.getContext().setAuthentication(auth);
-
+                if (role != null && !role.isBlank()) {
+                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                    var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), null, authorities);
+                    auth.setDetails(c);
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
             } catch (Exception e) {
                 log.debug("[JWT] token parse/verify failed: {}", e.getMessage());
             }
