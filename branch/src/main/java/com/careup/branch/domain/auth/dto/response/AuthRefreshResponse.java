@@ -1,12 +1,15 @@
 package com.careup.branch.domain.auth.dto.response;
 
-import lombok.*;
 import java.time.Instant;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class AuthRefreshResponse {
     private String tokenType;         // "Bearer"
     private String accessToken;       // 새 AT

@@ -1,12 +1,14 @@
 package com.careup.branch.domain.auth.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
-@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class IntrospectResponse {
     private boolean active;
     private Long employeeId;

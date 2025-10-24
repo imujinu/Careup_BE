@@ -43,11 +43,21 @@ spring:
     username: ${MAIL_USER}
     password: ${MAIL_PW}
     from: careup.noreply@gmail.com
+    from.name: Care-Up            # 직원 From 표시명
+    default-encoding: UTF-8
     properties:
       mail:
+        debug: true
         smtp:
           auth: true
-          starttls.enable: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          ssl:
+            trust: smtp.gmail.com
   main:
     allow-bean-definition-overriding: true
 
@@ -98,7 +108,15 @@ attendance:
 
 careup:
   mail:
-    reset-base-url: "http://localhost:5173/reset-password"  # 비밀번호 재설정 링크 프론트 URL
+    support-email: support@careup.com
+    reset-base-url: "http://localhost:5173/password/reset"  # 직원 FE 경로
+
+# 브랜드(직원) — Care-Up (보라 버튼)
+brand:
+  name: Care-Up
+  logo-url: ""   # 필요 시 CDN 경로
+  slogan: "Where Management Meets Care"
+  cta-color: "#7C3AED"   # 보라 버튼
 
 logging:
   level:

@@ -6,20 +6,20 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.stereotype.Component;
-
 import java.security.Key;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Date;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Component;
 
 @Component
 public class JwtTokenProvider {
 
     private final JwtProperties props;
     private final RedisTemplate<String, String> redis;
+
     private Key atKey;
     private Key rtKey;
 
@@ -39,12 +39,14 @@ public class JwtTokenProvider {
         this.rtKey = Keys.hmacShaKeyFor(rtBytes);
     }
 
-    private static String rtKey(Long employeeId) { return "RT:EMP:" + employeeId; }
+    private static String rtRedisKey(Long employeeId) {
+        return "RT:EMP:" + employeeId;
+    }
 
     public String createAccessToken(Long employeeId, String role) {
         return createAccessToken(employeeId, role, null);
     }
-    
+
     public String createAccessToken(Long employeeId, String role, Long branchId) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
@@ -80,7 +82,7 @@ public class JwtTokenProvider {
                 .signWith(rtKey, SignatureAlgorithm.HS512)
                 .compact();
 
-        redis.opsForValue().set(rtKey(employeeId), rt, Duration.ofMillis(rtMillis));
+        redis.opsForValue().set(rtRedisKey(employeeId), rt, Duration.ofMillis(rtMillis));
         return rt;
     }
 
@@ -94,7 +96,7 @@ public class JwtTokenProvider {
                 .parseClaimsJws(refreshToken).getBody();
 
         Long employeeId = Long.valueOf(claims.getSubject());
-        String saved = redis.opsForValue().get(rtKey(employeeId));
+        String saved = redis.opsForValue().get(rtRedisKey(employeeId));
         if (saved == null || !saved.equals(refreshToken)) {
             throw new JwtException("유효하지 않은 토큰입니다.");
         }
@@ -102,6 +104,6 @@ public class JwtTokenProvider {
     }
 
     public void revokeRefreshToken(Long employeeId) {
-        redis.delete(rtKey(employeeId));
+        redis.delete(rtRedisKey(employeeId));
     }
 }
