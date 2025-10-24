@@ -148,4 +148,27 @@ public class DocumentsController {
             );
         }
     }
+
+    // 서류 다운로드 - 특정 지점 하위
+    @PreAuthorize("hasRole('HQ_ADMIN')")
+    @GetMapping("/{employeeId}/{documentId}/download")
+    public ResponseEntity<?> downloadDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
+        try {
+            String downloadUrl = documentsService.getDocumentDownloadUrl(employeeId, documentId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(downloadUrl)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("서류 다운로드 URL 조회 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_message("서류 다운로드 URL 조회 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
 }
