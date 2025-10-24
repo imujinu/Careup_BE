@@ -45,7 +45,13 @@ public class DocumentsService {
                 .documentType(requestDto.getDocumentType())
                 .title(requestDto.getTitle())
                 .documentUrl(uploadedUrl)
+                .fileSize(file.getSize())
+                .expiryDate(requestDto.getExpiryDate())
+                .description(requestDto.getDescription())
                 .build();
+
+        // 서류 상태 자동 계산
+        document.updateStatus();
 
         Documents savedDocument = documentsRepository.save(document);
 
@@ -59,7 +65,11 @@ public class DocumentsService {
             throw new IllegalArgumentException("employeeId는 필수입니다.");
         }
         Page<Documents> page = documentsRepository.findByEmployee_Id(employeeId, pageable);
-        Page<DocumentsDto> dtoPage = page.map(this::toDto);
+
+        // 조회 시 서류 상태 업데이트
+        page.getContent().forEach(Documents::updateStatus);
+
+        Page<DocumentsDto> dtoPage = page.map(DocumentsDto::fromEntity);
         return DocumentsListResDto.fromPage(dtoPage);
     }
 
@@ -68,6 +78,10 @@ public class DocumentsService {
     public DocumentsDto getDocument(Long employeeId, Long id) {
         Documents findDocument = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 지점의 문서가 존재하지 않습니다."));
+
+        // 조회 시 서류 상태 업데이트
+        findDocument.updateStatus();
+
         return DocumentsDto.fromEntity(findDocument);
     }
 
@@ -81,9 +95,11 @@ public class DocumentsService {
 
         String currentUrl = findDocuments.getDocumentUrl();
         String newUrl = currentUrl;
+        Long newFileSize = findDocuments.getFileSize();
         MultipartFile newFile = request.getDocumentUrl();
         if (newFile != null && !newFile.isEmpty()) {
             newUrl = awsS3Uploader.uploadFile(TABLE_NAME, findDocuments.getId(), newFile);
+            newFileSize = newFile.getSize();
             try {
                 if (currentUrl != null && !currentUrl.isBlank()) {
                     awsS3Uploader.deleteByUrl(currentUrl);
@@ -98,7 +114,10 @@ public class DocumentsService {
                 findEmployee, // 지점 변경은 허용하지 않고 path의 branchId를 유지
                 request.getDocumentType(),
                 request.getTitle(),
-                newUrl
+                newUrl,
+                newFileSize,
+                request.getExpiryDate(),
+                request.getDescription()
         );
 
         Documents updatedDocument = documentsRepository.save(findDocuments);
@@ -118,6 +137,15 @@ public class DocumentsService {
         documentsRepository.delete(deletedDocument);
     }
 
+    // 서류 다운로드 URL 조회
+    @Transactional(readOnly = true)
+    public String getDocumentDownloadUrl(Long employeeId, Long id) {
+        Documents findDocument = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 지점의 문서가 존재하지 않습니다."));
+
+        return findDocument.getDocumentUrl();
+    }
+
     // Entity -> DTO
     private DocumentsDto toDto(Documents entity) {
         return DocumentsDto.builder()
@@ -126,6 +154,11 @@ public class DocumentsService {
                 .documentType(entity.getDocumentType())
                 .title(entity.getTitle())
                 .documentUrl(entity.getDocumentUrl())
+                .fileSize(entity.getFileSize())
+                .uploadedAt(entity.getCreatedAt())
+                .expiryDate(entity.getExpiryDate())
+                .description(entity.getDescription())
+                .documentStatus(entity.getDocumentStatus())
                 .build();
     }
 }
