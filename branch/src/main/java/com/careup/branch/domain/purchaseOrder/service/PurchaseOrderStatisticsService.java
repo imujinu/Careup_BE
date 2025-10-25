@@ -1,5 +1,7 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
+import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.purchaseOrder.dto.HQStatisticsResponseDto;
 import com.careup.branch.domain.purchaseOrder.entity.OrderStatus;
 import com.careup.branch.domain.purchaseOrder.entity.PurchaseOrder;
@@ -32,6 +34,8 @@ public class PurchaseOrderStatisticsService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
+    private final OrderingInventoryClient orderingInventoryClient;
+    private final BranchRepository branchRepository;
 
     /**
      * 본사용 전체 통계 조회 (통합)
@@ -268,10 +272,22 @@ public class PurchaseOrderStatisticsService {
                     Long approvedCount = (Long) result[4];
                     Long rejectedCount = (Long) result[5];
 
+                    // 지점명 조회
+                    String branchName = "지점-" + branchId;
+                    try {
+                        var branch = branchRepository.findById(branchId);
+                        if (branch.isPresent() && branch.get().getName() != null) {
+                            branchName = branch.get().getName();
+                        }
+                    } catch (Exception e) {
+                        log.warn("지점 정보 조회 실패: branchId={}", branchId, e);
+                    }
+
                     double approvalRate = orderCount > 0 ? (approvedCount * 100.0) / orderCount : 0.0;
 
                     return HQStatisticsResponseDto.BranchStatistics.builder()
                             .branchId(branchId)
+                            .branchName(branchName)
                             .orderCount(orderCount)
                             .totalAmount(totalAmount)
                             .averageAmount(Math.round(avgAmount * 100.0) / 100.0)
@@ -300,10 +316,22 @@ public class PurchaseOrderStatisticsService {
                     Long totalAmount = result[3] != null ? ((Number) result[3]).longValue() : 0L;
                     Long orderCount = (Long) result[4];
 
+                    // 상품명 조회
+                    String productName = "상품-" + productId;
+                    try {
+                        OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+                        if (product != null && product.name != null) {
+                            productName = product.name;
+                        }
+                    } catch (Exception e) {
+                        log.warn("상품 정보 조회 실패: productId={}", productId, e);
+                    }
+
                     double approvalRate = totalQuantity > 0 ? (approvedQuantity * 100.0) / totalQuantity : 0.0;
 
                     return HQStatisticsResponseDto.ProductStatistics.builder()
                             .productId(productId)
+                            .productName(productName)
                             .totalQuantity(totalQuantity)
                             .approvedQuantity(approvedQuantity)
                             .totalAmount(totalAmount)

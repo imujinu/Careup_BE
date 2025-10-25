@@ -71,6 +71,7 @@ public class HQStatisticsResponseDto {
     @Builder
     public static class BranchStatistics {
         private Long branchId;   // 지점 ID
+        private String branchName;   // 지점명
         private Long orderCount;  // 발주 건수
         private Long totalAmount;  // 총 발주 금액
         private Double averageAmount;  // 평균 발주 금액
@@ -88,6 +89,7 @@ public class HQStatisticsResponseDto {
     @Builder
     public static class ProductStatistics {
         private Long productId;  // 상품 ID
+        private String productName;  // 상품명
         private Long totalQuantity;  // 총 발주 수량
         private Long approvedQuantity;  // 총 승인 수량
         private Long totalAmount;   // 총 발주 금액

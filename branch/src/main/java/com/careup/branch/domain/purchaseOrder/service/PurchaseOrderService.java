@@ -1,6 +1,7 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
 import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
@@ -40,6 +41,7 @@ public class PurchaseOrderService {
     private final KafkaTemplate<String, Object> purchaseOrderKafkaTemplate;
     private final OrderingInventoryClient orderingInventoryClient;
     private final EmployeeRepository employeeRepository;
+    private final BranchRepository branchRepository;
     
     // 발주 생성 (가맹점용)
     @Transactional
@@ -427,9 +429,20 @@ public class PurchaseOrderService {
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(purchaseOrder);
         int productCount = orderDetails.size();
         
+        // 지점명 조회
+        String branchName = "지점-" + purchaseOrder.getBranchId(); // 기본값
+        try {
+            branchName = branchRepository.findById(purchaseOrder.getBranchId())
+                    .map(branch -> branch.getName())
+                    .orElse("지점-" + purchaseOrder.getBranchId());
+        } catch (Exception e) {
+            log.warn("지점 정보 조회 실패: branchId={}", purchaseOrder.getBranchId(), e);
+        }
+        
         return PurchaseOrderListResponseDto.builder()
                 .purchaseOrderId(purchaseOrder.getId())
                 .branchId(purchaseOrder.getBranchId())
+                .branchName(branchName)
                 .orderStatus(purchaseOrder.getOrderStatus())
                 .totalPrice(purchaseOrder.getPrice())
                 .productCount(productCount)

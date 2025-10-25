@@ -16,6 +16,7 @@ public class PurchaseOrderListResponseDto {
 
     private Long purchaseOrderId;
     private Long branchId;
+    private String branchName; // 지점명
     private OrderStatus orderStatus; // 발주 상태
     private Long totalPrice; // 총 금액
     private Integer productCount; // 상품 수
