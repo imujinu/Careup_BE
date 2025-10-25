@@ -118,6 +118,25 @@ public class PurchaseOrderController {
                 .body(excelBytes);
     }
 
+    // 특정 발주 내역 엑셀 다운로드
+    @GetMapping("/{purchaseOrderId}/export/excel")
+    public ResponseEntity<byte[]> exportSingleOrderToExcel(@PathVariable Long purchaseOrderId) {
+        byte[] excelBytes = excelService.exportSingleOrderToExcel(purchaseOrderId);
+        
+        // 파일명 생성
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "purchase_order_" + purchaseOrderId + "_" + timestamp + ".xlsx";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentLength(excelBytes.length);
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelBytes);
+    }
+
     // 본사용 발주 통계 조회 (전체)
     @GetMapping("/statistics/hq")
     public ResponseEntity<HQStatisticsResponseDto> getHQStatistics(

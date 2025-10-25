@@ -99,6 +99,80 @@ public class PurchaseOrderExcelService {
     }
 
     /**
+     * 특정 발주 내역 엑셀 파일로 생성
+     */
+    public byte[] exportSingleOrderToExcel(Long purchaseOrderId) {
+        try {
+            // 발주 조회
+            PurchaseOrder order = purchaseOrderRepository.findById(purchaseOrderId)
+                    .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
+            
+            // 지점 접근 권한 검증
+            validateBranchAccess(order.getBranchId());
+
+            // 엑셀 생성
+            Workbook workbook = new XSSFWorkbook();
+            Sheet sheet = workbook.createSheet("발주내역");
+
+            // 스타일 설정
+            CellStyle headerStyle = createHeaderStyle(workbook);
+            CellStyle dataStyle = createDataStyle(workbook);
+            CellStyle numberStyle = createNumberStyle(workbook);
+
+            // 헤더 작성
+            createHeaderRow(sheet, headerStyle);
+
+            // 상세 내역 조회
+            List<PurchaseOrderDetail> details = purchaseOrderDetailRepository.findByPurchaseOrder(order);
+
+            // 데이터 작성
+            int rowNum = 1;
+            if (details.isEmpty()) {
+                // 상세 내역이 없는 경우 발주 정보만 표시
+                createOrderRow(sheet, rowNum++, order, null, dataStyle, numberStyle);
+            } else {
+                // 상세 내역이 있는 경우 각 상품별로 행 생성
+                for (PurchaseOrderDetail detail : details) {
+                    createOrderRow(sheet, rowNum++, order, detail, dataStyle, numberStyle);
+                }
+            }
+
+            if (details.size() > 1) {
+                int startRow = 1;
+                int endRow = startRow + details.size() - 1;
+
+                int[] mergeColumns = {0, 1, 2, 3, 4, 5};
+                
+                for (int col : mergeColumns) {
+                    CellRangeAddress cellRangeAddress = new CellRangeAddress(startRow, endRow, col, col);
+                    sheet.addMergedRegion(cellRangeAddress);
+
+                    Cell mergedCell = sheet.getRow(startRow).getCell(col);
+                    if (mergedCell != null) {
+                        CellStyle style = mergedCell.getCellStyle();
+                        style.setVerticalAlignment(VerticalAlignment.CENTER);
+                        style.setAlignment(HorizontalAlignment.CENTER);
+                        mergedCell.setCellStyle(style);
+                    }
+                }
+            }
+
+            for (int i = 0; i < 11; i++) {
+                sheet.autoSizeColumn(i);
+                sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1024);
+            }
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            workbook.write(outputStream);
+            workbook.close();
+            return outputStream.toByteArray();
+
+        } catch (IOException e) {
+            throw new RuntimeException("엑셀 파일 생성 중 오류가 발생했습니다.", e);
+        }
+    }
+
+    /**
      * 필터링된 발주 목록 조회
      */
     private List<PurchaseOrder> getFilteredOrders(Long branchId, String startDate, String endDate) {
