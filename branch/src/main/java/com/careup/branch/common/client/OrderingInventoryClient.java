@@ -86,6 +86,7 @@ public interface OrderingInventoryClient {
     public static class ProductResponseDto {
         public Long productId;
         public Long categoryId;
+        public String categoryName;
         public String name;
         public String description;
         public Long supplyPrice;

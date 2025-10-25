@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -45,7 +46,8 @@ public class SecurityConfig {
                         "/auth/employees/id-lookup" ,   // 직원 아이디(이메일/휴대폰) 찾기
                         "/inventory/**",
                         "/categories/",
-                        "/products/**"
+                        "/products/**",
+                        "/purchase-orders/**"
                 ).permitAll()
 
                 // 나머지는 인증 필요
@@ -65,4 +67,5 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
+
 }
