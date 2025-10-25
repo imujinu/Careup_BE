@@ -87,6 +87,13 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(completedOrder);
     }
 
+    // 발주 취소 (가맹점용)
+    @PostMapping("/{purchaseOrderId}/cancel")
+    public ResponseEntity<PurchaseOrderResponseDto> cancelPurchaseOrder(@PathVariable Long purchaseOrderId) {
+        PurchaseOrderResponseDto cancelledOrder = purchaseOrderService.cancelPurchaseOrder(purchaseOrderId);
+        return ResponseEntity.ok(cancelledOrder);
+    }
+
 
     // 발주 내역 엑셀 다운로드 (본사/가맹점)
     @GetMapping("/export/excel")

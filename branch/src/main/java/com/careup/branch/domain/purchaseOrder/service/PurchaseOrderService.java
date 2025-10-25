@@ -47,11 +47,14 @@ public class PurchaseOrderService {
         // 1. 검증
         validatePurchaseOrderRequest(requestDto);
         
-        // 2. 상품별 공급가 조회 및 설정
+        // 2. 중복 발주 방지: 같은 지점에서 같은 날짜에 같은 상품으로 PENDING 상태인 발주가 있는지 확인
+        validateNoDuplicateOrder(requestDto);
+        
+        // 3. 상품별 공급가 조회 및 설정
         List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details =
                 setSupplyPrices(requestDto.getOrderDetails());
         
-        // 3. 발주 생성 (PENDING 상태로 시작)
+        // 4. 발주 생성 (PENDING 상태로 시작)
         PurchaseOrder purchaseOrder = PurchaseOrder.builder()
                 .branchId(requestDto.getBranchId())
                 .orderStatus(OrderStatus.PENDING)
@@ -86,15 +89,25 @@ public class PurchaseOrderService {
         
         return orderDetails.stream()
                 .map(detail -> {
-                    // ordering 서버에서 상품 정보 조회
-                    OrderingInventoryClient.ProductResponseDto product = 
-                        orderingInventoryClient.getProduct(detail.getProductId());
-                    
-                    // 공급가 자동 설정
-                    detail.setSupplyPrice(product.supplyPrice);
+                    try {
+                        log.info("상품 정보 조회 시도: productId={}", detail.getProductId());
+                        
+                        // ordering 서버에서 상품 정보 조회
+                        OrderingInventoryClient.ProductResponseDto product = 
+                            orderingInventoryClient.getProduct(detail.getProductId());
+                        
+                        log.info("상품 정보 조회 성공: productId={}, supplyPrice={}", 
+                            detail.getProductId(), product.supplyPrice);
+                        
+                        // 공급가 자동 설정
+                        detail.setSupplyPrice(product.supplyPrice);
 
-                    
-                    return detail;
+                        return detail;
+                    } catch (Exception e) {
+                        log.error("상품 정보 조회 실패: productId={}, error={}", 
+                            detail.getProductId(), e.getMessage(), e);
+                        throw new RuntimeException("상품 정보 조회 실패: " + detail.getProductId(), e);
+                    }
                 })
                 .collect(Collectors.toList());
     }
@@ -128,6 +141,39 @@ public class PurchaseOrderService {
         
         if (!hasValidQuantity) {
             throw new IllegalArgumentException("수량을 입력해주세요.");
+        }
+    }
+    
+    // 중복 발주 방지 검증
+    private void validateNoDuplicateOrder(PurchaseOrderRequestDto requestDto) {
+        LocalDate today = LocalDate.now();
+        
+        // 같은 지점에서 오늘 날짜에 PENDING 상태인 발주가 있는지 확인
+        List<PurchaseOrder> existingOrders = purchaseOrderRepository
+                .findByBranchIdAndOrderDateAndOrderStatus(
+                    requestDto.getBranchId(), 
+                    today, 
+                    OrderStatus.PENDING
+                );
+        
+        if (!existingOrders.isEmpty()) {
+            // 기존 발주에 같은 상품이 있는지 확인
+            Set<Long> existingProductIds = existingOrders.stream()
+                    .flatMap(order -> order.getOrderDetails().stream())
+                    .map(PurchaseOrderDetail::getProductId)
+                    .collect(Collectors.toSet());
+            
+            Set<Long> newProductIds = requestDto.getOrderDetails().stream()
+                    .map(PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto::getProductId)
+                    .collect(Collectors.toSet());
+            
+            // 교집합이 있으면 중복
+            boolean hasDuplicate = existingProductIds.stream()
+                    .anyMatch(newProductIds::contains);
+            
+            if (hasDuplicate) {
+                throw new IllegalArgumentException("이미 같은 상품으로 발주 요청이 진행 중입니다. 기존 발주를 확인해주세요.");
+            }
         }
     }
 
@@ -219,7 +265,9 @@ public class PurchaseOrderService {
     public List<PurchaseOrderListResponseDto> getAllPurchaseOrders() {
         List<PurchaseOrder> purchaseOrders = purchaseOrderRepository.findAll();
 
+        // 취소된 발주는 제외
         return purchaseOrders.stream()
+                .filter(order -> order.getOrderStatus() != OrderStatus.CANCELLED)
                 .map(this::convertToListResponseDto)
                 .collect(Collectors.toList());
     }
@@ -375,11 +423,16 @@ public class PurchaseOrderService {
     }
 
     private PurchaseOrderListResponseDto convertToListResponseDto(PurchaseOrder purchaseOrder) {
+        // 발주 상세 내역 개수 조회
+        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(purchaseOrder);
+        int productCount = orderDetails.size();
+        
         return PurchaseOrderListResponseDto.builder()
                 .purchaseOrderId(purchaseOrder.getId())
                 .branchId(purchaseOrder.getBranchId())
                 .orderStatus(purchaseOrder.getOrderStatus())
                 .totalPrice(purchaseOrder.getPrice())
+                .productCount(productCount)
                 .createdAt(purchaseOrder.getCreatedAt())
                 .updatedAt(purchaseOrder.getUpdatedAt())
                 .build();
@@ -400,14 +453,40 @@ public class PurchaseOrderService {
     }
 
     private PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto convertToDetailResponseDto(PurchaseOrderDetail detail) {
+        // 상품명 및 카테고리명 조회
+        String productName = getProductName(detail.getProductId());
+        String categoryName = getCategoryName(detail.getProductId());
+        
         return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
                 .purchaseOrderDetailId(detail.getId())
                 .productId(detail.getProductId())
+                .productName(productName)
+                .categoryName(categoryName)
                 .quantity(detail.getQuantity())
                 .approvedQuantity(detail.getApprovedQuantity())
                 .unitPrice(detail.getUnitPrice())
                 .subtotalPrice(detail.getSubtotalPrice())
                 .build();
+    }
+    
+    // 상품명 조회
+    private String getProductName(Long productId) {
+        try {
+            OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+            return product.name;
+        } catch (Exception e) {
+            return "상품 ID: " + productId;
+        }
+    }
+    
+    // 카테고리명 조회
+    private String getCategoryName(Long productId) {
+        try {
+            OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+            return product.categoryName != null ? product.categoryName : "미분류";
+        } catch (Exception e) {
+            return "미분류";
+        }
     }
     
     // kafka 이벤트 발송
@@ -447,14 +526,18 @@ public class PurchaseOrderService {
         
         // 승인된 수량으로 새로운 상세 내역 생성
         List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto> approvedDetailDtos = approvedDetails.stream()
-                .map(detail -> PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
-                        .purchaseOrderDetailId(detail.getId())
-                        .productId(detail.getProductId())
-                        .quantity(detail.getApprovedQuantity()) // 승인된 수량 사용
-                        .approvedQuantity(detail.getApprovedQuantity())
-                        .unitPrice(detail.getUnitPrice())
-                        .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
-                        .build())
+                .map(detail -> {
+                    String productName = getProductName(detail.getProductId());
+                    return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
+                            .purchaseOrderDetailId(detail.getId())
+                            .productId(detail.getProductId())
+                            .productName(productName)
+                            .quantity(detail.getApprovedQuantity()) // 승인된 수량 사용
+                            .approvedQuantity(detail.getApprovedQuantity())
+                            .unitPrice(detail.getUnitPrice())
+                            .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
+                            .build();
+                })
                 .collect(Collectors.toList());
         
         return PurchaseOrderResponseDto.builder()
@@ -517,6 +600,27 @@ public class PurchaseOrderService {
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
+    // 발주 취소 (가맹점용)
+    @Transactional
+    public PurchaseOrderResponseDto cancelPurchaseOrder(Long purchaseOrderId) {
+        PurchaseOrder purchaseOrder = purchaseOrderRepository.findById(purchaseOrderId)
+                .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
+
+        // 취소 가능한 상태인지 확인 (대기중, 반려 상태만 취소 가능)
+        if (purchaseOrder.getOrderStatus() != OrderStatus.PENDING && 
+            purchaseOrder.getOrderStatus() != OrderStatus.REJECTED) {
+            throw new IllegalStateException("취소할 수 없는 발주 상태입니다. 현재 상태: " + purchaseOrder.getOrderStatus());
+        }
+        
+        // 상태를 CANCELLED로 변경
+        purchaseOrder.changeOrderStatus(OrderStatus.CANCELLED);
+        PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+
+        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+
+        return convertToResponseDto(savedOrder, orderDetails);
+    }
+
      // 가맹점 재고 증가 이벤트 발송
     private void publishInventoryIncreaseEvent(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
         try {
@@ -536,14 +640,18 @@ public class PurchaseOrderService {
     private PurchaseOrderResponseDto convertToCompletedResponseDto(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
         List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto> detailDtos = orderDetails.stream()
                 .filter(detail -> detail.getApprovedQuantity() > 0)
-                .map(detail -> PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
-                        .purchaseOrderDetailId(detail.getId())
-                        .productId(detail.getProductId())
-                        .quantity(detail.getApprovedQuantity()) // 승인된 수량을 재고 증가 수량으로 사용
-                        .approvedQuantity(detail.getApprovedQuantity())
-                        .unitPrice(detail.getUnitPrice())
-                        .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
-                        .build())
+                .map(detail -> {
+                    String productName = getProductName(detail.getProductId());
+                    return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
+                            .purchaseOrderDetailId(detail.getId())
+                            .productId(detail.getProductId())
+                            .productName(productName)
+                            .quantity(detail.getApprovedQuantity()) // 승인된 수량을 재고 증가 수량으로 사용
+                            .approvedQuantity(detail.getApprovedQuantity())
+                            .unitPrice(detail.getUnitPrice())
+                            .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         return PurchaseOrderResponseDto.builder()
