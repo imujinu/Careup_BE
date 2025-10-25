@@ -2,9 +2,11 @@ package com.careup.ordering.domain.product.service;
 
 import com.careup.ordering.domain.product.dto.ProductRequestDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
+import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.Visibility;
+import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final BranchProductRepository branchProductRepository;
 
     // 상품 등록
     public ProductResponseDto createProduct(ProductRequestDto request) {
@@ -118,14 +121,21 @@ public class ProductService {
         );
 
         Product updatedProduct = productRepository.save(product);
-        return ProductResponseDto.from(updatedProduct);  // ✅ 변경
+        return ProductResponseDto.from(updatedProduct);
     }
 
     // 상품 삭제
     public void deleteProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
-        product.delete();
-        productRepository.save(product);
+        
+        // 관련된 지점별 상품들도 함께 삭제
+        List<BranchProduct> branchProducts = branchProductRepository.findByProductId(productId);
+        if (!branchProducts.isEmpty()) {
+            branchProductRepository.deleteAll(branchProducts);
+        }
+        
+        // 상품 삭제
+        productRepository.delete(product);
     }
 }
