@@ -50,8 +50,9 @@ public class PaymentService {
                             order.getTotalAmount(), request.getAmount()));
         }
 
-        // 2. 토스페이먼츠 API 호출 (공식 샘플 코드 방식)
-        JSONObject responseData = callTossPaymentsApi(request);
+        // 2. 토스페이먼츠 API 호출 (getTossOrderId() 사용)
+        // ⭐ 토스페이먼츠는 6자 이상 형식을 요구하므로 getTossOrderId() 사용
+        JSONObject responseData = callTossPaymentsApi(request, order.getTossOrderId());
 
         // 3. Payment 엔티티 저장
         Payment payment = Payment.builder()
@@ -78,14 +79,18 @@ public class PaymentService {
 
     /**
      * 토스페이먼츠 API 호출 (공식 샘플 코드)
+     * @param request 결제 확인 요청 (프론트에서 받은 데이터)
+     * @param tossOrderId 토스페이먼츠용 orderId (CAREUP_ORDER_형식)
      */
     @SuppressWarnings("unchecked")
-    private JSONObject callTossPaymentsApi(PaymentConfirmRequest request) throws Exception {
-        // 요청 데이터 생성
+    private JSONObject callTossPaymentsApi(PaymentConfirmRequest request, String tossOrderId) throws Exception {
+        // 요청 데이터 생성 - ⭐ tossOrderId 사용
         JSONObject requestData = new JSONObject();
-        requestData.put("orderId", request.getOrderId());
+        requestData.put("orderId", tossOrderId);  // ⭐ getTossOrderId() 결과 사용
         requestData.put("amount", request.getAmount());
         requestData.put("paymentKey", request.getPaymentKey());
+
+        log.info("토스페이먼츠 API 호출 - tossOrderId: {}, amount: {}", tossOrderId, request.getAmount());
 
         // Authorization 헤더 생성 ⭐ Config 사용
         String authorization = "Basic " + tossPaymentConfig.getEncodedSecretKey();
