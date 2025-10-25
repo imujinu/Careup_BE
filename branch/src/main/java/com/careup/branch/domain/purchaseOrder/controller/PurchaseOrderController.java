@@ -202,4 +202,32 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(statistics);
     }
 
+    // 가맹점용 발주 통계 조회
+    @GetMapping("/statistics/franchise/{branchId}")
+    public ResponseEntity<HQStatisticsResponseDto.FranchiseStatistics> getFranchiseStatistics(
+            @PathVariable Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        HQStatisticsResponseDto.FranchiseStatistics statistics = statisticsService.getFranchiseStatistics(branchId, start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 가맹점용 상품별 발주 통계 조회
+    @GetMapping("/statistics/franchise/{branchId}/product")
+    public ResponseEntity<List<HQStatisticsResponseDto.ProductStatistics>> getFranchiseProductStatistics(
+            @PathVariable Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        List<HQStatisticsResponseDto.ProductStatistics> statistics = statisticsService.getFranchiseProductStatistics(branchId, start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
 }

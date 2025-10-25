@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -371,6 +372,167 @@ public class PurchaseOrderStatisticsService {
 
         } catch (Exception e) {
             throw new SecurityException("본사 관리자 권한 검증에 실패했습니다: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 가맹점용 발주 통계 조회
+     * @param branchId 가맹점 ID
+     */
+    public HQStatisticsResponseDto.FranchiseStatistics getFranchiseStatistics(Long branchId, LocalDate startDate, LocalDate endDate) {
+        validateBranchAccess(branchId);
+
+        // 기간 설정 (기본값: 최근 1개월)
+        LocalDate start = (startDate != null) ? startDate : LocalDate.now().minusMonths(1);
+        LocalDate end = (endDate != null) ? endDate : LocalDate.now();
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(23, 59, 59);
+
+        log.info("가맹점 {} 통계 조회: {} ~ {}", branchId, start, end);
+
+        // 특정 가맹점의 발주 조회
+        List<PurchaseOrder> orders = purchaseOrderRepository.findByBranchIdAndCreatedAtBetween(branchId, startDateTime, endDateTime);
+
+        // 전체 통계 계산
+        long totalOrders = orders.size();
+        long pendingOrders = orders.stream().filter(o -> o.getOrderStatus() == OrderStatus.PENDING).count();
+        long approvedOrders = orders.stream().filter(o -> o.getOrderStatus() == OrderStatus.APPROVED || o.getOrderStatus() == OrderStatus.SHIPPED || o.getOrderStatus() == OrderStatus.COMPLETED).count();
+        long totalAmount = orders.stream().mapToLong(PurchaseOrder::getPrice).sum();
+        long approvedAmount = orders.stream()
+                .filter(o -> o.getOrderStatus() == OrderStatus.APPROVED || o.getOrderStatus() == OrderStatus.SHIPPED || o.getOrderStatus() == OrderStatus.COMPLETED)
+                .mapToLong(PurchaseOrder::getPrice)
+                .sum();
+
+        return HQStatisticsResponseDto.FranchiseStatistics.builder()
+                .branchId(branchId)
+                .totalOrders(totalOrders)
+                .pendingOrders(pendingOrders)
+                .approvedOrders(approvedOrders)
+                .totalAmount(totalAmount)
+                .approvedAmount(approvedAmount)
+                .approvalRate(totalOrders > 0 ? Math.round((approvedOrders * 100.0) / totalOrders * 100.0) / 100.0 : 0.0)
+                .build();
+    }
+
+    /**
+     * 가맹점용 상품별 발주 통계 조회
+     */
+    public List<HQStatisticsResponseDto.ProductStatistics> getFranchiseProductStatistics(Long branchId, LocalDate startDate, LocalDate endDate) {
+        // 권한 검증: 본인 가맹점만 조회 가능
+        validateBranchAccess(branchId);
+
+        // 기간 설정 (기본값: 최근 1개월)
+        LocalDate start = (startDate != null) ? startDate : LocalDate.now().minusMonths(1);
+        LocalDate end = (endDate != null) ? endDate : LocalDate.now();
+
+        LocalDateTime startDateTime = start.atStartOfDay();
+        LocalDateTime endDateTime = end.atTime(23, 59, 59);
+
+
+        // 특정 가맹점의 발주 상세 조회
+        List<PurchaseOrder> orders = purchaseOrderRepository.findByBranchIdAndCreatedAtBetween(branchId, startDateTime, endDateTime);
+
+        // 상품별 통계 계산
+        class TempProductStats {
+            Long productId;
+            String productName;
+            Long totalQuantity = 0L;
+            Long approvedQuantity = 0L;
+            Long totalAmount = 0L;
+            Long orderCount = 0L;
+        }
+
+        Map<Long, TempProductStats> productStatsMap = new HashMap<>();
+
+        for (PurchaseOrder order : orders) {
+            for (com.careup.branch.domain.purchaseOrder.entity.PurchaseOrderDetail detail : order.getOrderDetails()) {
+                Long productId = detail.getProductId();
+                
+                TempProductStats stats = productStatsMap.computeIfAbsent(productId, k -> {
+                    TempProductStats s = new TempProductStats();
+                    s.productId = productId;
+                    
+                    // 상품명 조회
+                    String productName = "상품-" + productId;
+                    try {
+                        OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+                        if (product != null && product.name != null) {
+                            productName = product.name;
+                        }
+                    } catch (Exception e) {
+                        log.warn("상품 정보 조회 실패: productId={}", productId, e);
+                    }
+                    s.productName = productName;
+                    
+                    return s;
+                });
+
+                stats.totalQuantity += detail.getQuantity();
+                stats.totalAmount += detail.getSubtotalPrice();
+
+                if (order.getOrderStatus() == OrderStatus.APPROVED || 
+                    order.getOrderStatus() == OrderStatus.SHIPPED || 
+                    order.getOrderStatus() == OrderStatus.COMPLETED) {
+                    stats.approvedQuantity += detail.getApprovedQuantity();
+                }
+                
+                stats.orderCount += 1;
+            }
+        }
+
+        // 승인율 계산 및 정렬
+        List<HQStatisticsResponseDto.ProductStatistics> result = productStatsMap.values().stream()
+                .map(stats -> {
+                    double approvalRate = stats.totalQuantity > 0 
+                        ? (stats.approvedQuantity * 100.0) / stats.totalQuantity 
+                        : 0.0;
+                    
+                    return HQStatisticsResponseDto.ProductStatistics.builder()
+                            .productId(stats.productId)
+                            .productName(stats.productName)
+                            .totalQuantity(stats.totalQuantity)
+                            .approvedQuantity(stats.approvedQuantity)
+                            .totalAmount(stats.totalAmount)
+                            .orderCount(stats.orderCount)
+                            .approvalRate(Math.round(approvalRate * 100.0) / 100.0)
+                            .build();
+                })
+                .sorted((a, b) -> Long.compare(b.getTotalQuantity(), a.getTotalQuantity())) // 발주량 많은 순으로 정렬
+                .limit(10) // TOP 10만
+                .collect(Collectors.toList());
+
+        return result;
+    }
+
+    /**
+     * 가맹점 권한 검증
+     */
+    private void validateBranchAccess(Long requestedBranchId) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated()) {
+                throw new SecurityException("인증되지 않은 사용자입니다.");
+            }
+
+            Claims claims = (Claims) auth.getDetails();
+            if (claims == null) {
+                throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
+            }
+
+            Long userBranchId = claims.get("branchId", Long.class);
+
+            String role = claims.get("role", String.class);
+            if ("HQ_ADMIN".equals(role)) {
+                return;
+            }
+
+            if (userBranchId == null || !userBranchId.equals(requestedBranchId)) {
+                throw new SecurityException("본인 가맹점만 접근할 수 있습니다.");
+            }
+
+        } catch (Exception e) {
+            throw new SecurityException("가맹점 권한 검증에 실패했습니다: " + e.getMessage());
         }
     }
 }

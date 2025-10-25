@@ -96,4 +96,21 @@ public class HQStatisticsResponseDto {
         private Long orderCount;    // 발주 건수
         private Double approvalRate;  // 승인율
     }
+
+    /**
+     * 가맹점용 발주 통계
+     */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class FranchiseStatistics {
+        private Long branchId;
+        private Long totalOrders;
+        private Long pendingOrders;
+        private Long approvedOrders;
+        private Long totalAmount;  // 총 발주 금액
+        private Long approvedAmount;  // 승인된 금액
+        private Double approvalRate;  // 승인율
+    }
 }
