@@ -25,4 +25,8 @@ public interface BranchProductRepository extends JpaRepository<BranchProduct, Lo
 
     // 지점&상품 존재 여부 확인
     boolean existsByBranchIdAndProductId(Long branchId, Long productId);
+    
+    // 상품 ID로 지점별 상품 조회
+    @Query("SELECT bp FROM BranchProduct bp WHERE bp.product.id = :productId")
+    List<BranchProduct> findByProductId(@Param("productId") Long productId);
 }
