@@ -202,10 +202,12 @@ public class ProductService {
     }
     /**
      * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     * ⭐ visibility=ALL인 상품만 반환 (본사에서 등록한 표준 상품)
      */
     @Transactional(readOnly = true)
     public List<ProductWithBranchesDto> getPublicProductsWithBranches() {
-        List<Product> products = productRepository.findAll();
+        // ⭐ 변경: visibility=ALL인 활성 상품만 조회
+        List<Product> products = productRepository.findByVisibility(Visibility.ALL);
 
         return products.stream()
                 .map(product -> {

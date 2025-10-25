@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -67,4 +68,32 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      * 상품명으로 첫 번째 상품 조회
      */
     Optional<Product> findFirstByName(String name);
+
+    // ========== Visibility 필터링 ==========
+
+    /**
+     * visibility로 상품 조회 (고객용 API)
+     */
+    @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    List<Product> findByVisibility(@Param("visibility") com.careup.ordering.domain.product.entity.Visibility visibility);
+
+    /**
+     * visibility + 카테고리로 상품 조회
+     */
+    @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND p.category.id = :categoryId AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByVisibilityAndCategoryId(
+            @Param("visibility") com.careup.ordering.domain.product.entity.Visibility visibility,
+            @Param("categoryId") Long categoryId,
+            Pageable pageable
+    );
+
+    /**
+     * visibility + 검색어로 상품 조회
+     */
+    @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND (p.name LIKE %:keyword% OR p.description LIKE %:keyword%) AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByVisibilityAndKeyword(
+            @Param("visibility") com.careup.ordering.domain.product.entity.Visibility visibility,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
 }
