@@ -29,11 +29,26 @@ public class ProductController {
 
 
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     * 고객용 상품 목록 조회 (페이지네이션)
+     *  visibility=ALL인 활성 상품만 반환
      */
     @GetMapping("/public/products")
-    public ResponseEntity<ResponseDto<List<ProductWithBranchesDto>>> getPublicProducts() {
-        log.info("고객용 상품 목록 조회");
+    public ResponseEntity<ResponseDto<Page<ProductResponseDto>>> getPublicProducts(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable) {
+        log.info("고객용 상품 목록 조회 - 페이지: {}, 사이즈: {}", pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<ProductResponseDto> response = productService.getPublicProducts(pageable);
+        return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
+    }
+
+    /**
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     *  visibility=ALL인 활성 상품만 반환
+     */
+    @GetMapping("/public/products/with-branches")
+    public ResponseEntity<ResponseDto<List<ProductWithBranchesDto>>> getPublicProductsWithBranches() {
+        log.info("고객용 상품 목록 조회 (지점 정보 포함)");
 
         List<ProductWithBranchesDto> response = productService.getPublicProductsWithBranches();
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);

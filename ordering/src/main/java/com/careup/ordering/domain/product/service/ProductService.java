@@ -201,16 +201,24 @@ public class ProductService {
         productRepository.save(product);
     }
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     * 고객용 상품 목록 조회 (페이지네이션)
      *  visibility=ALL인 활성 상품만 반환
-     * - status = ACTIVE
-     * - isDelYn = 'N'
-     * - visibility = ALL
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductResponseDto> getPublicProducts(Pageable pageable) {
+        Page<Product> products = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
+        return products.map(ProductResponseDto::from);
+    }
+
+    /**
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 없음
+     * ⭐ visibility=ALL인 활성 상품만 반환
      */
     @Transactional(readOnly = true)
     public List<ProductWithBranchesDto> getPublicProductsWithBranches() {
-        //  활성화 + visibility=ALL 필터링
-        List<Product> products = productRepository.findByVisibilityAndActive(Visibility.ALL);
+        // 활성화 + visibility=ALL 필터링 (전체 조회)
+        Page<Product> productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, Pageable.unpaged());
+        List<Product> products = productsPage.getContent();
 
         return products.stream()
                 .map(product -> {

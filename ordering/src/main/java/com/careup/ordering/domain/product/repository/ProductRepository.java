@@ -35,13 +35,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // ========== 고객용 조회 (활성화 + visibility 필터링) ==========
 
     /**
-     * 고객용: visibility=ALL인 활성 상품만 조회
+     * 고객용: visibility=ALL인 활성 상품만 조회 (페이지네이션)
      * - status = ACTIVE
      * - isDelYn = 'N'
      * - visibility = ALL
      */
     @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
-    List<Product> findByVisibilityAndActive(@Param("visibility") Visibility visibility);
+    Page<Product> findByVisibilityAndActive(@Param("visibility") Visibility visibility, Pageable pageable);
 
     /**
      * 고객용: visibility + 카테고리로 활성 상품 조회
