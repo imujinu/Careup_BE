@@ -179,23 +179,19 @@ public class ChatUserService {
             branchId = getBranchIdFromToken();
         }
         Branch branch = branchRepository.findById(branchId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 지점입니다."));
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String token = null;
 
-        if (auth != null && auth.getDetails() instanceof Map<?, ?> detailsMap) {
-            Object raw = ((Map<?, ?>) detailsMap).get("token"); // JWT 클레임에 저장된 토큰
-            if (raw != null) token = "Bearer " + raw.toString();
-        }
         switch (action) {
             case "GET" -> {
-                List<OrderingInventoryClient.BranchProductResponseDto> response = orderingInventoryClient.getBranchProducts(branchId);
-//                CommonSuccessDto response = client.getBranchProducts(branchId, token);
-//                List<OrderingInventoryClient.BranchProductResponseDto> dtos =
-//                        objectMapper.convertValue(
-//                                response.getResult(),
-//                                new TypeReference<List<OrderingInventoryClient.BranchProductResponseDto>>() {}
-//                        );
-                return ResponseEntity.ok(response);
+//                CommonSuccessDto response = orderingInventoryClient.getBranchProducts(branchId);
+                System.out.println("branchID ======" + branchId);
+                CommonSuccessDto response = client.getBranchProducts(branchId);
+                System.out.println("response =====" + response);
+                List<OrderingInventoryClient.BranchProductResponseDto> dtos =
+                        objectMapper.convertValue(
+                                response.getResult(),
+                                new TypeReference<List<OrderingInventoryClient.BranchProductResponseDto>>() {}
+                        );
+                return ResponseEntity.ok(dtos);
             }
 //            case "CREATE" -> {
 //                int amount = json.path("amount").asInt(0);

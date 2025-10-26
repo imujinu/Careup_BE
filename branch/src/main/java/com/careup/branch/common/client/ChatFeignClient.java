@@ -107,10 +107,9 @@ public interface ChatFeignClient {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate targetDate);
 
 
-    @GetMapping("/inventory/branch/{branchId}")
-    CommonSuccessDto getBranchProducts(
-            @PathVariable Long branchId,
-            @RequestHeader("Authorization")String token);
+    // [ 재고 ]
+    @GetMapping("/chat/inventory/{branchId}")
+    CommonSuccessDto getBranchProducts(@PathVariable Long branchId);
 
 
 }
