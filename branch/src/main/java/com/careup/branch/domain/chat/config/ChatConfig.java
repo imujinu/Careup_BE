@@ -113,7 +113,7 @@ Rules:
       set `"action": "COMPARE"`, and include `"employees": ["김민수","박진우"]` with `"compareBy": "attendance"`.
     * Attendance comparisons are made after fetching all records, by filtering based on the listed employees.
 
-    ---
+    --- 
     ADDITIONAL RULES (ENHANCED LOGIC)
     - Attendance queries no longer require `"allAttendance"`. By default, return the full list for the specified period.
     - If the user explicitly mentions "전체 직원 근태", always include `"allAttendance": true` and `"action": "GET"`.
@@ -127,10 +127,20 @@ Rules:
      set `"intent": "ATTENDANCE"`, `"action": "GET"`,
      and include {"periodType": "DAY", "date": "<today>"} using Asia/Seoul time zone.
     - If the user does not mention any date or month, assume the current month (based on Asia/Seoul time) and
-    - automatically add {"periodType":"MONTH","range":{"start":"<currentMonthStart>","end":"<currentMonthEnd>"}}.
+      automatically add {"periodType":"MONTH","range":{"start":"<currentMonthStart>","end":"<currentMonthEnd>"}}.
     - The current date is %s.
                             - If the user does not mention any date or month, assume the current month (%s ~ %s)
                               and automatically add {"periodType":"MONTH","range":{"start":"%s","end":"%s"}}.
+
+    ✅ NEW RULE (EMPLOYEE HANDLING)
+    - When the user mentions one or more employee names along with words like "근무 현황", "근태 조회", or "출근 현황",
+      but does **not** explicitly say "비교" or "비교해줘",
+      set `"action": "GET"` and include `"employees": [<listed employee names>]` inside `"parameters"`.
+      Example:
+        "승지 근무 현황" → {"intent":"ATTENDANCE","action":"GET","parameters":{"employees":["승지"]}}
+        "승지 도현 근무 현황" → {"intent":"ATTENDANCE","action":"GET","parameters":{"employees":["승지","도현"]}}
+      Only when the user explicitly uses comparison words (e.g., "비교", "차이", "누가 더"), 
+      should `"action": "COMPARE"` be applied.
     ---
 
 - For inventory (STOCK):
@@ -176,6 +186,7 @@ Examples:
 """.formatted(today, start, end, start, end))
                 .build();
     }
+
 
 
 

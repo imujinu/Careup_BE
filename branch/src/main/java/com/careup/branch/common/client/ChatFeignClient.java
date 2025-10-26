@@ -5,8 +5,10 @@ import com.careup.branch.domain.chat.dto.req.ChatOrderDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.time.LocalDate;
@@ -105,8 +107,10 @@ public interface ChatFeignClient {
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate targetDate);
 
 
-    @GetMapping("/inventory/branch/${branchId}")
-    CommonSuccessDto getBranchProducts(@PathVariable Long branchId);
+    @GetMapping("/inventory/branch/{branchId}")
+    CommonSuccessDto getBranchProducts(
+            @PathVariable Long branchId,
+            @RequestHeader("Authorization")String token);
 
 
 }
