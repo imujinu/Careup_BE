@@ -44,7 +44,8 @@ public class SecurityConfig {
                         "/auth/customers/oauth/state",
                         "/auth/customers/oauth/google",
                         "/auth/customers/oauth/kakao",
-                        "/auth/customers/oauth/update"
+                        "/auth/customers/oauth/update",
+                        "/chat/**"
                 ).permitAll()
 
                 // 상품 관련 - GET은 공개, 나머지는 관리자 전용
