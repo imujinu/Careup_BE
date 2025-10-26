@@ -213,10 +213,25 @@ public class ChatUserService {
 
     // [발주 서비스 ]
     public ResponseEntity<?> handleOrderAction(String action, JSONObject params, Long branchId) {
-        String date = params.optString("date", null);
-        JSONObject range = params.optJSONObject("range");
-        LocalDate startDate = LocalDate.parse(range.optString("start", null));
-        LocalDate endDate = LocalDate.parse(range.optString("end", null));
+        String date = null;
+        JSONObject range = null;
+        if(params!=null){
+
+            date = params.optString("date", null);
+            range = params.optJSONObject("range", null);
+        }
+
+        LocalDate startDate = null;
+        LocalDate endDate = null;
+
+        if (range != null && range.has("start") && range.has("end")) {
+            startDate = LocalDate.parse(range.optString("start"));
+            endDate = LocalDate.parse(range.optString("end"));
+        } else {
+            YearMonth currentMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+            startDate = currentMonth.atDay(1);
+            endDate = currentMonth.atEndOfMonth();
+        }
 
         if(branchId==null){
 
@@ -263,34 +278,63 @@ public class ChatUserService {
     // [ 매출 서비스 ]
 
     public ResponseEntity<?> handleSalesAction(String action, JSONObject params, Long branchId) {
-        AuthorityType authorityType = getEmployee().getAuthorityType();
+        String date = null;
+        JSONObject range = null;
+        if(params!=null){
 
-        LocalDate date = LocalDate.parse(params.optString("date", null));
-        JSONObject range = params.optJSONObject("range");
-        JSONObject product = params.optJSONObject("product");
-        LocalDate startDate = LocalDate.parse(range.optString("start", null));
-        LocalDate endDate = LocalDate.parse(range.optString("end", null));
+            date = params.optString("date", null);
+            range = params.optJSONObject("range", null);
+        }
+
+        LocalDate startDate = null;
+        LocalDate endDate = null;
+
+        if (range != null && range.has("start") && range.has("end")) {
+            startDate = LocalDate.parse(range.optString("start"));
+            endDate = LocalDate.parse(range.optString("end"));
+        } else {
+            YearMonth currentMonth = YearMonth.now(ZoneId.of("Asia/Seoul"));
+            startDate = currentMonth.atDay(1);
+            endDate = currentMonth.atEndOfMonth();
+        }
+//        AuthorityType authorityType = getEmployee().getAuthorityType();
+        JSONObject product = null;
+
+        if (params != null && params.has("product")) {
+            product = params.optJSONObject("product");
+        }
         if(branchId==null){
 
             branchId = getBranchIdFromToken();
         }
         Branch branch = branchRepository.findById(branchId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 지점입니다."));
-        String periodType = params.getString("periodType");
-        String sortType = params.getString("sortType");
+        String periodType =null;
+        String sortType =null;
+        if(params.has("periodType")){
+            periodType = params.getString("periodType");
+        }
+        if(params.has("sortType")){
+            sortType = params.getString("periodType");
+        }
         switch (action) {
             case "GET" -> {
-                if(authorityType == AuthorityType.HQ_ADMIN){
+                if(true)
+//                if(authorityType == AuthorityType.HQ_ADMIN)
+
+                {
                     CommonSuccessDto response = null;
                     // 특정 지점 매출 조회
                     if(params.has("brandId")){
                         Long id = params.getLong("branchId");
                         response = client.getBranchSalesDetail(id,startDate,endDate, periodType);
+                        System.out.println("매출 정보 ============" + response.getResult());
                         BranchSalesDetailResponseDto dto = objectMapper.convertValue(response.getResult(), BranchSalesDetailResponseDto.class);
                         return ResponseEntity.ok(dto);
                     }
                     // 전체 지점 매출 조회
                     else{
                         response = client.getAllBranchesSales(startDate,endDate,periodType);
+                        System.out.println("매출 정보 ============" + response.getResult());
                         AllBranchesSalesResponseDto dto = objectMapper.convertValue(response.getResult(), AllBranchesSalesResponseDto.class);
                         return ResponseEntity.ok(dto);
                     }
@@ -298,7 +342,7 @@ public class ChatUserService {
                     CommonSuccessDto response = null;
                     // 예상 매출
                     if(params.has("predictedSales")){
-                        response = client.getSalesForecast(branch.getId(), date);
+                        response = client.getSalesForecast(branch.getId(), LocalDate.parse(date));
                         ProductSalesResponseDto dto = objectMapper.convertValue(response.getResult(), ProductSalesResponseDto.class);
                         log.info("[Sales] : " + dto);
                         return ResponseEntity.ok(dto);
