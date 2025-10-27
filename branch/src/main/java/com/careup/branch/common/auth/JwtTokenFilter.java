@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -25,9 +26,17 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwt;
     private final ForceLogoutStore forceLogoutStore;
 
-    public JwtTokenFilter(JwtTokenProvider jwt, ForceLogoutStore forceLogoutStore) {
+    /** 점진 도입 → true로 전환 시 이메일 클레임 없으면 401 */
+    private final boolean requireEmailClaim;
+
+    public JwtTokenFilter(
+            JwtTokenProvider jwt,
+            ForceLogoutStore forceLogoutStore,
+            @Value("${security.jwt.require-email:false}") boolean requireEmailClaim
+    ) {
         this.jwt = jwt;
         this.forceLogoutStore = forceLogoutStore;
+        this.requireEmailClaim = requireEmailClaim;
     }
 
     @Override
@@ -46,22 +55,26 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 long iatMs = (iat != null) ? iat.getTime() : 0L;
 
                 if (employeeId != null && forceLogoutStore.isTokenObsolete(employeeId, iatMs)) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                    response.setContentType("application/json;charset=UTF-8");
-                    CommonErrorDto body = CommonErrorDto.builder()
-                            .status_code(HttpServletResponse.SC_UNAUTHORIZED)
-                            .status_message("세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.")
-                            .build();
-                    new ObjectMapper().writeValue(response.getWriter(), body);
-                    response.getWriter().flush();
+                    write401(response, "세션이 만료되었습니다(보안 변경 적용). 다시 로그인하세요.");
                     return;
+                }
+
+                // 이메일 클레임 검증(토글)
+                String email = c.get("email", String.class);
+                if (requireEmailClaim && (email == null || email.isBlank())) {
+                    log.debug("[JWT] 이메일 클레임 누락");
+                    write401(response, "유효하지 않은 토큰입니다.");
+                    return;
+                } else if (email == null || email.isBlank()) {
+                    // 점진 도입 단계: 경로 추적용
+                    log.trace("[JWT] 이메일 클레임 없음(호환 단계)");
                 }
 
                 String role = String.valueOf(c.get("role"));
                 if (role != null && !role.isBlank()) {
                     var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
                     var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), null, authorities);
-                    auth.setDetails(c);
+                    auth.setDetails(c); // email 포함된 Claims 전달
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             } catch (Exception e) {
@@ -70,5 +83,16 @@ public class JwtTokenFilter extends OncePerRequestFilter {
         }
 
         chain.doFilter(request, response);
+    }
+
+    private void write401(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json;charset=UTF-8");
+        CommonErrorDto body = CommonErrorDto.builder()
+                .status_code(HttpServletResponse.SC_UNAUTHORIZED)
+                .status_message(message)
+                .build();
+        new ObjectMapper().writeValue(response.getWriter(), body);
+        response.getWriter().flush();
     }
 }

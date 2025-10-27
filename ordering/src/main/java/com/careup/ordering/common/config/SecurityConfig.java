@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,16 +25,18 @@ public class SecurityConfig {
                                                    JwtAuthenticationEntryPoint entryPoint,
                                                    JwtAccessDeniedHandler deniedHandler) throws Exception {
 
-        http.csrf(csrf -> csrf.disable());
-        http.httpBasic(b -> b.disable());
+        http.csrf(AbstractHttpConfigurer::disable);
+        http.httpBasic(AbstractHttpConfigurer::disable);
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.cors(cors -> {});
+
+        // 백엔드 CORS 비활성화 (게이트웨이에서만 CORS 처리)
+        http.cors(AbstractHttpConfigurer::disable);
 
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**", "/public/**", "/health").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // 고객 인증 플로우 + OAuth 엔드포인트 공개
+                // 고객 인증 + OAuth 공개
                 .requestMatchers(
                         "/auth/customers/signup",
                         "/auth/customers/login",
@@ -47,31 +50,31 @@ public class SecurityConfig {
                         "/auth/customers/oauth/update"
                 ).permitAll()
 
-                // 상품 관련 - GET은 공개, 나머지는 관리자 전용
+                // 상품/카테고리/프로모션 공개 GET
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/promotions/**").permitAll()
+
+                // 관리자 권한 필요 영역
                 .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 카테고리 - GET은 공개, 나머지는 관리자 전용
-                .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 프로모션 - GET은 공개, 나머지는 관리자 전용
-                .requestMatchers(HttpMethod.GET, "/api/promotions/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 상품 문의 - GET은 공개, POST/PUT/DELETE는 CUSTOMER 전용
+                // 상품 문의
                 .requestMatchers(HttpMethod.GET, "/api/product-inquiries/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/product-inquiries/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.PUT, "/api/product-inquiries/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.DELETE, "/api/product-inquiries/**").hasRole("CUSTOMER")
 
-                // 재고 조회 - GET은 공개, 나머지는 관리자 전용
+                // 재고: GET은 공개(쇼핑몰 노출), 나머지는 관리자/직원
                 .requestMatchers(HttpMethod.GET, "/inventory/branch-products/**").permitAll()
                 .requestMatchers("/inventory/flow").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/adjustment-history").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -80,16 +83,16 @@ public class SecurityConfig {
                 .requestMatchers("/inventory/adjust").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
 
-                // 쿠폰 - GET은 공개, 나머지는 관리자 전용
+                // 쿠폰
                 .requestMatchers(HttpMethod.GET, "/api/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 장바구니, 주문, 결제 - CUSTOMER 전용
+                // 장바구니/주문/결제 - 고객
                 .requestMatchers("/api/cart/**", "/api/orders/**", "/api/payments/**").hasRole("CUSTOMER")
 
-                // 고객 관리, 단골 고객 - 관리자 전용
+                // 고객 관리, 단골 고객 - 관리자
                 .requestMatchers("/admin/**", "/management/**", "/product-admin/**", "/api/loyal-customers/**")
                 .hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
