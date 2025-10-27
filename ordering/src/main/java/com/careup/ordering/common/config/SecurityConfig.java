@@ -93,6 +93,9 @@ public class SecurityConfig {
                 .requestMatchers("/admin/**", "/management/**", "/product-admin/**", "/api/loyal-customers/**")
                 .hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
+                // 매출 통계 조회 (MSA 간 통신용) - 관리자 전용
+                .requestMatchers("/sales/**").authenticated()
+
                 .anyRequest().authenticated()
         );
 
