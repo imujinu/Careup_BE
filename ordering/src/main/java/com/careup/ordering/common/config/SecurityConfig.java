@@ -47,6 +47,11 @@ public class SecurityConfig {
                         "/auth/customers/oauth/update"
                 ).permitAll()
 
+                // 상품/카테고리: 조회는 공개, 쓰기/수정/삭제는 관리자 계열만
+                .requestMatchers(HttpMethod.GET, "/products/**", "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.PUT, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.DELETE, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 // 상품 관련 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/products").permitAll()  // 고객용 상품 목록 공개
@@ -76,13 +81,22 @@ public class SecurityConfig {
 
                 // 재고 조회 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/inventory/branch-products/**").permitAll()
+                // 인벤토리: 본사와 가맹점 권한 분리
+                // 본사 전용: 전체 지점 조회, 전체 입출고 조회 등
                 .requestMatchers("/inventory/flow").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/adjustment-history").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                // 가맹점 전용: 자신의 지점만 조회/수정
                 .requestMatchers("/inventory/branch/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/safety-stock").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers("/inventory/adjust").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                // 나머지 인벤토리 API는 기존 권한 유지
                 .requestMatchers("/inventory/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
 
+                // 쿠폰(가정): 조회는 공개, 생성/수정/삭제는 관리자
+                .requestMatchers(HttpMethod.GET, "/coupons/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.PUT, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.DELETE, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 // 쿠폰 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/api/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")

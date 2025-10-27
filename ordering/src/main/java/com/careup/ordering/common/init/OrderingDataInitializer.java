@@ -74,8 +74,34 @@ public class OrderingDataInitializer implements CommandLineRunner {
                 "3층 카페존"
         );
 
-        // 상품 및 재고 더미 데이터 생성
-        createDummyProductsAndInventory();
+        // 카테고리 생성
+        createCategoriesOnly();
+    }
+
+    private void createCategoriesOnly() {
+        // 카테고리가 없으면 생성
+        if (categoryRepository.count() == 0) {
+            Category category1 = Category.builder()
+                    .name("음료")
+                    .description("음료 카테고리")
+                    .build();
+
+            Category category2 = Category.builder()
+                    .name("디저트")
+                    .description("디저트 카테고리")
+                    .build();
+
+            Category category3 = Category.builder()
+                    .name("식품")
+                    .description("식품 카테고리")
+                    .build();
+
+            categoryRepository.save(category1);
+            categoryRepository.save(category2);
+            categoryRepository.save(category3);
+
+            System.out.println("카테고리 생성 완료: 음료, 디저트, 식품");
+        }
     }
 
     private void ensureMember(String email,
@@ -111,6 +137,7 @@ public class OrderingDataInitializer implements CommandLineRunner {
 
         memberRepository.save(m);
     }
+
 
     private void createDummyProductsAndInventory() {
         // 카테고리 생성

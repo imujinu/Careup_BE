@@ -1,14 +1,22 @@
 package com.careup.branch.domain.purchaseOrder.controller;
 
+import com.careup.branch.domain.purchaseOrder.dto.HQStatisticsResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
+import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderExcelService;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderService;
+import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderStatisticsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
@@ -17,6 +25,8 @@ import java.util.List;
 public class PurchaseOrderController {
     
     private final PurchaseOrderService purchaseOrderService;
+    private final PurchaseOrderExcelService excelService;
+    private final PurchaseOrderStatisticsService statisticsService;
 
      // 발주 생성 (가맹점용)
     @PostMapping
@@ -53,7 +63,7 @@ public class PurchaseOrderController {
         PurchaseOrderResponseDto rejectedOrder = purchaseOrderService.rejectPurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(rejectedOrder);
     }
-
+ 
     // 발주 부분 승인 (본사용)
     @PostMapping("/{purchaseOrderId}/partial-approve")
     public ResponseEntity<PurchaseOrderResponseDto> partialApprovePurchaseOrder(
@@ -75,6 +85,149 @@ public class PurchaseOrderController {
     public ResponseEntity<PurchaseOrderResponseDto> completePurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto completedOrder = purchaseOrderService.completePurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(completedOrder);
+    }
+
+    // 발주 취소 (가맹점용)
+    @PostMapping("/{purchaseOrderId}/cancel")
+    public ResponseEntity<PurchaseOrderResponseDto> cancelPurchaseOrder(@PathVariable Long purchaseOrderId) {
+        PurchaseOrderResponseDto cancelledOrder = purchaseOrderService.cancelPurchaseOrder(purchaseOrderId);
+        return ResponseEntity.ok(cancelledOrder);
+    }
+
+
+    // 발주 내역 엑셀 다운로드 (본사/가맹점)
+    @GetMapping("/export/excel")
+    public ResponseEntity<byte[]> exportToExcel(
+            @RequestParam Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        byte[] excelBytes = excelService.exportToExcel(branchId, startDate, endDate);
+        
+        // 파일명 생성
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "purchase_orders_" + timestamp + ".xlsx";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentLength(excelBytes.length);
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelBytes);
+    }
+
+    // 특정 발주 내역 엑셀 다운로드
+    @GetMapping("/{purchaseOrderId}/export/excel")
+    public ResponseEntity<byte[]> exportSingleOrderToExcel(@PathVariable Long purchaseOrderId) {
+        byte[] excelBytes = excelService.exportSingleOrderToExcel(purchaseOrderId);
+        
+        // 파일명 생성
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String filename = "purchase_order_" + purchaseOrderId + "_" + timestamp + ".xlsx";
+        
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+        headers.setContentDispositionFormData("attachment", filename);
+        headers.setContentLength(excelBytes.length);
+        
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(excelBytes);
+    }
+
+    // 본사용 발주 통계 조회 (전체)
+    @GetMapping("/statistics/hq")
+    public ResponseEntity<HQStatisticsResponseDto> getHQStatistics(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        HQStatisticsResponseDto statistics = statisticsService.getHQStatistics(start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 본사용 전체현황 통계 조회
+    @GetMapping("/statistics/hq/overall")
+    public ResponseEntity<HQStatisticsResponseDto.OverallStatistics> getHQOverallStatistics(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        HQStatisticsResponseDto.OverallStatistics statistics = statisticsService.getHQOverallStatistics(start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 본사용 상태별 통계 조회
+    @GetMapping("/statistics/hq/status")
+    public ResponseEntity<List<HQStatisticsResponseDto.StatusStatistics>> getHQStatusStatistics(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        List<HQStatisticsResponseDto.StatusStatistics> statistics = statisticsService.getHQStatusStatistics(start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 본사용 지점별 통계 조회
+    @GetMapping("/statistics/hq/branch")
+    public ResponseEntity<List<HQStatisticsResponseDto.BranchStatistics>> getHQBranchStatistics(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        List<HQStatisticsResponseDto.BranchStatistics> statistics = statisticsService.getHQBranchStatistics(start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 본사용 상품별 통계 조회
+    @GetMapping("/statistics/hq/product")
+    public ResponseEntity<List<HQStatisticsResponseDto.ProductStatistics>> getHQProductStatistics(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        List<HQStatisticsResponseDto.ProductStatistics> statistics = statisticsService.getHQProductStatistics(start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 가맹점용 발주 통계 조회
+    @GetMapping("/statistics/franchise/{branchId}")
+    public ResponseEntity<HQStatisticsResponseDto.FranchiseStatistics> getFranchiseStatistics(
+            @PathVariable Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        HQStatisticsResponseDto.FranchiseStatistics statistics = statisticsService.getFranchiseStatistics(branchId, start, end);
+        return ResponseEntity.ok(statistics);
+    }
+
+    // 가맹점용 상품별 발주 통계 조회
+    @GetMapping("/statistics/franchise/{branchId}/product")
+    public ResponseEntity<List<HQStatisticsResponseDto.ProductStatistics>> getFranchiseProductStatistics(
+            @PathVariable Long branchId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate
+    ) {
+        LocalDate start = (startDate != null) ? LocalDate.parse(startDate) : null;
+        LocalDate end = (endDate != null) ? LocalDate.parse(endDate) : null;
+        
+        List<HQStatisticsResponseDto.ProductStatistics> statistics = statisticsService.getFranchiseProductStatistics(branchId, start, end);
+        return ResponseEntity.ok(statistics);
     }
 
 }
