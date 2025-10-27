@@ -3,6 +3,7 @@ package com.careup.branch.domain.purchaseOrder.entity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
@@ -10,11 +11,12 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Getter
 public class PurchaseOrderDetail {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "purchase_order_detail_id", nullable = false)
-    private long purchaseOrderDetailId;
+    private long id;
 
     // 발주와 1:N
     @ManyToOne(fetch = FetchType.LAZY)
@@ -36,4 +38,9 @@ public class PurchaseOrderDetail {
     // 상품 ID
     @Column(name = "product_id", nullable = false)
     private long productId;
+    
+    // 승인 수량 설정
+    public void setApprovedQuantity(int approvedQuantity) {
+        this.approvedQuantity = approvedQuantity;
+    }
 }

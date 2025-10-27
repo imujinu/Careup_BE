@@ -14,15 +14,16 @@ import java.time.LocalDate;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Promotion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "promotion_id")
-    private Long promotionId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "branch_producs_id", nullable = false)
+    @JoinColumn(name = "branch_products_id", nullable = false)
     private BranchProduct branchProduct;
 
     @Column(name = "discount_rate", nullable = false, precision = 5, scale = 2)
@@ -37,17 +38,25 @@ public class Promotion {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private PromotionStatus status = PromotionStatus.ACTIVE;
-
-    @Builder
-    public Promotion(BranchProduct branchProduct, BigDecimal discountRate,
-                     LocalDate startDate, LocalDate endDate) {
-        this.branchProduct = branchProduct;
-        this.discountRate = discountRate;
-        this.startDate = startDate;
-        this.endDate = endDate;
+    
+    // 비즈니스 로직 메서드
+    public void updatePromotion(BigDecimal discountRate, LocalDate startDate, LocalDate endDate) {
+        if (discountRate != null) {
+            this.discountRate = discountRate;
+        }
+        if (startDate != null) {
+            this.startDate = startDate;
+        }
+        if (endDate != null) {
+            this.endDate = endDate;
+        }
     }
-
-    public enum PromotionStatus {
-        ACTIVE, INACTIVE
+    
+    public void activate() {
+        this.status = PromotionStatus.ACTIVE;
+    }
+    
+    public void deactivate() {
+        this.status = PromotionStatus.INACTIVE;
     }
 }

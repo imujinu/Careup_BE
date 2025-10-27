@@ -35,8 +35,53 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+    // jwt 및 security
+    testImplementation 'org.springframework.security:spring-security-test'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+    //aws s3
+    implementation 'software.amazon.awssdk:s3:2.17.58'
+
+    //spring mail
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+
+    //redis 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+    //kafka
+    implementation 'org.springframework.kafka:spring-kafka:2.9.0'
+
+    //websocket 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+
 	//    eureka client의존성 추가
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+	// ✅ JSON Simple 라이브러리 추가 (토스페이먼츠 API용)
+	implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+
+	// redis 의존성 추가
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+
+	// redisson 분산 락 의존성 추가
+	implementation 'org.redisson:redisson-spring-boot-starter:3.24.3'
+
+	// kafka 의존성 추가
+	implementation 'org.springframework.kafka:spring-kafka'
+
+	// Spring Cloud OpenFeign 의존성 추가
+	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+    // OAuth2 Client 의존성 추가
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+
+	// Apache POI (엑셀 처리)
+	implementation 'org.apache.poi:poi:5.2.5'
+	implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
 }
 

@@ -13,7 +13,7 @@ public class ProductAttribute {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "attribute_id")
-    private Long attributeId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
@@ -30,5 +30,16 @@ public class ProductAttribute {
         this.product = product;
         this.attributeName = attributeName;
         this.attributeValue = attributeValue;
+    }
+    /**
+     * 속성 정보 수정
+     */
+    public void updateAttribute(String attributeName, String attributeValue) {
+        if (attributeName != null) {
+            this.attributeName = attributeName;
+        }
+        if (attributeValue != null) {
+            this.attributeValue = attributeValue;
+        }
     }
 }

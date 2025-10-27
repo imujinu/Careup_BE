@@ -18,7 +18,7 @@ public class Cart {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "cart_id")
-    private Long cartId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id",nullable = false)
@@ -44,5 +44,16 @@ public class Cart {
         this.quantity = quantity;
         this.attributeName =attributeName;
         this.attributeValue = attributeValue;
+    }
+
+    public void updateQuantity(Long quantity) {
+        if (quantity < 1) {
+            throw new IllegalArgumentException("수량은 1개 이상이어야 합니다.");
+        }
+        this.quantity = quantity;
+    }
+
+    public void increaseQuantity(Long amount) {
+        this.quantity += amount;
     }
 }

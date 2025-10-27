@@ -20,7 +20,7 @@ public class BranchProduct {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "branch_products_id")
-    private Long branchProductId;
+    private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id",nullable = false)
@@ -68,6 +68,16 @@ public class BranchProduct {
     // 재고 증가
     public void increaseStock(Long quantity) {
         this.stockQuantity += quantity;
+    }
+    
+    // 안전재고 설정
+    public void updateSafetyStock(Long safetyStock) {
+        this.safetystock = safetyStock;
+    }
+
+    // 단가 설정
+    public void updatePrice(Long price) {
+        this.price = price;
     }
 
 }

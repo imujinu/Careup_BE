@@ -35,22 +35,37 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	//todo : 토큰 검증 로직 구현 후 활성화 할것
-//	testImplementation 'org.springframework.security:spring-security-test'
-//	implementation 'org.springframework.boot:spring-boot-starter-security'
-//	implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
-//	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
-//	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+    testImplementation 'org.springframework.security:spring-security-test'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'io.jsonwebtoken:jjwt-api:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.11.5'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.11.5'
+
+    //aws s3
+    implementation 'software.amazon.awssdk:s3:2.17.58'
+
+    //spring mail
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
 	//redis 의존성
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 
 	//kafka
 	implementation 'org.springframework.kafka:spring-kafka:2.9.0'
+
 	//websocket 의존성
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 
-	//    eureka client의존성 추가
+	//eureka client의존성 추가
 	implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+
+	//feign 클라이언트
+	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
+
+	// Apache POI (엑셀 생성용)
+	implementation 'org.apache.poi:poi:5.2.5'
+	implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
 }
 dependencyManagement{

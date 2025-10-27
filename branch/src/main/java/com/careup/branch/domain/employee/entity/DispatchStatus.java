@@ -2,51 +2,61 @@ package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
 import com.careup.branch.domain.branch.entity.Branch;
-import com.careup.branch.domain.chat.entity.ChatRoom;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDate;
-import java.util.Date;
 
 @Entity
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@Table(
+        name = "dispatch_status",
+        indexes = {
+                @Index(name = "idx_dispatch_employee_range", columnList = "employee_id, assigned_from, assigned_to"),
+                @Index(name = "idx_dispatch_branch_range",  columnList = "branch_id, assigned_from, assigned_to")
+        }
+)
 public class DispatchStatus extends BaseTimeEntity {
+
     @Id
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private Long id;
 
-    //배치 현황 N:1 직원
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name ="employee_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(
+            name = "employee_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_dispatch_employee")
+    )
     private Employee employee;
 
-    //배치 현황 N:1 지점
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name ="branch_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false) // nullable → false 로 강화
+    @JoinColumn(
+            name = "branch_id",
+            nullable = false,
+            foreignKey = @ForeignKey(name = "fk_dispatch_branch")
+    )
     private Branch branch;
 
-    //배치 시작일
     @Column(name = "assigned_from", nullable = false)
     private LocalDate assignedFrom;
 
-    //배치 종료일
     @Column(name = "assigned_to", nullable = false)
     private LocalDate assignedTo;
 
-    //배치 취소 일자
-    @Column(name = "displacement_date", nullable = false)
-    private LocalDate displacementDAte;
+    @Column(name = "displacement_date")
+    private LocalDate displacementDate;
 
-    //배치 취소
-    @Column(name = "placement_Yn", nullable = false)
+    @Column(name = "placement_yn", nullable = false, length = 1)
     @Builder.Default
     private String placementYn = "N";
 
+    public void endAssignment(LocalDate endDate) {
+        this.assignedTo = endDate;
+        this.placementYn = "Y";
+        this.displacementDate = endDate;
+    }
 }

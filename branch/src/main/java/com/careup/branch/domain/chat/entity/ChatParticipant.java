@@ -1,11 +1,16 @@
 package com.careup.branch.domain.chat.entity;
 
+
 import com.careup.branch.common.domain.BaseTimeEntity;
+import com.careup.branch.domain.employee.entity.Employee;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Getter
@@ -17,15 +22,33 @@ public class ChatParticipant extends BaseTimeEntity {
     @GeneratedValue(strategy= GenerationType.IDENTITY)
     private Long id;
 
-    //todo:추후 멤버 추가할 것
-//    private Member member;
+    private String name;
+    private String email;
+    private MemberType memberType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name ="chat_room_id")
     private ChatRoom chatRoom;
-
-
     private boolean exitYn;
-    private boolean isOwner;
+
+    @OneToMany(mappedBy = "chatParticipant", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    @Builder.Default
+    private List<ChatReadStatus> chatReadStatusList = new ArrayList<>();
+
+    public ChatParticipant fromEmployee(Employee employee){
+        return ChatParticipant.builder()
+                .name(employee.getName())
+                .email(employee.getEmail())
+                .memberType(MemberType.EMPLOYEE)
+                .build();
+    }
+
+    public ChatParticipant fromChatRoomAndOwner(ChatRoom chatRoom, Employee employee) {
+        return ChatParticipant.builder()
+                .name(employee.getName())
+                .email(employee.getEmail())
+                .chatRoom(chatRoom)
+                .build();
+    }
 }
 

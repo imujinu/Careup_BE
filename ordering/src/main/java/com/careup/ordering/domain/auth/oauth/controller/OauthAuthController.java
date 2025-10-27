@@ -1,0 +1,70 @@
+package com.careup.ordering.domain.auth.oauth.controller;
+
+import com.careup.ordering.common.dto.CommonSuccessDto;
+import com.careup.ordering.domain.auth.oauth.dto.OauthLoginResponse;
+import com.careup.ordering.domain.auth.oauth.dto.OauthUpdateRequest;
+import com.careup.ordering.domain.auth.oauth.dto.ProvideCodeRequest;
+import com.careup.ordering.domain.auth.oauth.service.OauthAuthService;
+import jakarta.validation.Valid;
+import java.util.Map;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequiredArgsConstructor
+@RequestMapping("/auth/customers/oauth")
+public class OauthAuthController {
+
+    private final OauthAuthService service;
+
+    /** 프론트가 먼저 호출하여 서버발급 state를 획득(10분 유효) */
+    @GetMapping("/state")
+    public ResponseEntity<CommonSuccessDto> issueState() {
+        String state = service.issueState();
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("OAuth state 발급 완료")
+                        .result(Map.of("state", state))
+                        .build()
+        );
+    }
+
+    @PostMapping("/google")
+    public ResponseEntity<CommonSuccessDto> google(@RequestBody @Valid ProvideCodeRequest req) {
+        OauthLoginResponse res = service.googleLogin(req);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("구글 OAuth 처리 완료")
+                        .result(res)
+                        .build()
+        );
+    }
+
+    @PostMapping("/kakao")
+    public ResponseEntity<CommonSuccessDto> kakao(@RequestBody @Valid ProvideCodeRequest req) {
+        OauthLoginResponse res = service.kakaoLogin(req);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("카카오 OAuth 처리 완료")
+                        .result(res)
+                        .build()
+        );
+    }
+
+    @PostMapping("/update")
+    public ResponseEntity<CommonSuccessDto> update(@RequestBody @Valid OauthUpdateRequest req) {
+        OauthLoginResponse res = service.completeAdditionalInfo(req);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("추가정보 입력 완료")
+                        .result(res)
+                        .build()
+        );
+    }
+}
