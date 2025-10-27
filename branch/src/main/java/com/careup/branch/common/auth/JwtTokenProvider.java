@@ -97,13 +97,21 @@ public class JwtTokenProvider {
     }
 
     public Claims parseAccessToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(atKey).build()
-                .parseClaimsJws(token).getBody();
+        return Jwts.parserBuilder()
+                .setSigningKey(atKey)
+                .setAllowedClockSkewSeconds(60) // ±60초 허용
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     public Claims validateRefreshToken(String refreshToken) {
-        Claims claims = Jwts.parserBuilder().setSigningKey(rtKey).build()
-                .parseClaimsJws(refreshToken).getBody();
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(rtKey)
+                .setAllowedClockSkewSeconds(60) // ±60초 허용
+                .build()
+                .parseClaimsJws(refreshToken)
+                .getBody();
 
         Long employeeId = Long.valueOf(claims.getSubject());
         String saved = redis.opsForValue().get(rtRedisKey(employeeId));

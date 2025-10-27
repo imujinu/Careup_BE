@@ -15,6 +15,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -44,8 +45,9 @@ public class SecurityConfig {
                         "/auth/password/reset",
                         "/auth/introspect",
                         "/inventory/**",
-                        "/categories/**",
+                        "/categories/",
                         "/products/**",
+                        "/purchase-orders/**",
                         "/api/products/public/**"
                 ).permitAll()
                 .anyRequest().authenticated()

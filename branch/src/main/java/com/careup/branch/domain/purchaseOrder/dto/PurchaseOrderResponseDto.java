@@ -33,6 +33,8 @@ public class PurchaseOrderResponseDto extends BaseTimeEntity {
     public static class PurchaseOrderDetailResponseDto {
         private Long purchaseOrderDetailId; // 발주 상세 ID
         private Long productId; // 상품 ID
+        private String productName; // 상품명
+        private String categoryName; // 카테고리명
         private int quantity; // 요청 수량
         private int approvedQuantity; // 승인 수량
         private long unitPrice; // 단가
