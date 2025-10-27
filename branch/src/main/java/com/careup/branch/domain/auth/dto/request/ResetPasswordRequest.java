@@ -2,24 +2,22 @@ package com.careup.branch.domain.auth.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
-@Setter
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
 public class ResetPasswordRequest {
-    @Email
+    @Email @NotBlank
+    private String email;
     @NotBlank
-    private String email;            // 토큰과 매칭할 이메일
-
+    private String token;
     @NotBlank
-    private String token;            // 메일에 첨부된 토큰
-
+    private String newPassword;
     @NotBlank
-    private String newPassword;      // 새 비밀번호
-
-    @NotBlank
-    private String confirmPassword;  // 새 비밀번호 확인
+    private String confirmPassword;
 }

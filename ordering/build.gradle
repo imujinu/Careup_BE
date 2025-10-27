@@ -47,6 +47,7 @@ dependencies {
 
     //spring mail
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
     //redis 의존성
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'

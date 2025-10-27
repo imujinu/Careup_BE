@@ -3,13 +3,20 @@ package com.careup.ordering.domain.product.entity;
 import com.careup.ordering.common.domain.BaseTimeEntity;
 import com.careup.ordering.domain.member.entity.Member;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @Table(name = "product_inquiry")
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class ProductInquiry extends BaseTimeEntity {
 
     @Id
@@ -42,17 +49,33 @@ public class ProductInquiry extends BaseTimeEntity {
     @Column(name = "is_secret", nullable = false)
     private Boolean isSecret;
 
-    @OneToMany(mappedBy = "inquiry", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "inquiry", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductInquiryAnswer> answers = new ArrayList<>();
-
-    @Builder
-    public ProductInquiry(Member member, BranchProduct branchProduct, String title,
-                          String content, InquiryType inquiryType, Boolean isSecret) {
-        this.member = member;
-        this.branchProduct = branchProduct;
-        this.title = title;
-        this.content = content;
-        this.inquiryType = inquiryType;
-        this.isSecret = isSecret;
+    
+    // 비즈니스 로직 메서드
+    public void updateInquiry(String title, String content, InquiryType inquiryType, Boolean isSecret) {
+        if (this.status == InquiryStatus.ANSWERED) {
+            throw new IllegalStateException("답변이 달린 문의는 수정할 수 없습니다.");
+        }
+        if (title != null) {
+            this.title = title;
+        }
+        if (content != null) {
+            this.content = content;
+        }
+        if (inquiryType != null) {
+            this.inquiryType = inquiryType;
+        }
+        if (isSecret != null) {
+            this.isSecret = isSecret;
+        }
+    }
+    
+    public void answer() {
+        this.status = InquiryStatus.ANSWERED;
+    }
+    
+    public void close() {
+        this.status = InquiryStatus.CLOSED;
     }
 }

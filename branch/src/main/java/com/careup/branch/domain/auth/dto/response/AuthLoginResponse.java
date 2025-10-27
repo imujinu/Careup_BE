@@ -1,11 +1,14 @@
 package com.careup.branch.domain.auth.dto.response;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class AuthLoginResponse {
     private String tokenType;
     private String accessToken;

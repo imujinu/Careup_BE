@@ -41,7 +41,7 @@ spring:
       max-file-size: 1000MB
       max-request-size: 1000MB
   kafka:
-    enabled: false  # Kafka 비활성화
+    enabled: false
     bootstrap-servers: localhost:9092
     consumer:
       group-id: ordering-group
@@ -59,11 +59,21 @@ spring:
     username: ${MAIL_USER}
     password: ${MAIL_PW}
     from: careup.noreply@gmail.com
+    from.name: SHARK                # 고객 From 표시명
+    default-encoding: UTF-8
     properties:
       mail:
+        debug: true
         smtp:
           auth: true
-          starttls.enable: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          ssl:
+            trust: smtp.gmail.com
 
   main:
     allow-bean-definition-overriding: true
@@ -78,10 +88,13 @@ cloud:
     s3:
       bucket: ${S3_BUCKET}
 
+# ========== 토스 결제 설정 ==========
 payment:
   toss:
-    secret-key: test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6  # 토스 테스트 키
-
+    client-key: test_ck_Z61JOxRQVEE6gXGaDjv2VW0X9bAq
+    secret-key: test_sk_P9BRQmyarYleRRplKdkZVJ07KzLN
+    security-key: 9e164b0107777969ccefd888fe6f416b949c04bd051c9a07ff69f6ab38fe680c
+    api-url: https://api.tosspayments.com
 
 jwt:
   accessTokenExpiryMinutes: 30
@@ -95,7 +108,6 @@ oauth:
     client-id: ${GOOGLE_CLIENT_ID}
     client-secret: ${GOOGLE_CLIENT_SECRET}
     redirect-uri: http://localhost:5173/oauth/google/callback
-
   kakao:
     client-id: ${KAKAO_CLIENT_ID}
     admin-key: ${KAKAO_ADMIN_KEY}
@@ -112,10 +124,17 @@ security:
 
 careup:
   mail:
+    support-email: support@careup.com
     customer:
-      reset-base-url: "http://localhost:5173/reset-password"
+      reset-base-url: "http://localhost:5173/customer/password/reset"  # 고객 FE 경로
+
+# 브랜드(고객) — SHARK (EmailSender가 brand.* 참조)
+brand:
+  name: SHARK
+  logo-url: ""   # 필요 시 CDN 경로
+  slogan: "KICKS RULE EVERYTHING AROUND ME"
+  cta-color: "#111827"   # 검정 버튼
 
 logging:
   level:
     root: info
-

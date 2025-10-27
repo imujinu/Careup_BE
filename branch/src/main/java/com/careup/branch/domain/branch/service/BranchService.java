@@ -231,4 +231,69 @@ public class BranchService {
 
         return EARTH_RADIUS * c;
     }
+
+    // ==================== 고객용 공개 API ====================
+
+    /**
+     * 고객용 전체 지점 목록 조회 (권한 제한 없음)
+     */
+    @Transactional(readOnly = true)
+    public List<BranchSimpleDto> getPublicBranchList() {
+        List<Branch> branches = branchRepository.findAll();
+
+        log.info("고객용 지점 목록 조회 - 총 {}개", branches.size());
+
+        return branches.stream()
+                .map(branch -> BranchSimpleDto.builder()
+                        .id(branch.getId())
+                        .name(branch.getName())
+                        .address(branch.getAddress())
+                        .addressDetail(branch.getAddressDetail())
+                        .latitude(branch.getLatitude())
+                        .longitude(branch.getLongitude())
+                        .phone(branch.getPhone())
+                        .email(branch.getEmail())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 고객용 위치 기반 인근 지점 조회
+     */
+    @Transactional(readOnly = true)
+    public List<NearbyBranchDto> getNearbyBranchesByCoordinate(Double latitude, Double longitude, Double radiusKm) {
+        if (latitude == null || longitude == null) {
+            throw new IllegalArgumentException("위도와 경도 정보가 필요합니다.");
+        }
+
+        List<Branch> allBranches = branchRepository.findAll().stream()
+                .filter(branch -> branch.getLatitude() != null && branch.getLongitude() != null)
+                .collect(Collectors.toList());
+
+        // 거리 계산 및 반경 내 지점 필터링
+        List<NearbyBranchDto> nearbyBranches = allBranches.stream()
+                .map(branch -> {
+                    double distance = calculateDistance(
+                            latitude, longitude,
+                            branch.getLatitude(), branch.getLongitude()
+                    );
+
+                    return NearbyBranchDto.builder()
+                            .id(branch.getId())
+                            .name(branch.getName())
+                            .address(branch.getAddress())
+                            .latitude(branch.getLatitude())
+                            .longitude(branch.getLongitude())
+                            .distance(distance)
+                            .build();
+                })
+                .filter(dto -> dto.getDistance() <= radiusKm)
+                .sorted(Comparator.comparing(NearbyBranchDto::getDistance))
+                .collect(Collectors.toList());
+
+        log.info("인근 지점 조회 - 위치: ({}, {}), 반경: {}km, 결과: {}개",
+                latitude, longitude, radiusKm, nearbyBranches.size());
+
+        return nearbyBranches;
+    }
 }

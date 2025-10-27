@@ -6,6 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -22,6 +25,8 @@ public class ProductResponseDto {
     private String imageUrl;
     private String status;
     private String visibility;
+    // 상품 속성
+    private List<ProductAttributeResponseDto> attributes;
 
     /**
      * Entity → DTO 변환 정적 메서드
@@ -52,6 +57,12 @@ public class ProductResponseDto {
                 .imageUrl(product.getImageUrl())
                 .status(product.getStatus().toString())
                 .visibility(product.getVisibility().toString())
+                // 속성도 함께 변환
+                .attributes(product.getAttributes() != null ? 
+                        product.getAttributes().stream()
+                                .map(ProductAttributeResponseDto::from)
+                                .collect(Collectors.toList()) : 
+                        List.of())
                 .build();
     }
 }
