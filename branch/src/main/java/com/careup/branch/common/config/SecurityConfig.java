@@ -47,7 +47,9 @@ public class SecurityConfig {
                         "/inventory/**",
                         "/categories/**",
                         "/products/**",
-                        "/api/products/public/**"
+                        "/api/products/public/**",
+                        "/sales-forecast/**",
+                        "/sales/**"
                 ).permitAll()
                 .anyRequest().authenticated()
         );

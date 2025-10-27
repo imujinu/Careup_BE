@@ -1,10 +1,7 @@
 package com.careup.branch.domain.branch.dto.response;
 
 import com.careup.branch.domain.branch.dto.SalesForecastDto;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
@@ -12,7 +9,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class SalesForecastResponse {
+@EqualsAndHashCode
+@ToString
+public class
+SalesForecastResponse {
 
     private Long branchId;
     private String branchName;

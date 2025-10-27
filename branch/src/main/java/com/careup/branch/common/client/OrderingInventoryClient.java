@@ -1,11 +1,12 @@
 package com.careup.branch.common.client;
 
+import com.careup.branch.common.config.FeignConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@FeignClient(name = "ordering-service", url = "${feign.ordering.url:http://localhost:8080}")
+@FeignClient(name = "ordering-service", url = "${feign.ordering.url:http://localhost:8080}", configuration = FeignConfig.class)
 public interface OrderingInventoryClient {
 
      // 상품 목록 조회
