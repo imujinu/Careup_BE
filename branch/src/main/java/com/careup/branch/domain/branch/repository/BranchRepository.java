@@ -3,6 +3,7 @@ package com.careup.branch.domain.branch.repository;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.employee.entity.Employee;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,5 +21,6 @@ public interface BranchRepository extends JpaRepository<Branch, Long> {
     List<Branch> findByNameContaining(String keyword);
 
     Optional<Branch> findByBusinessNumber(String businessNumber);
+
 
 }

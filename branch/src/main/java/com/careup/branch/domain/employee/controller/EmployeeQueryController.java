@@ -86,4 +86,19 @@ public class EmployeeQueryController {
                         .build()
         );
     }
+
+    // 알림용 전체 직원 조회
+    @GetMapping("/chat/list")
+    public ResponseEntity<CommonSuccessDto> employeesList(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
+        Page<EmployeeDetailDto> page = employeeQueryService.list(pageable);
+        EmployeeListDto result = EmployeeListDto.fromPage(page);
+
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result(result)
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("직원 목록 조회")
+                        .build()
+        );
+    }
 }

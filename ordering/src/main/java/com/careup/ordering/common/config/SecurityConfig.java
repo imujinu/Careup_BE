@@ -44,12 +44,14 @@ public class SecurityConfig {
                         "/auth/customers/oauth/state",
                         "/auth/customers/oauth/google",
                         "/auth/customers/oauth/kakao",
-                        "/auth/customers/oauth/update",
-                        "/chat/**"
+                        "/auth/customers/oauth/update"
                 ).permitAll()
 
                 // 상품 관련 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/public/products").permitAll()  // 고객용 상품 목록 공개
+                .requestMatchers(HttpMethod.GET, "/api/public/products/with-branches").permitAll()  // 고객용 상품 목록 (지점 정보 포함)
+                .requestMatchers(HttpMethod.GET, "/api/public/products/search").permitAll()  // 고객용 상품 검색
                 .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -87,8 +89,21 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 장바구니, 주문, 결제 - CUSTOMER 전용
-                .requestMatchers("/api/cart/**", "/api/orders/**", "/api/payments/**").hasRole("CUSTOMER")
+                // 주문 조회 - 고객 본인 + 관리자 가능
+                .requestMatchers(HttpMethod.GET, "/api/orders/**").hasAnyRole("CUSTOMER", "HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
+
+                // 주문 승인/거부 - 관리자 전용
+                .requestMatchers(HttpMethod.PUT, "/api/orders/*/approve").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.PUT, "/api/orders/*/reject").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
+
+                // 주문 생성 - 고객 전용
+                .requestMatchers(HttpMethod.POST, "/api/orders").hasRole("CUSTOMER")
+
+                // 주문 취소 - 고객 전용
+                .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("CUSTOMER")
+
+                // 장바구니, 결제 - CUSTOMER 전용
+                .requestMatchers("/api/cart/**", "/api/payments/**").hasRole("CUSTOMER")
 
                 // 고객 관리, 단골 고객 - 관리자 전용
                 .requestMatchers("/admin/**", "/management/**", "/product-admin/**", "/api/loyal-customers/**")

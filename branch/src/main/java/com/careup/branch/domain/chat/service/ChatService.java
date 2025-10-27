@@ -15,6 +15,7 @@ import com.careup.branch.domain.chat.dto.req.LaborCostRequestDto;
 import com.careup.branch.domain.chat.dto.res.*;
 import com.careup.branch.domain.chat.dto.res.sales.SalesPredictionRequestDto;
 import com.careup.branch.domain.chat.dto.res.sales.SalesPredictionResponseDto;
+import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
@@ -275,17 +276,17 @@ public class ChatService {
 
 
     public Long getLaborSum(Long branchId) {
-        List<Employee> employees = dispatchStatusRepository.findAllByBranch(getBranch(branchId));
+        List<DispatchStatus> dispatchStatuses = dispatchStatusRepository.findAllByBranch(getBranch(branchId));
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         LocalTime now = LocalTime.now(ZoneId.of("Asia/Seoul"));
 
         long totalLaborCost = 0L;
 
-        for(Employee employee : employees){
-            Long hourPerSalary = employee.getHourPerSalary();
+        for(DispatchStatus ds : dispatchStatuses){
+            Long hourPerSalary = ds.getEmployee().getHourPerSalary();
             if(hourPerSalary == null || hourPerSalary <= 0) continue;
 
-            Optional<Schedule> scheduleOpt = scheduleRepository.findByEmployeeAndRegisteredDate(employee, today);
+            Optional<Schedule> scheduleOpt = scheduleRepository.findByEmployeeAndRegisteredDate(ds.getEmployee(), today);
             if (scheduleOpt.isEmpty()) continue;
             Schedule schedule = scheduleOpt.get();
 

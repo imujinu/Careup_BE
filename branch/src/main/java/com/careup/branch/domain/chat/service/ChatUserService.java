@@ -393,7 +393,7 @@ public class ChatUserService {
         return employee;
     }
 
-    public Long getBranchIdFromToken() {
+    public static Long getBranchIdFromToken() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         System.out.println("auth======" + auth);
 
