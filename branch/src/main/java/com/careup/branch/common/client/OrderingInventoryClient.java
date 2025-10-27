@@ -5,75 +5,74 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@FeignClient(name = "ordering-service", url = "${feign.ordering.url:http://localhost:8080}", configuration = com.careup.branch.common.config.FeignConfig.class)
+@FeignClient(
+        name = "ordering-service",
+        url = "${feign.ordering.url:http://localhost:8080}",
+        configuration = com.careup.branch.common.config.FeignConfig.class
+)
 public interface OrderingInventoryClient {
 
-     // 상품 목록 조회
+    // ====== 상품 조회 (Branch에서 실제 사용 중) ======
+    @GetMapping("/api/products/{productId}")
+    ResponseDto<ProductResponseDto> getProduct(@PathVariable Long productId);
+
+    // ====== 필요 시 사용 가능한 나머지 API (그대로 두셔도 OK) ======
     @GetMapping("/api/products")
     List<ProductResponseDto> getProducts();
-    
-     // 상품 상세 조회
-    @GetMapping("/api/products/{productId}")
-    ProductResponseDto getProduct(@PathVariable Long productId);
 
-     // 상품 등록
     @PostMapping("/api/products")
     ProductResponseDto createProduct(@RequestBody ProductRequestDto request);
 
-     // 상품 수정
     @PutMapping("/api/products/{productId}")
     ProductResponseDto updateProduct(@PathVariable Long productId, @RequestBody ProductRequestDto request);
 
-     // 상품 삭제
     @DeleteMapping("/api/products/{productId}")
     void deleteProduct(@PathVariable Long productId);
 
-    // 재고 관리
-
-     // 지점별 상품 재고 조회
     @GetMapping("/inventory/branch/{branchId}")
     List<BranchProductResponseDto> getBranchProducts(@PathVariable Long branchId);
 
-     // 특정 상품의 지점별 재고 조회
     @GetMapping("/inventory/branch/{branchId}/product/{productId}")
     BranchProductResponseDto getBranchProduct(@PathVariable Long branchId, @PathVariable Long productId);
 
-     // 안전재고 설정
     @PostMapping("/inventory/safety-stock")
     void updateSafetyStock(@RequestBody SafetyStockRequest request);
 
-     // 재고 증감
     @PostMapping("/inventory/adjust")
     void adjustStock(@RequestBody StockAdjustRequest request);
 
-    // 입출고 관리
-
-     // 입출고 조회
     @GetMapping("/inventory/flow")
     List<InventoryFlowResponseDto> getInventoryFlows(@RequestParam(required = false) Long branchId,
                                                      @RequestParam(required = false) Long productId);
 
-     // 입출고 등록
     @PostMapping("/inventory/flow")
     InventoryFlowResponseDto createInventoryFlow(@RequestBody InventoryFlowRequest request);
 
-     // 입출고 수정
     @PutMapping("/inventory/flow/{flowId}")
     InventoryFlowResponseDto updateInventoryFlow(@PathVariable Long flowId, @RequestBody InventoryFlowRequest request);
 
-     // 입출고 기록 삭제
     @DeleteMapping("/inventory/flow/{flowId}")
     void deleteInventoryFlow(@PathVariable Long flowId);
 
-     // 재고 조정 내역 조회 (불량/폐기)
     @GetMapping("/inventory/adjustment-history")
     List<InventoryFlowResponseDto> getAdjustmentHistory(@RequestParam(required = false) Long branchId,
                                                         @RequestParam(required = false) String reason);
 
-    // dto
-    
+
+    // ====== 응답 래퍼 (Ordering의 ResponseDto와 호환: data 필드만 사용) ======
+    class ResponseDto<T> {
+        public T data;
+
+        public T data() {
+            return null;
+        }
+        // 필요 시 확장: public String message; public int status; 등
+    }
+
+    // ====== DTOs ======
+
     // Product
-    public static class ProductRequestDto {
+    class ProductRequestDto {
         public Long categoryId;
         public String name;
         public String description;
@@ -82,8 +81,8 @@ public interface OrderingInventoryClient {
         public Long maxPrice;
         public String imageUrl;
     }
-    
-    public static class ProductResponseDto {
+
+    class ProductResponseDto {
         public Long productId;
         public Long categoryId;
         public String categoryName;
@@ -96,9 +95,9 @@ public interface OrderingInventoryClient {
         public String status;
         public String visibility;
     }
-    
+
     // BranchProduct
-    public static class BranchProductResponseDto {
+    class BranchProductResponseDto {
         public Long branchProductId;
         public Long productId;
         public Long branchId;
@@ -109,30 +108,30 @@ public interface OrderingInventoryClient {
         public String productName;
         public String productDescription;
     }
-    
+
     // 안전재고 설정
-    public static class SafetyStockRequest {
+    class SafetyStockRequest {
         public Long branchProductId;
         public Long safetyStock;
     }
-    
+
     // 재고 조절
-    public static class StockAdjustRequest {
+    class StockAdjustRequest {
         public Long branchProductId;
         public Long quantity;
         public String type; // "INCREASE" or "DECREASE"
         public String reason;
     }
-    
+
     // 입출고 기록
-    public static class InventoryFlowRequest {
+    class InventoryFlowRequest {
         public Long branchProductId;
         public Long inQuantity;
         public Long outQuantity;
         public String remark;
     }
-    
-    public static class InventoryFlowResponseDto {
+
+    class InventoryFlowResponseDto {
         public Long flowId;
         public Long branchProductId;
         public Long productId;

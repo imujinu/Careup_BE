@@ -1,3 +1,4 @@
+/*
 package com.careup.ordering.common.config;
 
 import java.util.Arrays;
@@ -28,3 +29,5 @@ public class CorsConfig {
         return source;
     }
 }
+
+ */

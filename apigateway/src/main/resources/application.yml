@@ -1,41 +1,94 @@
-
-server :
-  port : 8080
-
-eureka:
-  client:
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
+server:
+  port: 8080
 
 spring:
   application:
     name: api-gateway
   cloud:
     gateway:
+      # 글로벌 CORS (게이트웨이 전담)
       globalcors:
+        add-to-simple-url-handler-mapping: true
         cors-configurations:
           '[/**]':
             allowedOrigins:
+              - 'http://localhost:5173'
               - 'http://localhost:3000'
-            allowedMethods: '*'
-            allowedHeaders: '*'
-            allowedCredentials: true
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+
+      # 헤더 중복 제거 (multiple values 문제 방지)
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+
       routes:
-        - id: ordering-service
+        # 프리픽스 접근 유지
+        - id: ordering-service-prefixed
           predicates:
             - Path=/ordering-service/**
           filters:
             - StripPrefix=1
           uri: lb://ordering-service
-        - id: branch-service
+
+        - id: branch-service-prefixed
           predicates:
             - Path=/branch-service/**
           filters:
             - StripPrefix=1
           uri: lb://branch-service
 
-jwt:
-  expirationAt : 1000 #1000분
-  secretKeyAt : YmV5b25kYWNjZXNzdG9rZW5zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2tlbnNlY3JldGtleWJleW9uZGFjY2Vzc3Rva2Vuc2VjcmV0a2V5
-  expirationRt : 10000 #1000분
-  secretKeyRt : YmV5b25kYWNjZXNzdG9rZW5zZWNyZXRrZXliZXlvbmRhY2Nlc3N0b2tlbnNlY3JldGtleWJleW9uZGFjY2Vzc3Rva2Vuc2VjcmV0a2V5
+        # ===== 쇼핑몰 단축 경로들 =====
+
+        # 고객 공개 인증 계열 (아이디 찾기 등)
+        - id: ordering-public-auth-shortcut
+          predicates:
+            - Path=/public/auth/customers/**
+          uri: lb://ordering-service
+
+        # 직원 공개 인증 계열 (아이디 찾기)
+        - id: branch-public-auth-shortcut
+          predicates:
+            - Path=/public/auth/employees/**
+          uri: lb://branch-service
+
+        # 고객 인증 계열 (로그인/리프레시/로그아웃 등)
+        - id: ordering-auth-shortcut
+          predicates:
+            - Path=/auth/customers/**
+          uri: lb://ordering-service
+
+        # 공개 상품/카테고리/재고 조회 등
+        - id: ordering-public-apis
+          predicates:
+            - Path=/api/**, /inventory/**
+          uri: lb://ordering-service
+
+        # 직원용 인증(/auth/**) — 반드시 customers보다 뒤에 위치
+        - id: branch-auth-shortcut
+          predicates:
+            - Path=/auth/**
+          uri: lb://branch-service
+
+        # 고객 마이페이지/탈퇴 등 단축 경로
+        - id: ordering-customers-shortcut
+          predicates:
+            - Path=/customers/**
+          uri: lb://ordering-service
+
+        # 발주(구매요청) 단축 경로
+        - id: branch-purchase-orders
+          predicates:
+            - Path=/purchase-orders/**
+          uri: lb://branch-service
+
+    discovery:
+      enabled: true
+
+eureka:
+  client:
+    enabled: true
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

@@ -1,3 +1,4 @@
+/*
 package com.careup.branch.common.config;
 
 import org.springframework.context.annotation.Configuration;
@@ -22,4 +23,4 @@ public class WebConfig implements WebMvcConfigurer {
                 .maxAge(3600);
     }
 }
-
+ */
