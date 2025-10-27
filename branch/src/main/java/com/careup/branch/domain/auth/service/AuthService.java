@@ -1,4 +1,3 @@
-// src/main/java/com/careup/branch/domain/auth/service/AuthService.java
 package com.careup.branch.domain.auth.service;
 
 import com.careup.branch.common.auth.ForceLogoutStore;
@@ -77,7 +76,8 @@ public class AuthService {
             branchName = active.get().getBranch().getName();
         }
 
-        String at = jwt.createAccessToken(employeeId, role, branchId);
+        // NEW: 이메일 클레임 포함
+        String at = jwt.createAccessToken(employeeId, role, branchId, emp.getEmail());
         String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
 
         String title = (emp.getJobGrade() != null) ? emp.getJobGrade().getName() : null;
@@ -126,7 +126,8 @@ public class AuthService {
             branchName = active.get().getBranch().getName();
         }
 
-        String at = jwt.createAccessToken(employeeId, role, branchId);
+        // NEW: 이메일 클레임 포함
+        String at = jwt.createAccessToken(employeeId, role, branchId, emp.getEmail());
 
         return AuthRefreshResponse.builder()
                 .tokenType("Bearer")
