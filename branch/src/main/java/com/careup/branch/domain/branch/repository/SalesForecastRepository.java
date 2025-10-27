@@ -19,10 +19,21 @@ public interface SalesForecastRepository extends JpaRepository<SalesForecast, Lo
     List<SalesForecast> findByBranchIdOrderByPeriodStartDesc(Long branchId);
 
     /**
-     * 특정 지점의 특정 기간 예상 매출 조회
+     * 특정 지점의 특정 기간 예상 매출 조회 (최신 데이터 우선)
      */
     @Query("SELECT sf FROM SalesForecast sf WHERE sf.branch.id = :branchId " +
-           "AND sf.periodStart <= :targetDate AND sf.period_end >= :targetDate")
+           "AND sf.periodStart <= :targetDate AND sf.period_end >= :targetDate " +
+           "ORDER BY sf.createdAt DESC")
+    List<SalesForecast> findByBranchIdAndPeriodList(
+            @Param("branchId") Long branchId,
+            @Param("targetDate") Date targetDate);
+
+    /**
+     * 특정 지점의 특정 기간 예상 매출 조회 (최신 데이터 하나만)
+     */
+    @Query("SELECT sf FROM SalesForecast sf WHERE sf.branch.id = :branchId " +
+           "AND sf.periodStart <= :targetDate AND sf.period_end >= :targetDate " +
+           "ORDER BY sf.createdAt DESC")
     Optional<SalesForecast> findByBranchIdAndPeriod(
             @Param("branchId") Long branchId,
             @Param("targetDate") Date targetDate);

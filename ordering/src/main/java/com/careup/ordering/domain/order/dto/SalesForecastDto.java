@@ -13,10 +13,16 @@ import java.time.LocalDate;
 @Builder
 public class SalesForecastDto {
     private Long branchId;
+    private String branchName;
     private LocalDate forecastDate;
     private Long expectedSales;
     private Long previousPeriodSales;
     private Double growthRate;
     private String forecastBasis; // 예측 근거
+
+    // 엑셀 내보내기용 추가 필드
+    private Long pastSales; // 과거 매출
+    private Long forecastedSales; // 예측 매출
+    private Integer forecastDays; // 예측 기간(일)
 }
 

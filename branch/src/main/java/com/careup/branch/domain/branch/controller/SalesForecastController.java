@@ -9,6 +9,7 @@ import com.careup.branch.domain.branch.dto.response.SalesForecastCreateResponse;
 import com.careup.branch.domain.branch.dto.response.SalesForecastResponse;
 import com.careup.branch.domain.branch.service.SalesForecastService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/sales-forecast")
 @RequiredArgsConstructor
@@ -32,6 +34,7 @@ public class SalesForecastController {
     public ResponseEntity<?> getBranchSalesForecast(@PathVariable Long branchId) {
         try {
             SalesForecastResponse response = salesForecastService.getBranchSalesForecast(branchId);
+            log.info("소속 가맹점의 예상 매출액 조회 성공: {}", response.toString());
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(response)
@@ -40,9 +43,10 @@ public class SalesForecastController {
                             .build()
             );
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+            log.error("소속 가맹점의 예상 매출액 조회 실패 - branchId: {}, error: {}", branchId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
                     CommonErrorDto.builder()
-                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
                             .status_message("조회 실패. error: " + e.getMessage())
                             .build()
             );

@@ -45,10 +45,12 @@ public class SecurityConfig {
                         "/auth/password/reset",
                         "/auth/introspect",
                         "/inventory/**",
-                        "/categories/",
+                        "/categories/**",
                         "/products/**",
                         "/purchase-orders/**",
-                        "/api/products/public/**"
+                        "/api/products/public/**",
+                        "/sales-forecast/**",
+                        "/sales/**"
                 ).permitAll()
                 .anyRequest().authenticated()
         );
