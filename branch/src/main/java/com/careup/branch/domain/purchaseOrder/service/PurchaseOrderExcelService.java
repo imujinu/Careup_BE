@@ -39,7 +39,7 @@ public class PurchaseOrderExcelService {
 
     /**
      * 발주 내역을 엑셀 파일로 생성
-     * 
+     *
      * @param branchId 지점 ID (필수, 1이면 전체 발주, 그 외는 해당 지점만)
      * @return Excel 파일의 바이트 배열
      */
@@ -66,7 +66,7 @@ public class PurchaseOrderExcelService {
             int rowNum = 1;
             for (PurchaseOrder order : orders) {
                 List<PurchaseOrderDetail> details = purchaseOrderDetailRepository.findByPurchaseOrder(order);
-                
+
                 if (details.isEmpty()) {
                     // 상세 내역이 없는 경우 발주 정보만 표시
                     createOrderRow(sheet, rowNum++, order, null, dataStyle, numberStyle);
@@ -106,7 +106,7 @@ public class PurchaseOrderExcelService {
             // 발주 조회
             PurchaseOrder order = purchaseOrderRepository.findById(purchaseOrderId)
                     .orElseThrow(() -> new RuntimeException("발주를 찾을 수 없습니다: " + purchaseOrderId));
-            
+
             // 지점 접근 권한 검증
             validateBranchAccess(order.getBranchId());
 
@@ -142,7 +142,7 @@ public class PurchaseOrderExcelService {
                 int endRow = startRow + details.size() - 1;
 
                 int[] mergeColumns = {0, 1, 2, 3, 4, 5};
-                
+
                 for (int col : mergeColumns) {
                     CellRangeAddress cellRangeAddress = new CellRangeAddress(startRow, endRow, col, col);
                     sheet.addMergedRegion(cellRangeAddress);
@@ -179,7 +179,7 @@ public class PurchaseOrderExcelService {
         if (branchId == null) {
             throw new IllegalArgumentException("지점 ID는 필수입니다.");
         }
-        
+
         LocalDateTime startDateTime = null;
         LocalDateTime endDateTime = null;
 
@@ -211,8 +211,8 @@ public class PurchaseOrderExcelService {
     private void createHeaderRow(Sheet sheet, CellStyle headerStyle) {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
-            "발주번호", "지점명", "상태", "총금액(원)", "생성일시", "수정일시",
-            "상품명", "상품수량", "승인수량", "단가(원)", "소계(원)"
+                "발주번호", "지점명", "상태", "총금액(원)", "생성일시", "수정일시",
+                "상품명", "상품수량", "승인수량", "단가(원)", "소계(원)"
         };
 
         for (int i = 0; i < headers.length; i++) {
@@ -225,7 +225,7 @@ public class PurchaseOrderExcelService {
     /**
      * 데이터 행 생성
      */
-    private void createOrderRow(Sheet sheet, int rowNum, PurchaseOrder order, 
+    private void createOrderRow(Sheet sheet, int rowNum, PurchaseOrder order,
                                 PurchaseOrderDetail detail, CellStyle dataStyle, CellStyle numberStyle) {
         Row row = sheet.createRow(rowNum);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -258,7 +258,7 @@ public class PurchaseOrderExcelService {
      */
     private void createCell(Row row, int column, Object value, CellStyle style) {
         Cell cell = row.createCell(column);
-        
+
         if (value instanceof Long) {
             cell.setCellValue((Long) value);
         } else if (value instanceof Integer) {
@@ -268,7 +268,7 @@ public class PurchaseOrderExcelService {
         } else {
             cell.setCellValue(value != null ? value.toString() : "");
         }
-        
+
         cell.setCellStyle(style);
     }
 
@@ -277,26 +277,26 @@ public class PurchaseOrderExcelService {
      */
     private CellStyle createHeaderStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
-        
+
         // 배경색 (회색)
         style.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
         style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-        
+
         // 테두리
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
-        
+
         // 가운데 정렬
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-        
+
         // 폰트 (굵게)
         Font font = workbook.createFont();
         font.setBold(true);
         style.setFont(font);
-        
+
         return style;
     }
 
@@ -305,17 +305,17 @@ public class PurchaseOrderExcelService {
      */
     private CellStyle createDataStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
-        
+
         // 테두리
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
-        
+
         // 가운데 정렬
         style.setAlignment(HorizontalAlignment.CENTER);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-        
+
         return style;
     }
 
@@ -324,21 +324,21 @@ public class PurchaseOrderExcelService {
      */
     private CellStyle createNumberStyle(Workbook workbook) {
         CellStyle style = workbook.createCellStyle();
-        
+
         // 테두리
         style.setBorderTop(BorderStyle.THIN);
         style.setBorderBottom(BorderStyle.THIN);
         style.setBorderLeft(BorderStyle.THIN);
         style.setBorderRight(BorderStyle.THIN);
-        
+
         // 오른쪽 정렬
         style.setAlignment(HorizontalAlignment.RIGHT);
         style.setVerticalAlignment(VerticalAlignment.CENTER);
-        
+
         // 숫자 포맷 (천단위 콤마)
         DataFormat format = workbook.createDataFormat();
         style.setDataFormat(format.getFormat("#,##0"));
-        
+
         return style;
     }
 
@@ -349,7 +349,7 @@ public class PurchaseOrderExcelService {
         if (branchId == null) {
             return "알 수 없음";
         }
-        
+
         try {
             Branch branch = branchRepository.findById(branchId).orElse(null);
             if (branch != null) {
@@ -358,7 +358,7 @@ public class PurchaseOrderExcelService {
         } catch (Exception e) {
             log.warn("지점명 조회 실패 - error: {}", e.getMessage());
         }
-        
+
         return "지점 " + branchId;
     }
 
@@ -391,9 +391,11 @@ public class PurchaseOrderExcelService {
         if (productId == null) {
             return "알 수 없음";
         }
-        
+
         try {
-            OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+            // Feign 응답(ResponseDto<ProductResponseDto>)에서 .data()로 언랩
+            OrderingInventoryClient.ProductResponseDto product =
+                    orderingInventoryClient.getProduct(productId).data();
             if (product != null && product.name != null) {
                 return product.name;
             }
@@ -421,10 +423,9 @@ public class PurchaseOrderExcelService {
             if (claims == null) {
                 throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
             }
-            
+
             Long employeeId = claims.get("employeeId", Long.class);
             String role = claims.get("role", String.class);
-
 
             // 3. 본사 관리자는 모든 지점 접근 가능
             if ("HQ_ADMIN".equals(role)) {
@@ -437,11 +438,10 @@ public class PurchaseOrderExcelService {
 
             // 5. 현재 활성화된 지점 배치 확인
             List<Long> accessibleBranchIds = getAccessibleBranchIds(employee);
-            
+
             if (!accessibleBranchIds.contains(branchId)) {
                 throw new SecurityException("해당 지점의 엑셀 다운로드 권한이 없습니다.");
             }
-
 
         } catch (Exception e) {
             throw new SecurityException("엑셀 다운로드 지점 접근 권한 검증에 실패했습니다: " + e.getMessage());
@@ -453,7 +453,7 @@ public class PurchaseOrderExcelService {
      */
     private List<Long> getAccessibleBranchIds(Employee employee) {
         LocalDate now = LocalDate.now();
-        
+
         return employee.getDispatchStatuses().stream()
                 .filter(dispatch -> dispatch.getAssignedFrom().isBefore(now) || dispatch.getAssignedFrom().isEqual(now))
                 .filter(dispatch -> dispatch.getAssignedTo().isAfter(now) || dispatch.getAssignedTo().isEqual(now))
@@ -468,10 +468,10 @@ public class PurchaseOrderExcelService {
      */
     private void mergeCellsForSameOrder(Sheet sheet, List<PurchaseOrder> orders) {
         int currentRow = 1; // 헤더 다음부터 시작
-        
+
         for (PurchaseOrder order : orders) {
             List<PurchaseOrderDetail> details = purchaseOrderDetailRepository.findByPurchaseOrder(order);
-            
+
             if (details.isEmpty()) {
                 // 상세 내역이 없는 경우
                 currentRow++;
@@ -479,16 +479,16 @@ public class PurchaseOrderExcelService {
                 // 상세 내역이 있는 경우
                 int startRow = currentRow;
                 int endRow = currentRow + details.size() - 1;
-                
+
                 // 같은 발주번호의 행이 2개 이상인 경우에만 병합
                 if (endRow > startRow) {
                     // 병합할 컬럼들: 발주번호(0), 지점명(1), 상태(2), 총금액(3), 생성일시(4), 수정일시(5)
                     int[] mergeColumns = {0, 1, 2, 3, 4, 5};
-                    
+
                     for (int col : mergeColumns) {
                         CellRangeAddress cellRangeAddress = new CellRangeAddress(startRow, endRow, col, col);
                         sheet.addMergedRegion(cellRangeAddress);
-                        
+
                         // 병합된 셀의 정렬을 중앙으로 설정
                         Cell mergedCell = sheet.getRow(startRow).getCell(col);
                         if (mergedCell != null) {
@@ -504,4 +504,3 @@ public class PurchaseOrderExcelService {
         }
     }
 }
-

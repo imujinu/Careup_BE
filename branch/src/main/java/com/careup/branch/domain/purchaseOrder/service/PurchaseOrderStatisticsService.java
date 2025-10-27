@@ -166,16 +166,16 @@ public class PurchaseOrderStatisticsService {
      */
     private HQStatisticsResponseDto.OverallStatistics calculateOverallStatistics(List<PurchaseOrder> orders) {
         if (orders.isEmpty()) {
-        return HQStatisticsResponseDto.OverallStatistics.builder()
-                .totalOrderCount(0L)
-                .totalOrderAmount(0L)
-                .totalApprovedAmount(0L)
-                .averageOrderAmount(0.0)
-                .pendingCount(0L)
-                .approvalRate(0.0)
-                .rejectionRate(0.0)
-                .partialApprovalRate(0.0)
-                .build();
+            return HQStatisticsResponseDto.OverallStatistics.builder()
+                    .totalOrderCount(0L)
+                    .totalOrderAmount(0L)
+                    .totalApprovedAmount(0L)
+                    .averageOrderAmount(0.0)
+                    .pendingCount(0L)
+                    .approvalRate(0.0)
+                    .rejectionRate(0.0)
+                    .partialApprovalRate(0.0)
+                    .build();
         }
 
         int totalCount = orders.size();
@@ -320,7 +320,9 @@ public class PurchaseOrderStatisticsService {
                     // 상품명 조회
                     String productName = "상품-" + productId;
                     try {
-                        OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+                        // ResponseDto<ProductResponseDto> 에서 .data()로 언랩
+                        OrderingInventoryClient.ProductResponseDto product =
+                                orderingInventoryClient.getProduct(productId).data();
                         if (product != null && product.name != null) {
                             productName = product.name;
                         }
@@ -429,7 +431,6 @@ public class PurchaseOrderStatisticsService {
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(23, 59, 59);
 
-
         // 특정 가맹점의 발주 상세 조회
         List<PurchaseOrder> orders = purchaseOrderRepository.findByBranchIdAndCreatedAtBetween(branchId, startDateTime, endDateTime);
 
@@ -448,15 +449,17 @@ public class PurchaseOrderStatisticsService {
         for (PurchaseOrder order : orders) {
             for (com.careup.branch.domain.purchaseOrder.entity.PurchaseOrderDetail detail : order.getOrderDetails()) {
                 Long productId = detail.getProductId();
-                
+
                 TempProductStats stats = productStatsMap.computeIfAbsent(productId, k -> {
                     TempProductStats s = new TempProductStats();
                     s.productId = productId;
-                    
+
                     // 상품명 조회
                     String productName = "상품-" + productId;
                     try {
-                        OrderingInventoryClient.ProductResponseDto product = orderingInventoryClient.getProduct(productId);
+                        // ResponseDto<ProductResponseDto> 에서 .data()로 언랩
+                        OrderingInventoryClient.ProductResponseDto product =
+                                orderingInventoryClient.getProduct(productId).data();
                         if (product != null && product.name != null) {
                             productName = product.name;
                         }
@@ -464,19 +467,19 @@ public class PurchaseOrderStatisticsService {
                         log.warn("상품 정보 조회 실패: productId={}", productId, e);
                     }
                     s.productName = productName;
-                    
+
                     return s;
                 });
 
                 stats.totalQuantity += detail.getQuantity();
                 stats.totalAmount += detail.getSubtotalPrice();
 
-                if (order.getOrderStatus() == OrderStatus.APPROVED || 
-                    order.getOrderStatus() == OrderStatus.SHIPPED || 
-                    order.getOrderStatus() == OrderStatus.COMPLETED) {
+                if (order.getOrderStatus() == OrderStatus.APPROVED ||
+                        order.getOrderStatus() == OrderStatus.SHIPPED ||
+                        order.getOrderStatus() == OrderStatus.COMPLETED) {
                     stats.approvedQuantity += detail.getApprovedQuantity();
                 }
-                
+
                 stats.orderCount += 1;
             }
         }
@@ -484,10 +487,10 @@ public class PurchaseOrderStatisticsService {
         // 승인율 계산 및 정렬
         List<HQStatisticsResponseDto.ProductStatistics> result = productStatsMap.values().stream()
                 .map(stats -> {
-                    double approvalRate = stats.totalQuantity > 0 
-                        ? (stats.approvedQuantity * 100.0) / stats.totalQuantity 
-                        : 0.0;
-                    
+                    double approvalRate = stats.totalQuantity > 0
+                            ? (stats.approvedQuantity * 100.0) / stats.totalQuantity
+                            : 0.0;
+
                     return HQStatisticsResponseDto.ProductStatistics.builder()
                             .productId(stats.productId)
                             .productName(stats.productName)
@@ -536,4 +539,3 @@ public class PurchaseOrderStatisticsService {
         }
     }
 }
-

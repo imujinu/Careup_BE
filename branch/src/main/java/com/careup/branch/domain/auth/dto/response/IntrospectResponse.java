@@ -15,4 +15,5 @@ public class IntrospectResponse {
     private String role;
     private Long iat; // seconds
     private Long exp; // seconds
+    private String email; // NEW
 }

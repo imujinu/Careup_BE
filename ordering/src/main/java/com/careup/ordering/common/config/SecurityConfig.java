@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,16 +25,18 @@ public class SecurityConfig {
                                                    JwtAuthenticationEntryPoint entryPoint,
                                                    JwtAccessDeniedHandler deniedHandler) throws Exception {
 
-        http.csrf(csrf -> csrf.disable());
-        http.httpBasic(b -> b.disable());
+        http.csrf(AbstractHttpConfigurer::disable);
+        http.httpBasic(AbstractHttpConfigurer::disable);
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.cors(cors -> {});
+
+        // 백엔드 CORS 비활성화 (게이트웨이에서만 CORS 처리)
+        http.cors(AbstractHttpConfigurer::disable);
 
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/**", "/public/**", "/health").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // 고객 인증 플로우 + OAuth 엔드포인트 공개
+                // 고객 인증 + OAuth 공개
                 .requestMatchers(
                         "/auth/customers/signup",
                         "/auth/customers/login",
@@ -105,17 +108,17 @@ public class SecurityConfig {
 
                 // 주문 조회 - 고객 본인 + 관리자 가능
                 .requestMatchers(HttpMethod.GET, "/api/orders/**").hasAnyRole("CUSTOMER", "HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
-                
+
                 // 주문 승인/거부 - 관리자 전용
                 .requestMatchers(HttpMethod.PUT, "/api/orders/*/approve").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/orders/*/reject").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
-                
+
                 // 주문 생성 - 고객 전용
                 .requestMatchers(HttpMethod.POST, "/api/orders").hasRole("CUSTOMER")
-                
+
                 // 주문 취소 - 고객 전용
                 .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("CUSTOMER")
-                
+
                 // 장바구니, 결제 - CUSTOMER 전용
                 .requestMatchers("/api/cart/**", "/api/payments/**").hasRole("CUSTOMER")
 
