@@ -57,7 +57,6 @@ public class PurchaseOrderService {
     private final EmployeeRepository employeeRepository;
     private final SseAlarmService sseAlarmService;
 
-    private final EmployeeRepository employeeRepository;
     private final BranchRepository branchRepository;
 
     // 발주 생성 (가맹점용)

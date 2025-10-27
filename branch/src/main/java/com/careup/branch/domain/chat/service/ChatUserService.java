@@ -27,6 +27,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -55,6 +58,12 @@ public class ChatUserService {
     private final ScheduleService scheduleService;
     private final PurchaseOrderController purchaseOrderController;
     private final OrderingInventoryClient orderingInventoryClient;
+
+    @Autowired
+    @Qualifier("attendanceSuggestionClient")
+    private ChatClient attendanceSuggestionClient;
+
+
     // [근태 서비스 ]
 
     public ResponseEntity<?> handleAttendanceAction(String action, JSONObject params, Long branchId) {
@@ -116,10 +125,25 @@ public class ChatUserService {
                 //근태 수정 제안
                 else if (params.has("suggestion")){
 
+                        CommonSuccessDto response = client.getBranchSalesDetail(branchId,startDate,endDate, "HOURLY");
+                        BranchSalesDetailResponseDto sales = objectMapper.convertValue(response.getResult(), BranchSalesDetailResponseDto.class);
+                        List<ScheduleListDto> scheduleList = scheduleService.listAll(startDate.plusWeeks(1), endDate.plusWeeks(1));
+
+                    String prompt = """
+                                        지난주 시간대별 평균 매출:
+                                        %s
+                                    
+                                        다음 주 직원 근무 스케줄:
+                                        %s
+                                    
+                                        위 데이터를 바탕으로 근태 수정 제안을 작성해주세요.
+                                        """.formatted(
+//                            sales.getHourlyAverage().toString(), // 예시
+                            scheduleList.toString()
+                    );
 
                     return null;
                 }
-
                 else{
                     throw new IllegalArgumentException("지원하지 않는 action: " + action);
                 }
