@@ -43,11 +43,18 @@ public class JwtTokenProvider {
         return "RT:EMP:" + employeeId;
     }
 
+    // 호환성 유지용 기존 시그니처
     public String createAccessToken(Long employeeId, String role) {
-        return createAccessToken(employeeId, role, null);
+        return createAccessToken(employeeId, role, null, null);
     }
 
+    // 호환성 유지용 기존 시그니처
     public String createAccessToken(Long employeeId, String role, Long branchId) {
+        return createAccessToken(employeeId, role, branchId, null);
+    }
+
+    // NEW: email 클레임 포함 버전
+    public String createAccessToken(Long employeeId, String role, Long branchId, String email) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
 
@@ -56,6 +63,9 @@ public class JwtTokenProvider {
         claims.put("employeeId", employeeId);
         if (branchId != null) {
             claims.put("branchId", branchId);
+        }
+        if (email != null && !email.isBlank()) {
+            claims.put("email", email);
         }
 
         return Jwts.builder()
@@ -87,13 +97,21 @@ public class JwtTokenProvider {
     }
 
     public Claims parseAccessToken(String token) {
-        return Jwts.parserBuilder().setSigningKey(atKey).build()
-                .parseClaimsJws(token).getBody();
+        return Jwts.parserBuilder()
+                .setSigningKey(atKey)
+                .setAllowedClockSkewSeconds(60) // ±60초 허용
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     public Claims validateRefreshToken(String refreshToken) {
-        Claims claims = Jwts.parserBuilder().setSigningKey(rtKey).build()
-                .parseClaimsJws(refreshToken).getBody();
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(rtKey)
+                .setAllowedClockSkewSeconds(60) // ±60초 허용
+                .build()
+                .parseClaimsJws(refreshToken)
+                .getBody();
 
         Long employeeId = Long.valueOf(claims.getSubject());
         String saved = redis.opsForValue().get(rtRedisKey(employeeId));

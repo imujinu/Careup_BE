@@ -96,27 +96,46 @@ public class SalesForecastService {
 
     /**
      * 본사 관리자 - 가맹점의 예상 매출액 전송 (단일)
+     * 같은 기간에 대한 예상 매출이 이미 있으면 업데이트
      */
     @Transactional
     public SalesForecastCreateResponse saveSalesForecast(SalesForecastRequest request) {
         Branch branch = branchRepository.findById(request.getBranchId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
 
-        SalesForecast salesForecast = SalesForecast.builder()
-                .branch(branch)
-                .amount(request.getAmount())
-                .periodStart(request.getPeriodStart())
-                .period_end(request.getPeriodEnd())
-                .build();
+        // 같은 기간의 기존 예상 매출 조회
+        List<SalesForecast> existingForecasts = salesForecastRepository
+                .findByBranchIdAndPeriodList(request.getBranchId(), request.getPeriodStart());
 
-        SalesForecast saved = salesForecastRepository.save(salesForecast);
+        SalesForecast salesForecast;
+        String message;
+
+        if (!existingForecasts.isEmpty()) {
+            // 기존 데이터가 있으면 가장 최신 것을 업데이트
+            salesForecast = existingForecasts.get(0);
+            salesForecast.updateAmount(request.getAmount());
+            salesForecast.updatePeriod(request.getPeriodStart(), request.getPeriodEnd());
+            message = "예상 매출액이 성공적으로 업데이트되었습니다.";
+            log.info("기존 예상 매출 업데이트 - branchId: {}, forecastId: {}", branch.getId(), salesForecast.getId());
+        } else {
+            // 신규 생성
+            salesForecast = SalesForecast.builder()
+                    .branch(branch)
+                    .amount(request.getAmount())
+                    .periodStart(request.getPeriodStart())
+                    .period_end(request.getPeriodEnd())
+                    .build();
+            salesForecast = salesForecastRepository.save(salesForecast);
+            message = "예상 매출액이 성공적으로 등록되었습니다.";
+            log.info("새로운 예상 매출 생성 - branchId: {}", branch.getId());
+        }
 
         return SalesForecastCreateResponse.builder()
-                .id(saved.getId())
+                .id(salesForecast.getId())
                 .branchId(branch.getId())
                 .branchName(branch.getName())
-                .amount(saved.getAmount())
-                .message("예상 매출액이 성공적으로 등록되었습니다.")
+                .amount(salesForecast.getAmount())
+                .message(message)
                 .build();
     }
 

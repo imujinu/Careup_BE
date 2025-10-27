@@ -32,7 +32,8 @@ public class IntrospectionController {
                 return IntrospectResponse.builder().active(false).build();
             }
 
-            String role = String.valueOf(c.get("role"));
+            String role = c.get("role", String.class);
+            String email = c.get("email", String.class);
             long iatSec = (iat != null) ? iat.toInstant().getEpochSecond() : 0L;
             long expSec = (c.getExpiration() != null) ? c.getExpiration().toInstant().getEpochSecond() : 0L;
 
@@ -42,6 +43,7 @@ public class IntrospectionController {
                     .employeeId(employeeId)
                     .iat(iatSec)
                     .exp(expSec)
+                    .email(email)
                     .build();
         } catch (Exception e) {
             return IntrospectResponse.builder().active(false).build();

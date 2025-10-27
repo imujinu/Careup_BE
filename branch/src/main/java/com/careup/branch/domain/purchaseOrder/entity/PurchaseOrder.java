@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @NoArgsConstructor
@@ -36,6 +38,10 @@ public class PurchaseOrder extends BaseTimeEntity{
 
     @Column(name = "price", nullable = false)
     private Long price;
+
+    @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<PurchaseOrderDetail> orderDetails = new ArrayList<>();
 
     // 주문 상태 변경 메서드
     public void changeOrderStatus(OrderStatus orderStatus) {

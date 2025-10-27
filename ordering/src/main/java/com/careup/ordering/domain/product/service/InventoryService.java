@@ -307,6 +307,12 @@ public class InventoryService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
         
+        // 중복 등록 방지
+        boolean exists = branchProductRepository.existsByBranchIdAndProductId(branchId, productId);
+        if (exists) {
+            throw new IllegalArgumentException("이미 해당 지점에 등록된 상품입니다.");
+        }
+        
         // BranchProduct 생성
         BranchProduct branchProduct = BranchProduct.builder()
                 .product(product)

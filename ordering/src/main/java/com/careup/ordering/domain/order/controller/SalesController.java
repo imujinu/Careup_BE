@@ -161,7 +161,7 @@ public class SalesController {
      * GET /sales/statistics-for-forecast?branchId=1&days=30
      */
     @GetMapping("/statistics-for-forecast")
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getSalesStatisticsForForecast(
             @RequestParam Long branchId,
             @RequestParam(defaultValue = "30") Integer days) {

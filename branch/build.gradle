@@ -87,6 +87,10 @@ dependencies {
 
 
 
+	// Apache POI (엑셀 생성용)
+	implementation 'org.apache.poi:poi:5.2.5'
+	implementation 'org.apache.poi:poi-ooxml:5.2.5'
+
 }
 dependencyManagement {
 	imports {
