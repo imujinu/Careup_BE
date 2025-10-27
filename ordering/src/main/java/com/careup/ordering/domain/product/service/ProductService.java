@@ -6,6 +6,11 @@ import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.dto.ProductWithBranchesDto;
 import com.careup.ordering.domain.product.entity.*;
 import com.careup.ordering.domain.product.repository.BranchProductRepository;
+import com.careup.ordering.domain.product.entity.BranchProduct;
+import com.careup.ordering.domain.product.entity.Category;
+import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.entity.Visibility;
+import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -30,13 +35,19 @@ public class ProductService {
     private final AwsS3Uploader awsS3Uploader;
     private final BranchProductRepository branchProductRepository;
 
+
     /**
      * 상품 등록 (이미지 포함)
      */
     public ProductResponseDto createProduct(ProductRequestDto request, MultipartFile imageFile) {
         // 카테고리 조회
-        Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
+        Category category;
+        if (request.getCategoryId() != null) {
+            category = categoryRepository.findById(request.getCategoryId())
+                    .orElseThrow(() -> new IllegalArgumentException("카테고리를 찾을 수 없습니다: " + request.getCategoryId()));
+        } else {
+            throw new IllegalArgumentException("카테고리 ID가 필요합니다.");
+        }
 
         Visibility visibilityEnum = Visibility.ALL;
         if (request.getVisibility() != null) {
@@ -82,6 +93,35 @@ public class ProductService {
         return ProductResponseDto.from(savedProduct);
     }
 
+    // 상품 목록 조회
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getAllProducts() {
+        List<Product> products = productRepository.findAll();
+        return products.stream()
+                .map(ProductResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+    // 상품 상세 조회
+    @Transactional(readOnly = true)
+    public ProductResponseDto getProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
+        return ProductResponseDto.from(product);
+    }
+
+    // 카테고리별 상품 조회
+    @Transactional(readOnly = true)
+    public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
+        List<Product> products = productRepository.findByCategoryId(categoryId);
+        return products.stream()
+                .map(ProductResponseDto::from)
+                .collect(Collectors.toList());
+    }
+
+
+
+
     /**
      * 상품 수정 (이미지 포함)
      */
@@ -105,7 +145,6 @@ public class ProductService {
             newImageUrl = awsS3Uploader.uploadFile("products", productId, imageFile);
             log.info("새 상품 이미지 업로드 완료 - URL: {}", newImageUrl);
         }
-
         // 상품 정보 업데이트
         product.updateInfo(
                 request.getName(),
@@ -144,21 +183,11 @@ public class ProductService {
     }
 
     /**
-     * 상품 상세 조회
-     */
-    @Transactional(readOnly = true)
-    public ProductResponseDto getProduct(Long productId) {
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
-        return ProductResponseDto.from(product);
-    }
-
-    /**
      * 카테고리별 상품 조회 (페이지네이션)
      */
     @Transactional(readOnly = true)
     public Page<ProductResponseDto> getProductsByCategory(Long categoryId, Pageable pageable) {
-        Page<Product> products = productRepository.findByCategoryId(categoryId, pageable);
+        Page<Product> products = productRepository.findActiveByCategoryId(categoryId, pageable);
         return products.map(ProductResponseDto::from);
     }
 
@@ -199,6 +228,15 @@ public class ProductService {
 
         product.delete();
         productRepository.save(product);
+
+        // 관련된 지점별 상품들도 함께 삭제
+        List<BranchProduct> branchProducts = branchProductRepository.findByProductId(productId);
+        if (!branchProducts.isEmpty()) {
+            branchProductRepository.deleteAll(branchProducts);
+        }
+
+        // 상품 삭제
+        productRepository.delete(product);
     }
     /**
      * 고객용 상품 목록 조회 (판매 지점 정보 포함)

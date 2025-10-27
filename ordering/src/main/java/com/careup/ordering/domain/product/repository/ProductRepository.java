@@ -7,14 +7,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    /**
-     * 카테고리별 상품 조회
-     */
-    Page<Product> findByCategoryId(Long categoryId, Pageable pageable);
+    List<Product> findByCategoryId(Long categoryId);
 
     /**
      * 상품 검색
