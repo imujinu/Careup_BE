@@ -23,7 +23,7 @@ spring:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
 
       routes:
-        # (기존) 프리픽스 접근도 유지
+        # 프리픽스 접근 유지
         - id: ordering-service-prefixed
           predicates:
             - Path=/ordering-service/**
@@ -70,11 +70,17 @@ spring:
             - Path=/auth/**
           uri: lb://branch-service
 
-        # [신규] 고객 마이페이지/탈퇴 등 단축 경로
+        # 고객 마이페이지/탈퇴 등 단축 경로
         - id: ordering-customers-shortcut
           predicates:
             - Path=/customers/**
           uri: lb://ordering-service
+
+        # 발주(구매요청) 단축 경로
+        - id: branch-purchase-orders
+          predicates:
+            - Path=/purchase-orders/**
+          uri: lb://branch-service
 
     discovery:
       enabled: true
