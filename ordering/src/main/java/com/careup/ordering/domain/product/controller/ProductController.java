@@ -55,6 +55,21 @@ public class ProductController {
     }
 
     /**
+     * 고객용 상품 검색 (판매 지점 정보 포함) - 페이지네이션
+     *  visibility=ALL인 활성 상품만 검색
+     */
+    @GetMapping("/public/products/search")
+    public ResponseEntity<ResponseDto<Page<ProductWithBranchesDto>>> searchPublicProductsWithBranches(
+            @RequestParam String keyword,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable) {
+        log.info("고객용 상품 검색 - 키워드: {}, 페이지: {}, 사이즈: {}", keyword, pageable.getPageNumber(), pageable.getPageSize());
+
+        Page<ProductWithBranchesDto> response = productService.searchPublicProductsWithBranches(keyword, pageable);
+        return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
+    }
+
+    /**
      * 상품 등록 (이미지 포함)
      */
     @PostMapping(value = "/products", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

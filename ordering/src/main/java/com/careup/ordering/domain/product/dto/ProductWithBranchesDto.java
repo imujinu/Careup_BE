@@ -17,6 +17,8 @@ public class ProductWithBranchesDto {
     private String description;
     private String imageUrl;
     private String categoryName;
+    private Long minPrice;  // 최소 가격 추가
+    private Long maxPrice;  // 최대 가격 추가
     private Integer availableBranchCount;
     private List<BranchInfoDto> availableBranches;
 
@@ -28,5 +30,6 @@ public class ProductWithBranchesDto {
         private Long branchId;
         private String branchName;
         private Long stockQuantity;
+        private Long price;  // 지점별 가격 추가
     }
 }
