@@ -114,7 +114,8 @@ public class ProductService {
     // 카테고리별 상품 조회
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
-        List<Product> products = productRepository.findByCategoryId(categoryId);
+        Page<Product> productsPage = productRepository.findByCategoryId(categoryId, Pageable.unpaged());
+        List<Product> products = productsPage.getContent();
         return products.stream()
                 .map(ProductResponseDto::from)
                 .collect(Collectors.toList());
