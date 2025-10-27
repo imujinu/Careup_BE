@@ -29,6 +29,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     @EntityGraph(attributePaths = {"jobGrade"})
     Optional<Employee> findById(Long id);
 
+    @EntityGraph(attributePaths = {"jobGrade", "dispatchStatuses", "dispatchStatuses.branch"})
+    Optional<Employee> findWithDispatchStatusesById(Long id);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("update Employee e set e.jobGrade = null where e.jobGrade.id = :jobGradeId")
     int detachJobGradeById(@Param("jobGradeId") Long jobGradeId);

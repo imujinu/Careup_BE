@@ -1,32 +1,31 @@
 package com.careup.branch.common.client;
 
-import com.careup.branch.common.config.FeignConfig;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-@FeignClient(name = "ordering-service", url = "${feign.ordering.url:http://localhost:8080}", configuration = FeignConfig.class)
+@FeignClient(name = "ordering-service", url = "${feign.ordering.url:http://localhost:8080}", configuration = com.careup.branch.common.config.FeignConfig.class)
 public interface OrderingInventoryClient {
 
      // 상품 목록 조회
-    @GetMapping("/products")
+    @GetMapping("/api/products")
     List<ProductResponseDto> getProducts();
 
      // 상품 상세 조회
-    @GetMapping("/products/{productId}")
+    @GetMapping("/api/products/{productId}")
     ProductResponseDto getProduct(@PathVariable Long productId);
 
      // 상품 등록
-    @PostMapping("/products")
+    @PostMapping("/api/products")
     ProductResponseDto createProduct(@RequestBody ProductRequestDto request);
 
      // 상품 수정
-    @PutMapping("/products/{productId}")
+    @PutMapping("/api/products/{productId}")
     ProductResponseDto updateProduct(@PathVariable Long productId, @RequestBody ProductRequestDto request);
 
      // 상품 삭제
-    @DeleteMapping("/products/{productId}")
+    @DeleteMapping("/api/products/{productId}")
     void deleteProduct(@PathVariable Long productId);
 
     // 재고 관리
@@ -87,6 +86,7 @@ public interface OrderingInventoryClient {
     public static class ProductResponseDto {
         public Long productId;
         public Long categoryId;
+        public String categoryName;
         public String name;
         public String description;
         public Long supplyPrice;

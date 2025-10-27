@@ -32,10 +32,23 @@ public class ProductResponseDto {
      * Entity → DTO 변환 정적 메서드
      */
     public static ProductResponseDto from(Product product) {
+        // category가 null인 경우
+        Long categoryId = null;
+        String categoryName = null;
+        
+        try {
+            if (product.getCategory() != null) {
+                categoryId = product.getCategory().getId();
+                categoryName = product.getCategory().getName();
+            }
+        } catch (Exception e) {
+            categoryName = "미분류";
+        }
+        
         return ProductResponseDto.builder()
                 .productId(product.getId())
-                .categoryId(product.getCategory().getId())
-                .categoryName(product.getCategory().getName())
+                .categoryId(categoryId)
+                .categoryName(categoryName)
                 .name(product.getName())
                 .description(product.getDescription())
                 .supplyPrice(product.getSupplyPrice())

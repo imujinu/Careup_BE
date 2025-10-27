@@ -10,39 +10,49 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 @Slf4j
 @Configuration
 public class FeignConfig {
 
-    /**
-     * Feign 요청 시 현재 요청의 Authorization 헤더를 자동으로 전달하는 Interceptor
-     */
     @Bean
-    public RequestInterceptor requestTokenBearerInterceptor() {
-        return new RequestInterceptor() {
-            @Override
-            public void apply(RequestTemplate template) {
-                // 현재 HTTP 요청에서 Authorization 헤더 추출
-                ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-                if (attributes != null) {
-                    String authorization = attributes.getRequest().getHeader("Authorization");
-                    if (authorization != null && authorization.startsWith("Bearer ")) {
-                        log.debug("Feign 요청에 Authorization 헤더 추가: {}", authorization.substring(0, 20) + "...");
-                        template.header("Authorization", authorization);
-                        return;
-                    }
-                }
+    public RequestInterceptor requestInterceptor() {
+        return new FeignRequestInterceptor();
+    }
 
-                // SecurityContext에서 인증 정보 확인 (fallback)
-                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                if (authentication != null && authentication.isAuthenticated()) {
-                    log.debug("SecurityContext에서 인증 정보 확인: {}", authentication.getName());
-                    // 필요시 추가 로직
-                }
+    public static class FeignRequestInterceptor implements RequestInterceptor {
 
-                log.warn("Feign 요청에 Authorization 헤더를 추가할 수 없습니다.");
+        @Override
+        public void apply(RequestTemplate requestTemplate) {
+            // 1. 현재 HTTP 요청에서 Authorization 헤더 가져오기
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                String authorizationHeader = request.getHeader("Authorization");
+
+                if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
+                    requestTemplate.header("Authorization", authorizationHeader);
+                    log.debug("Added Authorization header to Feign request: {}",
+                        authorizationHeader.substring(0, Math.min(20, authorizationHeader.length())) + "...");
+                    return;
+                }
             }
-        };
+
+            // 2. SecurityContext에서 Authentication 정보 가져오기
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getCredentials() != null) {
+                String token = authentication.getCredentials().toString();
+                if (token != null && !token.isEmpty()) {
+                    // Bearer 접두사가 없으면 추가
+                    String bearerToken = token.startsWith("Bearer ") ? token : "Bearer " + token;
+                    requestTemplate.header("Authorization", bearerToken);
+                    log.debug("Added Authorization header from SecurityContext to Feign request");
+                }
+            } else {
+                log.warn("No authentication information available for Feign request to: {}",
+                    requestTemplate.url());
+            }
+        }
     }
 }
-

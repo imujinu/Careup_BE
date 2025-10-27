@@ -18,6 +18,7 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
@@ -47,6 +48,7 @@ public class SecurityConfig {
                         "/inventory/**",
                         "/categories/**",
                         "/products/**",
+                        "/purchase-orders/**",
                         "/api/products/public/**",
                         "/sales-forecast/**",
                         "/sales/**"
