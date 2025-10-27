@@ -48,6 +48,10 @@ public class KafkaConfig {
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "sse-group");
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+
+        //todo : decorator 패턴 구현
+//        props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+//        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 
@@ -68,7 +72,7 @@ public class KafkaConfig {
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         return new DefaultKafkaConsumerFactory<>(props);
     }
-    
+
     // 발주/재고관리용 ProducerFactory
     @Bean
     public ProducerFactory<String, Object> purchaseOrderProducerFactory() {

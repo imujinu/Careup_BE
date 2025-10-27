@@ -1,15 +1,19 @@
 package com.careup.branch.domain.employee.service;
 
+import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.repository.BranchRepository;
+import com.careup.branch.domain.chat.service.ChatUserService;
 import com.careup.branch.domain.employee.config.AttendanceWindowProperties;
 import com.careup.branch.domain.employee.dto.request.AttendanceActionRequest;
 import com.careup.branch.domain.employee.dto.request.ScheduleEventUpdateDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleEventDetailDto;
-import com.careup.branch.domain.employee.entity.AttendanceStatus;
-import com.careup.branch.domain.employee.entity.Schedule;
-import com.careup.branch.domain.employee.entity.ScheduleEvent;
-import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import com.careup.branch.domain.employee.entity.*;
+import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
+import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleEventRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
+import com.careup.branch.domain.notification.dto.SseNotificationResDto;
+import com.careup.branch.domain.notification.service.SseAlarmService;
 import jakarta.persistence.EntityNotFoundException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,9 +21,11 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +41,11 @@ public class AttendanceService {
     private final GeofenceValidator geofenceValidator;
     private final Clock clock;
     private final AttendanceWindowProperties windowProps;
-
+    private final SseAlarmService sseAlarmService;
     private static final long CHECKOUT_BLOCK_AFTER_MINUTES = 180;
+    private final BranchRepository branchRepository;
+    private final DispatchStatusRepository dispatchStatusRepository;
+    private final EmployeeRepository employeeRepository;
 
     public ScheduleEventDetailDto detail(Long scheduleId) {
         var auth = authz.readAuth();
@@ -48,12 +57,20 @@ public class AttendanceService {
         return ScheduleEventDetailDto.of(s, e, st);
     }
 
+    //[ 출근 ]
     @Transactional
     public ScheduleEventDetailDto clockIn(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
+
+        //[알림 - 출근]
+        Employee owner = getOwner();
+        Employee employee = getEmployee();
+        SseNotificationResDto dto = SseNotificationResDto.attendanceCheckIn(owner.getEmail(), employee.getName());
+        sseAlarmService.publishNotification(dto);
+
         return clockInAt(scheduleId, lat, lng, acc, ts);
     }
 
@@ -72,15 +89,22 @@ public class AttendanceService {
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
+
         return breakEndAt(scheduleId, lat, lng, acc, ts);
     }
-
+    // [ 퇴근 ]
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
     public ScheduleEventDetailDto clockOut(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
+
+        //[알림 - 퇴근]
+        Employee owner = getOwner();
+        Employee employee = getEmployee();
+        SseNotificationResDto dto = SseNotificationResDto.attendanceCheckOut(owner.getEmail(), employee.getName());
+        sseAlarmService.publishNotification(dto);
         return clockOutAt(scheduleId, lat, lng, acc, ts);
     }
 
@@ -372,5 +396,26 @@ public class AttendanceService {
     private LocalDateTime resolveActionAt(AttendanceActionRequest req) {
         if (req != null && req.getAt() != null) return req.getAt();
         return LocalDateTime.now(clock);
+    }
+
+    public Employee getOwner(){
+        Long branchId = ChatUserService.getBranchIdFromToken();
+
+        List<DispatchStatus> list = dispatchStatusRepository.findAllByBranchId(branchId);
+
+        //  HQ_ADMIN,           /// 본사(본점) 관리자
+        //    BRANCH_ADMIN,       /// 지점(직영) 관리자
+        //    FRANCHISE_OWNER,
+        return list.stream()
+                .filter(em -> em.getEmployee().getAuthorityType().equals(AuthorityType.HQ_ADMIN)
+                        || em.getEmployee().getAuthorityType().equals(AuthorityType.BRANCH_ADMIN)
+                        || em.getEmployee().getAuthorityType().equals(AuthorityType.FRANCHISE_OWNER))
+                .findFirst().orElseThrow(()-> new EntityNotFoundException("관리자가 존재하지 않습니다.")).getEmployee();
+
+    }
+
+    public Employee getEmployee() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return employeeRepository.findByEmail(email).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 직원입니다."));
     }
 }

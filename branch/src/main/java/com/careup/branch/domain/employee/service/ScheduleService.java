@@ -60,7 +60,6 @@ public class ScheduleService {
     public Map<String, Object> massValidate(ScheduleMassCreateDto dto) {
         return validator.massValidate(dto);
     }
-
     public List<ScheduleListDto> listAll(LocalDate from, LocalDate to) {
         var auth = authz.readAuth();
         return query.listAll(auth, from, to);

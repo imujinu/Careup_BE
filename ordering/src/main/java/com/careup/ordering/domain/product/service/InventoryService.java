@@ -1,6 +1,8 @@
 package com.careup.ordering.domain.product.service;
 
 import com.careup.ordering.common.service.DistributedLockService;
+import com.careup.ordering.domain.notification.NotificationService;
+import com.careup.ordering.domain.notification.SseNotificationResDto;
 import com.careup.ordering.domain.product.dto.BranchProductResponseDto;
 import com.careup.ordering.domain.product.dto.PromotionPriceDto;
 import com.careup.ordering.domain.product.entity.BranchProduct;
@@ -11,6 +13,7 @@ import com.careup.ordering.domain.product.repository.InventoryFlowDetailReposito
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
@@ -43,7 +46,8 @@ public class InventoryService {
     
     private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
     private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
-    
+    private final NotificationService notificationService;
+
     // 권한분리
     
     // 본사 관리자인지 확인
@@ -381,7 +385,7 @@ public class InventoryService {
     }
 
     // 재고 증감 (분산 락 적용)
-    public void adjustStock(Long branchProductId, Long quantity, String type, String reason, Authentication auth) {
+    public void adjustStock(Long branchProductId, long quantity, String type, String reason, Authentication auth) {
         // BranchProduct를 조회해서 권한 체크
         BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
                 .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
@@ -389,7 +393,10 @@ public class InventoryService {
         if (auth != null) {
             validateBranchAccess(auth, branchProduct.getBranchId());
         }
-        
+
+
+        SseNotificationResDto dto = SseNotificationResDto.stockUpdated(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
+        notificationService.publishNotification(dto);
         // 분산 락 동시성 제어
         distributedLockService.executeInventoryLock(branchProductId, () -> {
             return performStockAdjustment(branchProductId, quantity, type, reason);

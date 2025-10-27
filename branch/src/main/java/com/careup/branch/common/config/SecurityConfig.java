@@ -50,7 +50,8 @@ public class SecurityConfig {
                         "/purchase-orders/**",
                         "/api/products/public/**",
                         "/sales-forecast/**",
-                        "/sales/**"
+                        "/sales/**",
+                        "/chatbot/**"
                 ).permitAll()
                 .anyRequest().authenticated()
         );

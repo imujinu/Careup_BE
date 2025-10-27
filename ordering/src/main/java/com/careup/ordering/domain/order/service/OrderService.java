@@ -1,7 +1,11 @@
 package com.careup.ordering.domain.order.service;
 
+import com.careup.ordering.common.client.BranchClient;
+import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
+import com.careup.ordering.domain.notification.NotificationService;
+import com.careup.ordering.domain.notification.SseNotificationResDto;
 import com.careup.ordering.domain.order.dto.*;
 import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.entity.OrderedItem;
@@ -30,7 +34,7 @@ public class OrderService {
     private final MemberRepository memberRepository;
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
-
+    private final NotificationService notificationService;
     /**
      * 주문 생성
      */
@@ -115,6 +119,10 @@ public class OrderService {
         orderedItemRepository.saveAll(orderedItems);
         log.info("주문 상품 생성 완료 - 총 {}개", orderedItems.size());
 
+
+        SseNotificationResDto dto = SseNotificationResDto.orderPlaced(savedOrder.getBranchId(), savedOrder.getId());
+        notificationService.publishNotification(dto);
+
         return convertToResponseDto(savedOrder, orderedItems);
     }
 
@@ -169,7 +177,8 @@ public class OrderService {
         order.approve(approvedBy);
 
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
-
+        SseNotificationResDto dto = SseNotificationResDto.orderApproved(order.getBranchId(), order.getId());
+        notificationService.publishNotification(dto);
         return convertToResponseDto(order, items);
     }
 
@@ -200,6 +209,9 @@ public class OrderService {
                     branchProduct.getId(), item.getQuantity());
         }
 
+        SseNotificationResDto dto = SseNotificationResDto.orderRejected(order.getBranchId(), order.getId(), reason);
+        notificationService.publishNotification(dto);
+
         return convertToResponseDto(order, items);
     }
 
@@ -225,7 +237,10 @@ public class OrderService {
                     .remark("주문 취소 - 주문 ID: " + orderId)
                     .build();
             inventoryFlowDetailRepository.save(flowDetail);
-            
+
+            SseNotificationResDto dto = SseNotificationResDto.orderCanceled(order.getBranchId(), order.getId());
+            notificationService.publishNotification(dto);
+
             log.info("재고 복구 - branchProductId: {}, 복구량: {}", 
                     branchProduct.getId(), item.getQuantity());
         }

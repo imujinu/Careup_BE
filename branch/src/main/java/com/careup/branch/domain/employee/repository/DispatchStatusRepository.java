@@ -97,4 +97,14 @@ public interface DispatchStatusRepository extends JpaRepository<DispatchStatus, 
             @Param("branchId") Long branchId,
             @Param("currentDate") LocalDate currentDate
     );
+
+
+    Optional<DispatchStatus> findByEmployee(Employee employee);
+
+
+    List<DispatchStatus> findAllByBranchId(Long branchId);
+
+    @Query("SELECT ds FROM DispatchStatus ds JOIN FETCH ds.employee WHERE ds.branch = :branch")
+    List<DispatchStatus> findAllByBranch(Branch branch);
+
 }
