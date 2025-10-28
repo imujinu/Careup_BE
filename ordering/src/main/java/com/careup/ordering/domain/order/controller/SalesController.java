@@ -32,7 +32,7 @@ public class SalesController {
      * GET /sales/statistics?branchId=1&startDate=2025-01-01&endDate=2025-01-31&periodType=DAY
      */
     @GetMapping("/statistics")
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
+//    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getSalesStatistics(
             @RequestParam Long branchId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
