@@ -251,16 +251,16 @@ public class ProductService {
     }
 
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 없음
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 지원
      * ⭐ visibility=ALL인 활성 상품만 반환
      */
     @Transactional(readOnly = true)
-    public List<ProductWithBranchesDto> getPublicProductsWithBranches() {
-        // 활성화 + visibility=ALL 필터링 (전체 조회)
-        Page<Product> productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, Pageable.unpaged());
+    public Page<ProductWithBranchesDto> getPublicProductsWithBranches(Pageable pageable) {
+        // 활성화 + visibility=ALL 필터링
+        Page<Product> productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
         List<Product> products = productsPage.getContent();
 
-        return products.stream()
+        List<ProductWithBranchesDto> result = products.stream()
                 .map(product -> {
                     // 해당 상품을 판매하는 모든 지점 정보 조회
                     List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
@@ -289,6 +289,9 @@ public class ProductService {
                 })
                 .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
                 .collect(Collectors.toList());
+
+        // Page 객체로 변환
+        return new PageImpl<>(result, pageable, productsPage.getTotalElements());
     }
 
     /**

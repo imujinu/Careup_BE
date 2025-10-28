@@ -34,7 +34,7 @@ public class ProductController {
      */
     @GetMapping("/public/products")
     public ResponseEntity<ResponseDto<Page<ProductResponseDto>>> getPublicProducts(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
         log.info("고객용 상품 목록 조회 - 페이지: {}, 사이즈: {}", pageable.getPageNumber(), pageable.getPageSize());
 
@@ -43,14 +43,16 @@ public class ProductController {
     }
 
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션
      *  visibility=ALL인 활성 상품만 반환
      */
     @GetMapping("/public/products/with-branches")
-    public ResponseEntity<ResponseDto<List<ProductWithBranchesDto>>> getPublicProductsWithBranches() {
-        log.info("고객용 상품 목록 조회 (지점 정보 포함)");
+    public ResponseEntity<ResponseDto<Page<ProductWithBranchesDto>>> getPublicProductsWithBranches(
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
+            Pageable pageable) {
+        log.info("고객용 상품 목록 조회 (지점 정보 포함) - 페이지: {}, 사이즈: {}", pageable.getPageNumber(), pageable.getPageSize());
 
-        List<ProductWithBranchesDto> response = productService.getPublicProductsWithBranches();
+        Page<ProductWithBranchesDto> response = productService.getPublicProductsWithBranches(pageable);
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
     }
 
@@ -61,7 +63,7 @@ public class ProductController {
     @GetMapping("/public/products/search")
     public ResponseEntity<ResponseDto<Page<ProductWithBranchesDto>>> searchPublicProductsWithBranches(
             @RequestParam String keyword,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
         log.info("고객용 상품 검색 - 키워드: {}, 페이지: {}, 사이즈: {}", keyword, pageable.getPageNumber(), pageable.getPageSize());
 
@@ -107,7 +109,7 @@ public class ProductController {
      */
     @GetMapping("/products")
     public ResponseEntity<ResponseDto<Page<ProductResponseDto>>> getProducts(
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
 
         log.info("상품 목록 조회 - 페이지: {}, 사이즈: {}", pageable.getPageNumber(), pageable.getPageSize());
@@ -133,7 +135,7 @@ public class ProductController {
     @GetMapping("/products/category/{categoryId}")
     public ResponseEntity<ResponseDto<Page<ProductResponseDto>>> getProductsByCategory(
             @PathVariable Long categoryId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
 
         log.info("카테고리별 상품 조회 - categoryId: {}", categoryId);
@@ -148,7 +150,7 @@ public class ProductController {
     @GetMapping("/products/search")
     public ResponseEntity<ResponseDto<Page<ProductResponseDto>>> searchProducts(
             @RequestParam String keyword,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
 
         log.info("상품 검색 - keyword: {}", keyword);
@@ -164,7 +166,7 @@ public class ProductController {
     public ResponseEntity<ResponseDto<Page<ProductResponseDto>>> searchProductsByCategory(
             @PathVariable Long categoryId,
             @RequestParam String keyword,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+            @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
 
         log.info("카테고리별 상품 검색 - categoryId: {}, keyword: {}", categoryId, keyword);
