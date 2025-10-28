@@ -177,7 +177,7 @@ public class OrderService {
         order.approve(approvedBy);
 
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
-        SseNotificationResDto dto = SseNotificationResDto.orderApproved(order.getBranchId(), order.getId());
+        SseNotificationResDto dto = SseNotificationResDto.orderApproved(order.getBranchId(), order.getId(), approvedBy);
         notificationService.publishNotification(dto);
         return convertToResponseDto(order, items);
     }

@@ -21,17 +21,17 @@ public class SseNotificationResDto {
                 .branchId(branchId)
                 .eventName("ORDER")
                 .title("🛒 신규 주문 발생")
-                .body(String.format("주문 번호 %s 가 접수되었습니다.", orderId))
+                .body(String.format("주문 번호 %d 가 접수되었습니다.", orderId))
                 .action("ORDER_PLACED")
                 .build();
     }
     /** ✅ 주문 승인 알림 */
-    public static SseNotificationResDto orderApproved(Long branchId, Long orderId) {
+    public static SseNotificationResDto orderApproved(Long branchId, Long orderId, Long approvedBy) {
         return SseNotificationResDto.builder()
                 .branchId(branchId)
                 .eventName("ORDER")
                 .title("✅ 주문 승인 완료")
-                .body(String.format("%s 님이 주문 번호 %d 을(를) 승인했습니다.", orderId))
+                .body(String.format("직원 ID %d 님이 주문 번호 %d 을(를) 승인했습니다.", approvedBy, orderId))
                 .action("ORDER_APPROVED")
                 .build();
     }
@@ -42,7 +42,7 @@ public class SseNotificationResDto {
                 .branchId(branchId)
                 .eventName("ORDER")
                 .title("❌ 주문 거부")
-                .body(String.format("%s 님이 주문 번호 %d 을(를) 거부했습니다.\n사유: %s", orderId, reason))
+                .body(String.format("주문 번호 %d 이(가) 거부되었습니다.\n사유: %s", orderId, reason))
                 .action("ORDER_REJECTED")
                 .build();
     }
@@ -53,7 +53,7 @@ public class SseNotificationResDto {
                 .branchId(branchId)
                 .eventName("ORDER")
                 .title("🔄 주문 취소")
-                .body(String.format("%s 님이 주문 번호 %d 을(를) 취소했습니다.", orderId))
+                .body(String.format("주문 번호 %d 이(가) 취소되었습니다.", orderId))
                 .action("ORDER_CANCELED")
                 .build();
     }
