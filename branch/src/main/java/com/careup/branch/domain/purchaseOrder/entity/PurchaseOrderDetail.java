@@ -39,6 +39,10 @@ public class PurchaseOrderDetail {
     @Column(name = "product_id", nullable = false)
     private long productId;
     
+    // 상품명
+    @Column(name = "product_name", nullable = false)
+    private String productName;
+    
     // 승인 수량 설정
     public void setApprovedQuantity(int approvedQuantity) {
         this.approvedQuantity = approvedQuantity;

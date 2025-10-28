@@ -83,14 +83,19 @@ public class PurchaseOrderService {
         // 5) 상세 저장
         List<PurchaseOrderDetail> orderDetails = details.stream()
                 .filter(detail -> detail.getQuantity() > 0)
-                .map(detailDto -> PurchaseOrderDetail.builder()
-                        .purchaseOrder(savedOrder)
-                        .productId(detailDto.getProductId())
-                        .quantity(detailDto.getQuantity())
-                        .approvedQuantity(0)
-                        .unitPrice(detailDto.getSupplyPrice())
-                        .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
-                        .build())
+                .map(detailDto -> {
+                    // 상품명 조회
+                    String productName = getProductName(detailDto.getProductId());
+                    return PurchaseOrderDetail.builder()
+                            .purchaseOrder(savedOrder)
+                            .productId(detailDto.getProductId())
+                            .productName(productName)
+                            .quantity(detailDto.getQuantity())
+                            .approvedQuantity(0)
+                            .unitPrice(detailDto.getSupplyPrice())
+                            .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
