@@ -1,6 +1,15 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
 import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.chat.service.ChatUserService;
+import com.careup.branch.domain.employee.entity.AuthorityType;
+import com.careup.branch.domain.employee.entity.DispatchStatus;
+import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
+import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.employee.service.AttendanceService;
+import com.careup.branch.domain.notification.dto.SseNotificationResDto;
+import com.careup.branch.domain.notification.service.SseAlarmService;
 import com.careup.branch.common.client.OrderingInventoryClient.ResponseDto;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.entity.Employee;
@@ -15,10 +24,12 @@ import com.careup.branch.domain.purchaseOrder.entity.PurchaseOrderDetail;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderDetailRepository;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderRepository;
 import io.jsonwebtoken.Claims;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,7 +52,11 @@ public class PurchaseOrderService {
     private final PurchaseOrderDetailRepository purchaseOrderDetailRepository;
     private final KafkaTemplate<String, Object> purchaseOrderKafkaTemplate;
     private final OrderingInventoryClient orderingInventoryClient;
+
+    private final DispatchStatusRepository dispatchStatusRepository;
     private final EmployeeRepository employeeRepository;
+    private final SseAlarmService sseAlarmService;
+
     private final BranchRepository branchRepository;
 
     // 발주 생성 (가맹점용)
@@ -79,6 +94,15 @@ public class PurchaseOrderService {
                 .collect(Collectors.toList());
 
         List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
+
+        //[알림 - 발주 요청]
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(1L);
+        for(DispatchStatus ds : employees){
+        SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "REQUESTED");
+        sseAlarmService.publishNotification(dto);
+        }
+
+
 
         return convertToResponseDto(savedOrder, savedDetails);
     }
@@ -282,6 +306,14 @@ public class PurchaseOrderService {
         orderDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
 
         publishPurchaseOrderApprovedEvent(savedOrder, orderDetails);
+
+        //[알림 - 발주 승인]
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
+        for(DispatchStatus ds : employees){
+            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
+            sseAlarmService.publishNotification(dto);
+        }
+
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
@@ -299,6 +331,13 @@ public class PurchaseOrderService {
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+
+        //[알림 - 발주 반려]
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
+        for(DispatchStatus ds : employees){
+            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
+            sseAlarmService.publishNotification(dto);
+        }
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
@@ -323,6 +362,13 @@ public class PurchaseOrderService {
 
         publishPartialApprovedEvent(savedOrder, savedDetails);
 
+
+        //[알림 - 발주 반려]
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
+        for(DispatchStatus ds : employees){
+            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "PARTIALLY_APPROVED");
+            sseAlarmService.publishNotification(dto);
+        }
         return convertToResponseDto(savedOrder, savedDetails);
     }
 
@@ -604,5 +650,26 @@ public class PurchaseOrderService {
                 .createdAt(purchaseOrder.getCreatedAt())
                 .updatedAt(purchaseOrder.getUpdatedAt())
                 .build();
+    }
+
+    public Employee getOwner(){
+        Long branchId = ChatUserService.getBranchIdFromToken();
+
+        List<DispatchStatus> list = dispatchStatusRepository.findAllByBranchId(branchId);
+
+        //  HQ_ADMIN,           /// 본사(본점) 관리자
+        //    BRANCH_ADMIN,       /// 지점(직영) 관리자
+        //    FRANCHISE_OWNER,
+        return list.stream()
+                .filter(em -> em.getEmployee().getAuthorityType().equals(AuthorityType.HQ_ADMIN)
+                        || em.getEmployee().getAuthorityType().equals(AuthorityType.BRANCH_ADMIN)
+                        || em.getEmployee().getAuthorityType().equals(AuthorityType.FRANCHISE_OWNER))
+                .findFirst().orElseThrow(()-> new EntityNotFoundException("관리자가 존재하지 않습니다.")).getEmployee();
+
+    }
+
+    public Employee getEmployee() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return employeeRepository.findByEmail(email).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 직원입니다."));
     }
 }

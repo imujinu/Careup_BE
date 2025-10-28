@@ -30,10 +30,10 @@ public class FeignConfig {
             if (attributes != null) {
                 HttpServletRequest request = attributes.getRequest();
                 String authorizationHeader = request.getHeader("Authorization");
-                
+
                 if (authorizationHeader != null && authorizationHeader.startsWith("Bearer ")) {
                     requestTemplate.header("Authorization", authorizationHeader);
-                    log.debug("Added Authorization header to Feign request: {}", 
+                    log.debug("Added Authorization header to Feign request: {}",
                         authorizationHeader.substring(0, Math.min(20, authorizationHeader.length())) + "...");
                     return;
                 }
@@ -50,7 +50,7 @@ public class FeignConfig {
                     log.debug("Added Authorization header from SecurityContext to Feign request");
                 }
             } else {
-                log.warn("No authentication information available for Feign request to: {}", 
+                log.warn("No authentication information available for Feign request to: {}",
                     requestTemplate.url());
             }
         }

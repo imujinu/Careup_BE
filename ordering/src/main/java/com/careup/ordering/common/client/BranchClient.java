@@ -1,8 +1,10 @@
 package com.careup.ordering.common.client;
 
+import com.careup.ordering.common.dto.CommonSuccessDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -30,4 +32,13 @@ public interface BranchClient {
      */
     @GetMapping("/sales-forecast/branch/{branchId}")
     Map<String, Object> getBranchSalesForecast(@PathVariable("branchId") Long branchId);
+
+    /**
+     * 주문 생성 알림
+     */
+
+    @GetMapping("/employees/chat/list")
+    CommonSuccessDto getAllEmployees(
+            @RequestHeader("Authorization") String token
+    );
 }

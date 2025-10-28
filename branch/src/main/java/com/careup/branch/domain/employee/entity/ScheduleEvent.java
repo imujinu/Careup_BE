@@ -63,6 +63,9 @@ public class ScheduleEvent extends BaseTimeEntity {
     @Column(name = "total_break_minutes", nullable = false)
     private int totalBreakMinutes;
 
+    @Column(name = "attendance_status", nullable = true)
+    private AttendanceStatus attendanceStatus;
+
     public void changeEventDate(LocalDate v) { this.eventDate = v; }
     public void changeClockIn(LocalDateTime v) { this.clockInAt = v; }
     public void changeBreakStart(LocalDateTime v) { this.breakStartAt = v; }

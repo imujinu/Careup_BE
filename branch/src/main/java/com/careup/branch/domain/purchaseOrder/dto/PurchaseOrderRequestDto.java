@@ -28,5 +28,19 @@ public class PurchaseOrderRequestDto {
         private int quantity; // 수량
         private Long supplyPrice; // 공급가
     }
+
+    public PurchaseOrderRequestDto makeOrder(Long branchId, List<PurchaseOrderDetailRequestDto> list){
+        return PurchaseOrderRequestDto.builder()
+                .branchId(branchId)
+                .orderDetails(list)
+                .build();
+    }
+
+    public PurchaseOrderDetailRequestDto makeOrderDetail(Long productId, int quantity){
+        return PurchaseOrderDetailRequestDto.builder()
+                .productId(productId)
+                .quantity(quantity)
+                .build();
+    }
 }
 

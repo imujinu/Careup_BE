@@ -35,4 +35,19 @@ public class SalesForecast extends BaseTimeEntity {
     //종료 기간
     @Column(name="period_end", nullable = false)
     private Date period_end;
+
+    /**
+     * 예상 매출액 업데이트
+     */
+    public void updateAmount(Long newAmount) {
+        this.amount = newAmount;
+    }
+
+    /**
+     * 예상 매출 기간 업데이트
+     */
+    public void updatePeriod(Date periodStart, Date periodEnd) {
+        this.periodStart = periodStart;
+        this.period_end = periodEnd;
+    }
 }
