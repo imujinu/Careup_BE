@@ -58,6 +58,12 @@ spring:
             - Path=/auth/customers/**
           uri: lb://ordering-service
 
+        # 자동 발주
+        - id: branch-auto-order-apis
+          predicates:
+            - Path=/api/auto-order/**
+          uri: lb://branch-service
+
         # 공개 상품/카테고리/재고 조회 등
         - id: ordering-public-apis
           predicates:

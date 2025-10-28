@@ -47,4 +47,9 @@ public class PurchaseOrderDetail {
     public void setApprovedQuantity(int approvedQuantity) {
         this.approvedQuantity = approvedQuantity;
     }
+    
+    // 발주 설정
+    public void setPurchaseOrder(PurchaseOrder purchaseOrder) {
+        this.purchaseOrder = purchaseOrder;
+    }
 }
