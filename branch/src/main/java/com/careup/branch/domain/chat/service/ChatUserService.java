@@ -6,6 +6,7 @@ import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.chat.dto.SalesStatisticsDto;
+import com.careup.branch.domain.chat.dto.res.attendance.AttendanceAllResDto;
 import com.careup.branch.domain.chat.dto.res.attendance.AttendanceCompareResDto;
 import com.careup.branch.domain.chat.dto.res.attendance.AttendanceModifyRequestDto;
 import com.careup.branch.domain.chat.dto.res.attendance.TodayAttendanceResDto;
@@ -113,7 +114,19 @@ public class ChatUserService {
                 else if (params.has("allAttendance")) {
                     List<ScheduleListDto> list = scheduleService.listAll(startDate, endDate);
                     AttendanceCompareResDto resultDto = AttendanceCompareResDto.makeDto(list, branch.getName(), startDate,endDate);
-                    return ResponseEntity.ok(resultDto);
+                    List<AttendanceTemplateListDto> template = attendanceTemplateRepository.findAll().stream()
+                            .map(AttendanceTemplateListDto::fromEntity)
+                            .collect(Collectors.toList());
+                    List<LeaveTypeDetailDto> leaveDtos = leaveTypeRepository.findAll().stream().map(LeaveTypeDetailDto::fromEntity).collect(Collectors.toList());
+                    List<WorkTypeDetailDto> workDtos = workTypeRepository.findAll().stream().map(WorkTypeDetailDto::fromEntity).collect(Collectors.toList());
+                    AttendanceAllResDto response = AttendanceAllResDto.builder()
+                            .attendance(resultDto)
+                            .templates(template)
+                            .leaveTypes(leaveDtos)
+                            .workTypes(workDtos)
+                            .build();
+
+                    return ResponseEntity.ok(response);
                 }
                 //특정 직원 근태 조회
                 else if (params.has("employees")){
@@ -136,25 +149,11 @@ public class ChatUserService {
                 }
 
             }
-            case "COMPARE" ->{
-                if (params.has("employees")){
+            //[ 근태 수정 ]
+            case "PATCH" ->{
 
-                    List<String> employees = new ArrayList<>();
 
-                    JSONArray arr = params.getJSONArray("employees");
-                    for (int i = 0; i < arr.length(); i++) {
-                        employees.add(arr.getString(i));
-                    }
-
-                    List<ScheduleListDto> list  = scheduleService.listAll(startDate,endDate)
-                            .stream()
-                            .filter(s -> employees.stream().anyMatch(name -> s.getEmployeeName().contains(name)))
-                            .collect(Collectors.toList());
-                    AttendanceCompareResDto resultDto = AttendanceCompareResDto.makeDto(list, branch.getName(), startDate,endDate);
-                    return ResponseEntity.ok(resultDto);
-                }else{
-                    throw new IllegalArgumentException("지원하지 않는 action: " + action);
-                }
+                return null;
             }
             case "CALCULATE" ->{
                 ZoneId zone = ZoneId.of("Asia/Seoul");
@@ -446,15 +445,6 @@ public class ChatUserService {
                 ResponseEntity<?> result = purchaseOrderController.createPurchaseOrder(requestDto);
                 return result;
             }
-//            case "PATCH" -> {
-//                String id = json.path("id").asText();
-//                int newAmount = json.path("amount").asInt();
-//                return salesService.updateSales(id, newAmount);
-//            }
-//            case "DELETE" -> {
-//                String id = json.path("id").asText();
-//                return salesService.deleteSales(id);
-//            }
             default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
         }
     }
