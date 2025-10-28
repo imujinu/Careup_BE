@@ -4,17 +4,29 @@ import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.domain.branch.dto.branch.*;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
+import com.careup.branch.domain.employee.entity.AuthorityType;
+import com.careup.branch.domain.employee.entity.DispatchStatus;
+import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
+import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import io.jsonwebtoken.Claims;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,6 +37,8 @@ public class BranchService {
 
     private final BranchRepository branchRepository;
     private final AwsS3Uploader awsS3Uploader;
+    private final EmployeeRepository employeeRepository;
+    private final DispatchStatusRepository dispatchStatusRepository;
 
     // 지점 등록
     public Branch registerBranch(BranchRegisterReqDto dto, MultipartFile profileImage) {
@@ -295,5 +309,108 @@ public class BranchService {
                 latitude, longitude, radiusKm, nearbyBranches.size());
 
         return nearbyBranches;
+    }
+
+    /**
+     * 직영점/가맹점 관리자(BRANCH_ADMIN, FRANCHISE_OWNER)의 소속 지점 조회
+     * JWT 토큰에서 employeeId를 추출하여 해당 직원의 현재 배치된 지점 정보와 점주 정보를 조회
+     */
+    @Transactional(readOnly = true)
+    public MyBranchDto getMyBranch() {
+        // 1. 인증 정보 추출
+        Auth auth = readAuth();
+
+        // 2. 권한 확인 (BRANCH_ADMIN 또는 FRANCHISE_OWNER만 허용)
+        if (!auth.isBranchOrFranchiseAdmin()) {
+            throw new AccessDeniedException("직영점/가맹점 관리자만 조회할 수 있습니다.");
+        }
+
+        // 3. 직원 정보 조회
+        Employee employee = employeeRepository.findById(auth.employeeId())
+                .orElseThrow(() -> new IllegalArgumentException("직원 정보를 찾을 수 없습니다."));
+
+        // 4. 현재 배치된 지점 조회
+        LocalDate today = LocalDate.now();
+        Optional<DispatchStatus> currentDispatch = dispatchStatusRepository
+                .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
+                        employee, "N", today, today
+                );
+
+        if (currentDispatch.isEmpty()) {
+            throw new IllegalArgumentException("현재 배치된 지점이 없습니다.");
+        }
+
+        Branch branch = currentDispatch.get().getBranch();
+
+        log.info("내 소속 지점 조회 - 직원: {} ({}), 지점: {} ({})",
+                employee.getName(), employee.getId(), branch.getName(), branch.getId());
+
+        // 5. 점주 정보 조회 (해당 지점의 BRANCH_ADMIN 또는 FRANCHISE_OWNER)
+        MyBranchDto.OwnerInfoDto ownerInfo = findBranchOwner(branch, today);
+
+        // 6. DTO 반환
+        return MyBranchDto.fromEntity(branch, ownerInfo);
+    }
+
+    /**
+     * 지점의 점주(BRANCH_ADMIN 또는 FRANCHISE_OWNER) 정보 조회
+     */
+    private MyBranchDto.OwnerInfoDto findBranchOwner(Branch branch, LocalDate today) {
+        // 해당 지점에 배치된 직원 중 BRANCH_ADMIN 또는 FRANCHISE_OWNER 권한을 가진 직원 조회
+        List<DispatchStatus> dispatches = dispatchStatusRepository
+                .findByBranchInAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+                        List.of(branch), "N", today, today
+                );
+
+        Optional<Employee> owner = dispatches.stream()
+                .map(DispatchStatus::getEmployee)
+                .filter(emp -> emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
+                            || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
+                .findFirst();
+
+        if (owner.isEmpty()) {
+            log.warn("지점 {} ({})에 점주 정보가 없습니다.", branch.getName(), branch.getId());
+            return null;
+        }
+
+        Employee ownerEmployee = owner.get();
+        return MyBranchDto.OwnerInfoDto.builder()
+                .employeeId(ownerEmployee.getId())
+                .employeeNumber(ownerEmployee.getEmployeeNumber())
+                .name(ownerEmployee.getName())
+                .email(ownerEmployee.getEmail())
+                .mobile(ownerEmployee.getMobile())
+                .authorityType(ownerEmployee.getAuthorityType().name())
+                .profileImageUrl(ownerEmployee.getProfileImageUrl())
+                .build();
+    }
+
+    /**
+     * 인증 정보 추출 헬퍼 메서드
+     */
+    private Auth readAuth() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getDetails() == null || !authentication.isAuthenticated()) {
+            throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+        }
+        Object details = authentication.getDetails();
+        if (!(details instanceof Claims claims)) {
+            throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+        }
+        Long employeeId = claims.get("employeeId", Long.class);
+        String role = String.valueOf(claims.get("role"));
+        if (employeeId == null || role == null) {
+            throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+        }
+        return new Auth(employeeId, role);
+    }
+
+    /**
+     * 인증 정보 레코드
+     */
+    private record Auth(Long employeeId, String role) {
+        public boolean isBranchOrFranchiseAdmin() {
+            return "BRANCH_ADMIN".equals(role) || "FRANCHISE_OWNER".equals(role);
+        }
     }
 }
