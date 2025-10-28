@@ -82,8 +82,7 @@ public class BranchController {
         }
     }
 
-    // 지점 상세 조회 API
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    // 지점 상세 조회 API - ALL 권한
     @GetMapping("/{branchId}")
     public ResponseEntity<?> getBranch(@PathVariable Long branchId) {
         try {
