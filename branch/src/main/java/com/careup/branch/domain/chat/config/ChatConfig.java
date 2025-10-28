@@ -106,12 +106,13 @@ Rules:
     * If the user requests "상품별 매출", "제품별 매출", or "각 상품 매출", include `"productSales": true`.
     * If `productSales` or `products` are missing, assume total branch or overall sales.
 - For attendance queries:
-   * If the user asks for "근태 전체 목록", "전체 직원 근태 조회", "근태 목록", "전체 근태 조회", or similar,
-                                 set `"intent": "ATTENDANCE"`, `"action": "GET"`,
-                                 and include `"allAttendance": true`, `"periodType": "MONTH"`,
-    * If the user is a manager comparing employees' attendance ("김민수와 박진우 근태 비교", "직원 근태 비교"), 
-      set `"action": "COMPARE"`, and include `"employees": ["김민수","박진우"]` with `"compareBy": "attendance"`.
-    * Attendance comparisons are made after fetching all records, by filtering based on the listed employees.
+    * If the user asks for "근태 전체 목록", "전체 직원 근태 조회", "근태 목록", "전체 근태 조회", or similar,
+        set `"intent": "ATTENDANCE"`, `"action": "GET"`,
+     and include `"allAttendance": true`, `"periodType": "MONTH"`,
+     and also ensure `"parameters": {"allAttendance": true}` is included in the final JSON.
+     * If the user is a manager comparing employees' attendance ("김민수와 박진우 근태 비교", "직원 근태 비교"),\s
+     set `"action": "COMPARE"`, and include `"employees": ["김민수","박진우"]` with `"compareBy": "attendance"`.
+     * Attendance comparisons are made after fetching all records, by filtering based on the listed employees.
 
     --- 
     ADDITIONAL RULES (ENHANCED LOGIC)
@@ -142,6 +143,36 @@ Rules:
       Only when the user explicitly uses comparison words (e.g., "비교", "차이", "누가 더"), 
       should `"action": "COMPARE"` be applied.
     ---
+    
+    ✅ NEW FEATURE: PAYROLL CALCULATION (인건비 계산)
+                        
+                            - When the user requests an "인건비 계산" or uses expressions like\s
+                              "이번 주 인건비", "지난주 인건비", "오늘 인건비", or "인건비 효율 확인",
+                              set `"intent": "ATTENDANCE"` and `"action": "CALCULATE"`.
+                        
+                            - The assistant (you) will:
+                              1. Retrieve last week's hourly sales and last week's work schedules.
+                              2. Calculate the **average labor cost per hour**.
+                              3. Compare today's labor cost ratio against sales to determine efficiency.
+                              4. Look up next week's schedule for the **same weekday** and determine if staffing is:
+                                 - `"adequate"` (적정),
+                                 - `"insufficient"` (부족),
+                                 - `"excessive"` (과잉).
+                              5. Suggest schedule adjustments based on predefined schedule templates.
+                        
+                            - Parameters must include:
+                              ```json
+                              {
+                                "intent": "ATTENDANCE",
+                                "action": "CALCULATE",
+                                "parameters": {
+                                  "calculateType": "PAYROLL",
+                                  "comparisonBasis": "LAST_WEEK",
+                                  "periodType": "DAY",
+                                  "evaluation": ["adequate", "insufficient", "excessive"],
+                                  "scheduleTemplate": true
+                                }
+                              }
 
 - For inventory (STOCK):
     * "입고", "추가" → `"action": "CREATE"`
@@ -190,28 +221,24 @@ Examples:
 
     //근태 수정 제안
     @Bean("attendanceSuggestionClient")
-    public ChatClient attendanceSuggestionClient(OpenAiChatModel chatModel) {
+    public ChatClient attendanceModifyClient(OpenAiChatModel chatModel) {
         return ChatClient.builder(chatModel)
                 .defaultSystem("""
-        You are an AI assistant that provides work schedule and attendance improvement suggestions 
-        based on branch sales data and recent attendance logs.
-
-        Instructions:
-        - Input will include: 
-          * average sales per hour from the previous week
-          * next week's planned employee schedules
-        - Output a short, human-readable recommendation in Korean.
-        - Example:
-          "지난주 12~14시 매출이 높았으므로, 이번 주 해당 시간대에 인원을 한 명 추가하는 것을 추천합니다."
-
-        Format:
+        You are an AI assistant that recommends attendance modifications.
+        Return JSON only with:
         {
-          "recommendation": "<string>",
-          "reason": "<short explanation>"
+          "branchId": number,
+          "employeeId": number,
+          "scheduleId": number,
+          "workTypeId": number,
+          "leaveTypeId": number | null,
+          "attendanceTemplateId": number,
+          "registeredDate": "yyyy-MM-dd"
         }
         """)
                 .build();
     }
+
 
 
 

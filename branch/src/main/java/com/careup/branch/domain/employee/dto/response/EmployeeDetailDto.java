@@ -39,6 +39,7 @@ public class EmployeeDetailDto {
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Long hourlyPay;
 
     private List<EmployeeDispatchDto> dispatches;
 
@@ -69,6 +70,36 @@ public class EmployeeDetailDto {
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
                 .dispatches(dispatchDtos)
+                .build();
+    }
+
+    public static EmployeeDetailDto fromEntity(Employee e) {
+        return EmployeeDetailDto.builder()
+                .id(e.getId())
+                .employeeNumber(e.getEmployeeNumber())
+                .name(e.getName())
+                .jobGradeName(e.getJobGrade() != null ? e.getJobGrade().getName() : null)
+                .dateOfBirth(e.getDateOfBirth())
+                .gender(e.getGender())
+                .email(e.getEmail())
+                .zipcode(e.getZipcode())
+                .address(e.getAddress())
+                .addressDetail(e.getAddressDetail())
+                .mobile(e.getMobile())
+                .emergencyTel(e.getEmergencyTel())
+                .emergencyName(e.getEmergencyName())
+                .relationship(e.getRelationship())
+                .hireDate(e.getHireDate())
+                .terminateDate(e.getTerminateDate())
+                .authorityType(e.getAuthorityType())
+                .employmentStatus(e.getEmploymentStatus())
+                .employmentType(e.getEmploymentType())
+                .profileImageUrl(e.getProfileImageUrl())
+                .remark(e.getRemark())
+                .enabled(e.getEnabled())
+                .createdAt(e.getCreatedAt())
+                .updatedAt(e.getUpdatedAt())
+                .hourlyPay(e.getHourPerSalary())
                 .build();
     }
 }

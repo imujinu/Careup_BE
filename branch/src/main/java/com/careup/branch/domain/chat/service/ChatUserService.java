@@ -14,12 +14,12 @@ import com.careup.branch.domain.chat.dto.res.sales.BranchSalesDetailResponseDto;
 import com.careup.branch.domain.chat.dto.res.sales.ProductSalesResponseDto;
 import com.careup.branch.domain.chat.dto.res.sales.SalesStatisticsResponseDto;
 import com.careup.branch.domain.employee.controller.ScheduleController;
-import com.careup.branch.domain.employee.dto.response.AttendanceTemplateListDto;
-import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
+import com.careup.branch.domain.employee.dto.response.*;
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.AuthorityType;
+import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
-import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
-import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.employee.repository.*;
 import com.careup.branch.domain.employee.service.ScheduleService;
 import com.careup.branch.domain.purchaseOrder.controller.PurchaseOrderController;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
@@ -41,6 +41,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
@@ -62,7 +63,12 @@ public class ChatUserService {
     private final PurchaseOrderController purchaseOrderController;
     private final OrderingInventoryClient orderingInventoryClient;
     private final AttendanceTemplateRepository attendanceTemplateRepository;
+    private final DispatchStatusRepository dispatchStatusRepository;
+    private final LeaveTypeRepository leaveTypeRepository;
+    private final WorkTypeRepository workTypeRepository;
+
     @Autowired
+
     @Qualifier("attendanceSuggestionClient")
     private ChatClient attendanceSuggestionClient;
 
@@ -92,6 +98,7 @@ public class ChatUserService {
         Branch branch = branchRepository.findById(branchId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 지점입니다."));
         String periodType = params.optString("periodType", null);
         System.out.println(periodType);
+
         switch (action) {
             case "GET" -> {
                 //금일 근태 조회
@@ -138,6 +145,7 @@ public class ChatUserService {
                     for (int i = 0; i < arr.length(); i++) {
                         employees.add(arr.getString(i));
                     }
+
                     List<ScheduleListDto> list  = scheduleService.listAll(startDate,endDate)
                             .stream()
                             .filter(s -> employees.stream().anyMatch(name -> s.getEmployeeName().contains(name)))
@@ -148,83 +156,184 @@ public class ChatUserService {
                     throw new IllegalArgumentException("지원하지 않는 action: " + action);
                 }
             }
-            case "PATCH" ->{
+            case "CALCULATE" ->{
                 ZoneId zone = ZoneId.of("Asia/Seoul");
                 LocalDate today = LocalDate.now(zone);
                 LocalDate targetDate = today.plusDays(1);
+                LocalDate preWeek = today.minusWeeks(1).with(DayOfWeek.MONDAY);
+                LocalDate preWeek2 = today.minusWeeks(1).with(DayOfWeek.SUNDAY);
 
-                CommonSuccessDto response = client.getBranchSalesDetail(
-                        branchId,
-                        today.minusMonths(1).withDayOfMonth(1),
-                        today.minusDays(1),
-                        "HOUR"
-                );
-
-                SalesStatisticsResponseDto sales = objectMapper.convertValue(
-                        response.getResult(),
-                        SalesStatisticsResponseDto.class
-                );
+                System.out.println("전주" +preWeek + preWeek2);
+                // ✅ 1️⃣ 전주 시간대별 매출 조회
+                CommonSuccessDto salesResponse = client.getSalesStatistics(branchId, today.minusWeeks(1).with(DayOfWeek.MONDAY), today.minusWeeks(1).with(DayOfWeek.SUNDAY), "HOUR");
+                SalesStatisticsResponseDto sales = objectMapper.convertValue(salesResponse.getResult(),SalesStatisticsResponseDto.class);
                 List<SalesStatisticsDto> stats = Optional.ofNullable(sales.getStatistics())
+                                        .orElse(Collections.emptyList());
+
+                CommonSuccessDto response = client.getSalesStatistics(branchId, today, today, "HOUR");
+                SalesStatisticsResponseDto salesDto = objectMapper.convertValue(salesResponse.getResult(),SalesStatisticsResponseDto.class);
+                List<SalesStatisticsDto> todaySales = Optional.ofNullable(sales.getStatistics())
                         .orElse(Collections.emptyList());
-                List<AttendanceTemplateListDto> template = attendanceTemplateRepository.findAll().stream().map(AttendanceTemplateListDto::fromEntity).collect(Collectors.toList());
-                System.out.println("일정 템플릿 ======" + template);
-                System.out.println("매출 응답결과" + sales);
-                String hourlySummary = stats.stream()
+
+                 String hourlySummary = stats.stream()
+                 .sorted(Comparator.comparing(SalesStatisticsDto::getHour, Comparator.nullsLast(Integer::compareTo)))
+                 .map(stat -> String.format(
+                 "%02d시~%02d시 | 매출: %,d원 (%d건, 평균 주문가 %,d원)",
+                  stat.getHour(),
+                  stat.getHour() + 1,
+                  stat.getTotalSales(),
+                  stat.getTotalOrders(), stat.getAverageOrderAmount()
+                                        ))
+                                        .collect(Collectors.joining("\n"));
+
+                                System.out.println("전주 시간대별 매출 ======" + hourlySummary);
+                String todaySummary = todaySales.stream()
                         .sorted(Comparator.comparing(SalesStatisticsDto::getHour, Comparator.nullsLast(Integer::compareTo)))
                         .map(stat -> String.format(
-                                "%02d시 ~ %02d시: 총 매출 %,d원 (%d건, 평균 주문가 %,d원)",
+                                "%02d시~%02d시 | 매출: %,d원 (%d건, 평균 주문가 %,d원)",
                                 stat.getHour(),
                                 stat.getHour() + 1,
                                 stat.getTotalSales(),
-                                stat.getTotalOrders(),
-                                stat.getAverageOrderAmount()
+                                stat.getTotalOrders(), stat.getAverageOrderAmount()
                         ))
                         .collect(Collectors.joining("\n"));
-                System.out.println("시간대별 매출 ======" + hourlySummary);
-                List<ScheduleListDto> scheduleList = scheduleService.listAll(targetDate, targetDate);
-                System.out.println("내일 스케줄 ======" + scheduleList);
-                String prompt = """
-                                지난 한 달 시간대별 평균 매출:
-                                %s
-                            
-                                내일(%s) 근무 스케줄:
-                                %s
-                            
-                                지점의 근무 템플릿 정보:
-                                %s
-                            
-                                위 데이터를 바탕으로 위 템플릿에 맞는 근태 수정 제안을 다음 JSON 형태로 작성하세요.
-                            
+
+
+                // ✅ 2️⃣ 전주 근무 스케줄 조회
+                                List<ScheduleListDto> lastWeekSchedules =
+                                        scheduleService.listAll(today.minusWeeks(1).with(DayOfWeek.MONDAY),
+                                                today.minusWeeks(1).with(DayOfWeek.SUNDAY));
+                                for(ScheduleListDto sc : lastWeekSchedules){
+                                    System.out.println(sc);
+                                }
+
+                // ✅ 3️⃣ 근무 템플릿 조회
+                                List<AttendanceTemplateListDto> template =
+                                        attendanceTemplateRepository.findAll().stream()
+                                                .map(AttendanceTemplateListDto::fromEntity)
+                                                .collect(Collectors.toList());
+                                for(AttendanceTemplateListDto at : template){
+                                    System.out.println("at===" + at);
+                                }
+                                System.out.println("근무 템플릿 ======" + template);
+                // ✅ 근무 템플릿 조회
+
+                List<LeaveTypeDetailDto> leaveDtos = leaveTypeRepository.findAll().stream().map(LeaveTypeDetailDto::fromEntity).collect(Collectors.toList());
+                List<WorkTypeDetailDto> workDtos = workTypeRepository.findAll().stream().map(WorkTypeDetailDto::fromEntity).collect(Collectors.toList());
+
+                List<DispatchStatus> dispatchStatuses = dispatchStatusRepository.findAllByBranch(branch);
+                List<EmployeeDetailDto> employees = new ArrayList<>();
+
+                for(DispatchStatus ds : dispatchStatuses){
+                    employees.add(new EmployeeDetailDto().fromEntity(ds.getEmployee()));
+                }
+                // ✅ 직원 리스트 포맷
+                String employeeSummary = employees.stream()
+                        .map(e -> String.format("{id:%d, name:'%s', position:'%s'}",
+                                e.getId(), e.getName(), e.getJobGradeName()))
+                        .collect(Collectors.joining(",\n"));
+
+                // ✅ 스케줄 포맷
+                String scheduleSummary = lastWeekSchedules.stream()
+                        .map(s -> String.format(
+                                "{scheduleId:%d, employeeId:%d, employeeName:'%s', date:'%s', clockIn:'%s', clockOut:'%s'}",
+                                s.getId(), s.getEmployeeId(), s.getEmployeeName(),
+                                s.getRegisteredDate(), s.getRegisteredClockIn(), s.getRegisteredClockOut()))
+                        .collect(Collectors.joining(",\n"));
+
+                // ✅ 템플릿 포맷
+                String templateSummary = template.stream()
+                        .map(t -> String.format("{id:%d, name:'%s', clockIn:'%s', clockOut:'%s'}",
+                                t.getId(), t.getName(), t.getDefaultClockIn(), t.getDefaultClockOut()))
+                        .collect(Collectors.joining(",\n"));
+
+                // ✅ 근무/휴가 타입 포맷
+                String workTypeSummary = workDtos.stream()
+                        .map(w -> String.format("{id:%d, name:'%s'}", w.getId(), w.getName()))
+                        .collect(Collectors.joining(", "));
+                String leaveTypeSummary = leaveDtos.stream()
+                        .map(l -> String.format("{id:%d, name:'%s'}", l.getId(), l.getName()))
+                        .collect(Collectors.joining(", "));
+
+                        // ✅ 4️⃣ 프롬프트 생성
+                                        String prompt = """
+                                아래 정보를 기반으로 인건비 효율을 분석하고, 다음주 동일 요일의 근무 스케줄 변경을 JSON으로 제안하세요.
                                 ⚠️ JSON 이외의 문자는 절대 포함하지 마세요.
                                 ⚠️ 백틱(```)이나 설명 없이 **순수 JSON 본문만 반환하세요.**
-                            
-                                형식:
+                        
+                                현재 날짜: %s (Asia/Seoul 기준)
+                                다음주 동일 요일 범위: %s ~ %s
+                        
+                                [전주 시간대별 매출 요약]
+                                %s
+                                
+                                [금일 시간대별 매출 요약]
+                                %s
+                                
+                                [전주 근무 스케줄]
+                                %s
+                        
+                                [지점 근무 템플릿]
+                                %s
+                        
+                                [근무유형(WorkType)]
+                                %s
+                        
+                                [휴가유형(LeaveType)]
+                                %s
+                        
+                                [직원(Employee) 목록]
+                                %s
+                        
+                                요구사항:
+                                1. 전주의 시간대별 매출과 근무 인원 정보를 비교해 시간당 인건비 평균을 계산하세요.
+                                2. 오늘 매출 대비 인건비 수준을 추정하세요 (예: 효율적 / 과잉 / 부족).
+                                3. 다음주 같은 요일의 스케줄을 조회하고, 필요한 경우 수정 제안을 만드세요.
+                                4. 수정은 기존 템플릿 중 하나 또는 "ABSENT"로 변경 제안 가능합니다.
+                                5. 반드시 아래 형식의 JSON만 반환하세요.
+                                6. "reason" 필드에는 왜 이 변경이 필요한지 수치를 제시하며 논리적으로 설명하세요.
+                        
+                                JSON 형식:
                                 {
                                   "branchId": number,
-                                  "employeeId" : number,
-                                  "scheduleId" : number,
-                                  "workTypeId": number,
-                                  "leaveTypeId": number | null,
-                                  "attendanceTemplateId": number,
-                                  "registeredDate": "yyyy-MM-dd"
+                                  "employeeId": number,               // 위 직원 목록 중 하나여야 함
+                                  "scheduleId": number,               // 위 스케줄 목록 중 하나여야 함
+                                  "workTypeId": number,               // 위 근무유형 목록 중 하나여야 함
+                                  "leaveTypeId": number | null,       // 위 휴가유형 목록 중 하나 또는 null
+                                  "attendanceTemplateId": number,     // 위 템플릿 목록 중 하나여야 함
+                                  "registeredDate": "yyyy-MM-dd",     // 반드시 다음주 동일 요일 중 하루여야 함
+                                  "reason": string                    // 수정 이유를 간단히 기술
                                 }
                                 """.formatted(
+                        today,
+                        today.plusWeeks(1).with(DayOfWeek.MONDAY),
+                        today.plusWeeks(1).with(DayOfWeek.SUNDAY),
                         hourlySummary,
-                        targetDate,
-                        scheduleList.toString(),
-                        template.toString()
+                        todaySummary,
+                        scheduleSummary,
+                        templateSummary,
+                        workTypeSummary,
+                        leaveTypeSummary,
+                        employeeSummary
                 );
 
-                String result = attendanceSuggestionClient.prompt().user(prompt).call().content();
 
-                try {
-                    AttendanceModifyRequestDto suggestion =
-                            objectMapper.readValue(result, AttendanceModifyRequestDto.class);
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
 
-                System.out.println("챗봇 결과=== " + result);
+                // ✅ 5️⃣ OpenAI 호출
+                 String result = attendanceSuggestionClient.prompt()
+                                        .user(prompt)
+                                        .call()
+                                        .content();
+
+                                try {
+                                    AttendanceModifyRequestDto suggestion =
+                                            objectMapper.readValue(result, AttendanceModifyRequestDto.class);
+                                    System.out.println("근태 수정 제안 DTO === " + suggestion);
+                                } catch (JsonProcessingException e) {
+                                    throw new RuntimeException("JSON 파싱 실패: " + result, e);
+                                }
+
+                System.out.println("챗봇 결과 === " + result);
                 return ResponseEntity.ok(result);
             }
 
@@ -454,7 +563,12 @@ public class ChatUserService {
     }
 
     private Employee getEmployee() {
-        Employee employee = employeeRepository.findByEmail(SecurityContextHolder.getContext().getAuthentication().getName()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 유저입니다."));
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Map<String, Object> details = (Map<String, Object>) auth.getDetails();
+
+        String email = (String) details.get("email");
+        System.out.println("auth===" + details+ email);
+        Employee employee = employeeRepository.findByEmail(email).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 유저입니다."));
         return employee;
     }
 
@@ -470,8 +584,6 @@ public class ChatUserService {
         Long branchId = Long.valueOf(details.get("branchId").toString());
         if (branchId == null)
             throw new IllegalStateException("branchId가 토큰에 없습니다.");
-
-
 
         return branchId;
     }
