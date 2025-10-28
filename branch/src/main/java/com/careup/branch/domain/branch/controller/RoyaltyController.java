@@ -1,11 +1,14 @@
 package com.careup.branch.domain.branch.controller;
 
+import com.careup.branch.common.dto.CommonErrorDto;
+import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.dto.royalty.RoyaltyDetailResponseDto;
 import com.careup.branch.domain.branch.dto.royalty.RoyaltyListResponseDto;
 import com.careup.branch.domain.branch.dto.royalty.SettlementHistoryResponseDto;
 import com.careup.branch.domain.branch.entity.SettlementStatus;
 import com.careup.branch.domain.branch.service.RoyaltyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -23,9 +26,24 @@ public class RoyaltyController {
      * GET /royalties
      */
     @GetMapping
-    public ResponseEntity<List<RoyaltyListResponseDto>> getAllRoyalties() {
-        List<RoyaltyListResponseDto> royalties = royaltyService.getAllRoyalties();
-        return ResponseEntity.ok(royalties);
+    public ResponseEntity<?> getAllRoyalties() {
+        try {
+            List<RoyaltyListResponseDto> royalties = royaltyService.getAllRoyalties();
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(royalties)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("로열티 목록 조회 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("로열티 목록 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 
     /**
@@ -33,9 +51,24 @@ public class RoyaltyController {
      * GET /royalties/{royaltyId}
      */
     @GetMapping("/{royaltyId}")
-    public ResponseEntity<RoyaltyDetailResponseDto> getRoyaltyDetail(@PathVariable Long royaltyId) {
-        RoyaltyDetailResponseDto royalty = royaltyService.getRoyaltyDetail(royaltyId);
-        return ResponseEntity.ok(royalty);
+    public ResponseEntity<?> getRoyaltyDetail(@PathVariable Long royaltyId) {
+        try {
+            RoyaltyDetailResponseDto royalty = royaltyService.getRoyaltyDetail(royaltyId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(royalty)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("선택한 가맹점 로열티 상세 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("선택한 가맹점 로열티 상세 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 
     /**
@@ -43,10 +76,25 @@ public class RoyaltyController {
      * GET /royalties/branches/{branchId}/settlements
      */
     @GetMapping("/branches/{branchId}/settlements")
-    public ResponseEntity<List<SettlementHistoryResponseDto>> getSettlementHistory(
+    public ResponseEntity<?> getSettlementHistory(
             @PathVariable Long branchId) {
-        List<SettlementHistoryResponseDto> history = royaltyService.getSettlementHistory(branchId);
-        return ResponseEntity.ok(history);
+        try {
+            List<SettlementHistoryResponseDto> history = royaltyService.getSettlementHistory(branchId);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(history)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("선택한 가맹점 정산 내역 조회 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("선택한 가맹점 정산 내역 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 
     /**
@@ -54,10 +102,25 @@ public class RoyaltyController {
      * GET /royalties/branches/{branchId}/settlements?status={status}
      */
     @GetMapping("/branches/{branchId}/settlements/filter")
-    public ResponseEntity<List<SettlementHistoryResponseDto>> getSettlementHistoryByStatus(
+    public ResponseEntity<?> getSettlementHistoryByStatus(
             @PathVariable Long branchId,
             @RequestParam SettlementStatus status) {
-        List<SettlementHistoryResponseDto> history = royaltyService.getSettlementHistoryByStatus(branchId, status);
-        return ResponseEntity.ok(history);
+        try {
+            List<SettlementHistoryResponseDto> history = royaltyService.getSettlementHistoryByStatus(branchId, status);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(history)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("선택한 가맹점 정산 내역 조회 완료")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message("선택한 가맹점 정산 내역 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
     }
 }
