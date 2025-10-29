@@ -57,6 +57,14 @@ public class OrderController {
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
     }
 
+    @GetMapping
+    public ResponseEntity<ResponseDto<List<OrderResponseDto>>> getAllOrders() {
+
+        List<OrderResponseDto> response = orderService.getAllOrders();
+
+        return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
+    }
+
     @PutMapping("/{orderId}/approve")
     public ResponseEntity<ResponseDto<OrderResponseDto>> approveOrder(
             @PathVariable Long orderId,

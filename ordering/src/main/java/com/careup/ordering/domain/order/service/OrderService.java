@@ -167,6 +167,20 @@ public class OrderService {
     }
 
     /**
+     * 전체 주문 목록 조회 (본사용)
+     */
+    public List<OrderResponseDto> getAllOrders() {
+        List<Order> orders = orderRepository.findAll();
+
+        return orders.stream()
+                .map(order -> {
+                    List<OrderedItem> items = orderedItemRepository.findByOrderId(order.getId());
+                    return convertToResponseDto(order, items);
+                })
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 주문 승인
      */
     @Transactional
