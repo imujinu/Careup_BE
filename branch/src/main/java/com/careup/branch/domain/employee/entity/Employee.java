@@ -99,7 +99,7 @@ public class Employee extends BaseTimeEntity {
     @Builder.Default
     private Boolean enabled = true;
 
-    private Long hourPerSalary;
+    private Double hourlyPay;
 
     @JsonIgnore
     @OneToMany(mappedBy = "employee", cascade = CascadeType.REMOVE, orphanRemoval = true)

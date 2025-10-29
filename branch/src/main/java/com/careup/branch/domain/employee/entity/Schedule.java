@@ -119,4 +119,28 @@ public class Schedule extends BaseTimeEntity {
         this.registeredBreakEnd = breakEnd;
         this.registeredClockOut = out;
     }
+
+    public void changeSchedule(
+            Branch branch,
+            ScheduleTypeCategory category,
+            WorkType workType,
+            LeaveType leaveType,
+            AttendanceTemplate template,
+            LocalDate date,
+            LocalDateTime in,
+            LocalDateTime out,
+            LocalDateTime breakStart,
+            LocalDateTime breakEnd
+    ) {
+        this.branch = branch;
+        this.category = category;
+        this.workType = workType;
+        this.leaveType = leaveType;
+        this.attendanceTemplate = template;
+        this.registeredDate = date;
+        this.registeredClockIn = in;
+        this.registeredClockOut = out;
+        this.registeredBreakStart = breakStart;
+        this.registeredBreakEnd = breakEnd;
+    }
 }

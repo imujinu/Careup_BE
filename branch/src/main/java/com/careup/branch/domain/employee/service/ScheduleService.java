@@ -1,5 +1,7 @@
 package com.careup.branch.domain.employee.service;
 
+import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.dto.request.ScheduleCreateDto;
 import com.careup.branch.domain.employee.dto.request.ScheduleMassBlockDto;
 import com.careup.branch.domain.employee.dto.request.ScheduleMassCreateDto;
@@ -9,8 +11,16 @@ import com.careup.branch.domain.employee.dto.response.ScheduleCalendarDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+
+import com.careup.branch.domain.employee.entity.*;
+import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
+import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
+import com.careup.branch.domain.employee.repository.ScheduleRepository;
+import com.careup.branch.domain.employee.repository.WorkTypeRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -102,5 +112,36 @@ public class ScheduleService {
     public void deleteMany(List<Long> scheduleIds) {
         var auth = authz.readAuth();
         command.deleteMany(auth, scheduleIds);
+    }
+
+
+        private final ScheduleRepository scheduleRepository;
+        private final BranchRepository branchRepository;
+        private final WorkTypeRepository workTypeRepository;
+        private final LeaveTypeRepository leaveTypeRepository;
+        private final AttendanceTemplateRepository attendanceTemplateRepository;
+    public void updateSchedule(Long scheduleId, ScheduleUpdateDto dto){
+        Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 스케줄입니다."));
+        Branch branch = branchRepository.findById(dto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
+        ScheduleTypeCategory category= schedule.getCategory();
+        WorkType workType = null;
+        if(dto.getWorkTypeId()!=null){
+        workType = workTypeRepository.findById(dto.getWorkTypeId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
+        }
+        LeaveType leaveType = null;
+        if(dto.getLeaveTypeId() !=null){
+            leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
+        }
+
+        AttendanceTemplate at = null;
+
+        if(dto.getAttendanceTemplateId()!=null){
+            at = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
+
+        }
+        LocalDate date = dto.getRegisteredDate();
+        LocalDateTime in = dto.getRegisteredClockIn();
+        LocalDateTime out = dto.getRegisteredClockOut();
+        schedule.changeSchedule(branch, category,workType,leaveType,at,date,LocalDateTime.of(date,at.getDefaultClockIn()), LocalDateTime.of(date,at.getDefaultClockOut()), LocalDateTime.of(date,at.getDefaultBreakStart()), LocalDateTime.of(date,at.getDefaultBreakEnd()));
     }
 }

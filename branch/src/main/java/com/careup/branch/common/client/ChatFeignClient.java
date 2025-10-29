@@ -5,6 +5,7 @@ import com.careup.branch.domain.chat.dto.req.ChatOrderDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -110,6 +111,7 @@ public interface ChatFeignClient {
     // [ 재고 ]
     @GetMapping("/chat/inventory/{branchId}")
     CommonSuccessDto getBranchProducts(@PathVariable Long branchId);
+
 
 
 }
