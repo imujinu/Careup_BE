@@ -26,7 +26,7 @@ public class DocumentsController {
     private final DocumentsService documentsService;
 
     // 생성 - 특정 지점 하위
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
     @PostMapping(value = "/{employeeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createDocument(
             @PathVariable Long employeeId,
@@ -51,8 +51,7 @@ public class DocumentsController {
         }
     }
 
-    // 서류 조회 (페이지네이션) - 지점별
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    // 서류 조회 (페이지네이션) - 지점별 & ALL 권한 허용
     @GetMapping("/{employeeId}")
     public ResponseEntity<?> getDocumentsList(
             @PathVariable Long employeeId,
@@ -77,8 +76,7 @@ public class DocumentsController {
         }
     }
 
-    // 서류 단건 조회 - 특정 지점 하위
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    // 서류 단건 조회 - 특정 지점 하위 - AL 권한 허용
     @GetMapping("/{employeeId}/{documentId}")
     public ResponseEntity<?> getDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {
@@ -101,7 +99,7 @@ public class DocumentsController {
     }
 
     // 서류 수정 - 특정 지점 하위
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
     @PatchMapping(value = "/{employeeId}/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateDocument(
             @PathVariable Long employeeId,
@@ -127,7 +125,7 @@ public class DocumentsController {
     }
 
     // 서류 삭제 - 특정 지점 하위
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
     @DeleteMapping("/{employeeId}/{documentId}")
     public ResponseEntity<?> deleteBranchDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {
@@ -149,8 +147,7 @@ public class DocumentsController {
         }
     }
 
-    // 서류 다운로드 - 특정 지점 하위
-    @PreAuthorize("hasRole('HQ_ADMIN')")
+    // 서류 다운로드 - 특정 지점 하위 - ALL 권한 허용
     @GetMapping("/{employeeId}/{documentId}/download")
     public ResponseEntity<?> downloadDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
         try {

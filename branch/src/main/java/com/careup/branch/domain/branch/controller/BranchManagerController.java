@@ -21,7 +21,7 @@ public class BranchManagerController {
     private final BranchManagerService branchManagerService;
 
     // 직영점장/가맹점장 자신의 지점 정보 조회
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     @GetMapping()
     public ResponseEntity<?> getMyBranch() {
         try {
@@ -44,7 +44,7 @@ public class BranchManagerController {
     }
 
     // 직영점장/가맹점장이 자신의 지점 정보 수정 요청
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     @PutMapping(consumes = {MediaType.APPLICATION_JSON_VALUE, MediaType.MULTIPART_FORM_DATA_VALUE})
     public ResponseEntity<?> requestBranchUpdate(
             @RequestPart("data") BranchUpdateRequestDto requestDto,
