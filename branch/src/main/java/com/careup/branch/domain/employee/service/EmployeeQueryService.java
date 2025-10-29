@@ -14,6 +14,7 @@ import org.springframework.data.domain.*;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,6 +72,7 @@ public class EmployeeQueryService {
         Auth auth = readAuth();
         LocalDate today = LocalDate.now();
 
+        // HQ_ADMIN: 전 직원 페이지네이션 + 현재 배치 지점 매핑
         if (auth.isHqAdmin()) {
             Page<Employee> page = employeeRepository.findAll(pageable);
             if (page.isEmpty()) return page.map(e -> EmployeeDetailDto.fromEntity(e, List.of()));
@@ -90,6 +92,7 @@ public class EmployeeQueryService {
             return page.map(e -> EmployeeDetailDto.fromEntity(e, activeMap.getOrDefault(e.getId(), List.of())));
         }
 
+        // 지점/가맹 관리자: 내가 관리 중인 지점의 현재 배치 직원만
         if (auth.isBranchOrFranchiseAdmin()) {
             Employee actor = employeeRepository.findById(auth.employeeId())
                     .orElseThrow(() -> new EntityNotFoundException("권한을 확인할 수 없습니다."));
@@ -102,7 +105,7 @@ public class EmployeeQueryService {
                             myBranches, "N", today, today
                     );
 
-            // distinct + order 유지
+            // distinct + 순서 유지
             List<Employee> distinctEmployees = activeInMyBranches.stream()
                     .map(DispatchStatus::getEmployee)
                     .collect(Collectors.collectingAndThen(
@@ -136,21 +139,18 @@ public class EmployeeQueryService {
 
     // 지점별 소속 직원 목록 조회 (페이지네이션, 정렬 지원)
     public Page<EmployeeDetailDto> listByBranch(Long branchId, Pageable pageable) {
-        // 지점 존재 여부 확인
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
 
         LocalDate today = LocalDate.now();
 
-        // 해당 지점의 활성 배치 목록 조회
         List<DispatchStatus> activeDispatches = dispatchStatusRepository
-                .findActiveDispatchesByBranchId(branchId, today);
+                .findActiveDispatchesByBranchId(branch.getId(), today);
 
         if (activeDispatches.isEmpty()) {
             return Page.empty(pageable);
         }
 
-        // 직원 목록 추출 (중복 제거)
         List<Employee> distinctEmployees = activeDispatches.stream()
                 .map(DispatchStatus::getEmployee)
                 .collect(Collectors.collectingAndThen(
@@ -158,40 +158,30 @@ public class EmployeeQueryService {
                         m -> new ArrayList<>(m.values())
                 ));
 
-        // 정렬 처리 (고용 상태, 고용 유형, 성별)
+        // 정렬 처리
         Sort sort = pageable.getSort();
         if (sort.isSorted()) {
             Comparator<Employee> comparator = null;
             for (Sort.Order order : sort) {
                 Comparator<Employee> currentComparator = getEmployeeComparator(order);
-                if (comparator == null) {
-                    comparator = currentComparator;
-                } else {
-                    comparator = comparator.thenComparing(currentComparator);
-                }
+                comparator = (comparator == null) ? currentComparator : comparator.thenComparing(currentComparator);
             }
-            if (comparator != null) {
-                distinctEmployees.sort(comparator);
-            }
+            if (comparator != null) distinctEmployees.sort(comparator);
         }
 
-        // 페이지네이션 처리
+        // 페이지네이션
         int from = (int) pageable.getOffset();
         int to = Math.min(from + pageable.getPageSize(), distinctEmployees.size());
-        if (from >= to) {
-            return new PageImpl<>(List.of(), pageable, distinctEmployees.size());
-        }
+        if (from >= to) return new PageImpl<>(List.of(), pageable, distinctEmployees.size());
 
         List<Employee> pageEmployees = distinctEmployees.subList(from, to);
 
-        // 배치 정보 매핑
         final Map<Long, List<EmployeeDispatchDto>> activeMap = activeDispatches.stream()
                 .collect(Collectors.groupingBy(
                         ds -> ds.getEmployee().getId(),
                         Collectors.mapping(EmployeeDispatchDto::fromEntity, Collectors.toList())
                 ));
 
-        // DTO 변환
         List<EmployeeDetailDto> content = pageEmployees.stream()
                 .map(e -> EmployeeDetailDto.fromEntity(e, activeMap.getOrDefault(e.getId(), List.of())))
                 .toList();
@@ -199,7 +189,7 @@ public class EmployeeQueryService {
         return new PageImpl<>(content, pageable, distinctEmployees.size());
     }
 
-    // 정렬을 위한 Comparator 생성
+    // 정렬 Comparator
     private Comparator<Employee> getEmployeeComparator(Sort.Order order) {
         String property = order.getProperty();
         boolean ascending = order.getDirection().isAscending();
@@ -258,21 +248,45 @@ public class EmployeeQueryService {
                 .toList();
     }
 
+    /**
+     * 인증 정보에서 ROLE_ 접두어를 안전하게 제거하여 일관된 역할 문자열(HQ_ADMIN 등)로 반환
+     */
     private Auth readAuth() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getDetails() == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()) {
             throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
         }
+
+        // 1) JwtTokenFilter가 Claims를 details에 넣어둔 경우
         Object details = authentication.getDetails();
-        if (!(details instanceof Claims claims)) {
-            throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+        if (details instanceof Claims claims) {
+            Long employeeId = claims.get("employeeId", Long.class);
+            String rawRole = String.valueOf(claims.get("role"));
+            String role = normalizeRole(rawRole);
+            if (employeeId == null || role == null) {
+                throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
+            }
+            return new Auth(employeeId, role);
         }
-        Long employeeId = claims.get("employeeId", Long.class);
-        String role = String.valueOf(claims.get("role"));
+
+        // 2) 그 외 (Authentication name/authorities 기반)
+        Long employeeId = null;
+        try { employeeId = Long.valueOf(authentication.getName()); } catch (Exception ignored) {}
+        String role = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .map(this::normalizeRole)
+                .findFirst()
+                .orElse(null);
+
         if (employeeId == null || role == null) {
             throw new AuthenticationCredentialsNotFoundException("인증 정보가 없습니다.");
         }
         return new Auth(employeeId, role);
+    }
+
+    private String normalizeRole(String raw) {
+        if (raw == null) return null;
+        return raw.startsWith("ROLE_") ? raw.substring(5) : raw;
     }
 
     private record Auth(Long employeeId, String role) {

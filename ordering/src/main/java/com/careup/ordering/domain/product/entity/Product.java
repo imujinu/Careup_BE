@@ -77,6 +77,11 @@ public class Product extends BaseTimeEntity {
         this.isDelYn = "Y";
     }
 
+    // 활성화 상태 체크
+    public boolean isActive() {
+        return this.status == ProductStatus.ACTIVE && "N".equals(this.isDelYn);
+    }
+
     // 상품 수정 메서드
     public void updateInfo(String name, String description, Long supplyPrice, Long minPrice, Long maxPrice, String imageUrl) {
         if (name != null) this.name = name;
