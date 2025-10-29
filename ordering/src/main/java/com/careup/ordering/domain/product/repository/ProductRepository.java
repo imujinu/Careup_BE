@@ -54,6 +54,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     );
 
     /**
+     * 고객용: 카테고리 + visibility + 활성 상품 조회 (간편 메서드)
+     */
+    @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND p.visibility = :visibility AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByCategoryIdAndVisibilityAndActive(
+            @Param("categoryId") Long categoryId,
+            @Param("visibility") Visibility visibility,
+            Pageable pageable
+    );
+
+    /**
      * 고객용: visibility + 검색어로 활성 상품 조회
      */
     @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND (p.name LIKE %:keyword% OR p.description LIKE %:keyword%) AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")

@@ -251,13 +251,22 @@ public class ProductService {
     }
 
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 지원
-     * ⭐ visibility=ALL인 활성 상품만 반환
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 + 카테고리 필터
+     *  visibility=ALL인 활성 상품만 반환
      */
     @Transactional(readOnly = true)
-    public Page<ProductWithBranchesDto> getPublicProductsWithBranches(Pageable pageable) {
-        // 활성화 + visibility=ALL 필터링
-        Page<Product> productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
+    public Page<ProductWithBranchesDto> getPublicProductsWithBranches(Long categoryId, Pageable pageable) {
+        // 카테고리 필터링 여부에 따라 다른 쿼리 사용
+        Page<Product> productsPage;
+        
+        if (categoryId != null) {
+            // 카테고리 + visibility=ALL + 활성 필터링
+            productsPage = productRepository.findByCategoryIdAndVisibilityAndActive(categoryId, Visibility.ALL, pageable);
+        } else {
+            // 전체 상품 중 visibility=ALL + 활성 필터링
+            productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
+        }
+        
         List<Product> products = productsPage.getContent();
 
         List<ProductWithBranchesDto> result = products.stream()
@@ -295,13 +304,22 @@ public class ProductService {
     }
 
     /**
-     * 고객용 상품 검색 (판매 지점 정보 포함) - 페이지네이션
+     * 고객용 상품 검색 (판매 지점 정보 포함) - 페이지네이션 + 카테고리 필터
      *  visibility=ALL인 활성 상품만 검색
      */
     @Transactional(readOnly = true)
-    public Page<ProductWithBranchesDto> searchPublicProductsWithBranches(String keyword, Pageable pageable) {
-        // 활성화 + visibility=ALL 필터링 + 키워드 검색
-        Page<Product> productsPage = productRepository.searchByKeyword(keyword, pageable);
+    public Page<ProductWithBranchesDto> searchPublicProductsWithBranches(String keyword, Long categoryId, Pageable pageable) {
+        // 카테고리 + 키워드 검색
+        Page<Product> productsPage;
+        
+        if (categoryId != null) {
+            // 카테고리 + 키워드 검색
+            productsPage = productRepository.searchByCategoryAndKeyword(categoryId, keyword, pageable);
+        } else {
+            // 전체 카테고리에서 키워드 검색
+            productsPage = productRepository.searchByKeyword(keyword, pageable);
+        }
+        
         List<Product> products = productsPage.getContent();
 
         List<ProductWithBranchesDto> result = products.stream()

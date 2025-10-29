@@ -43,31 +43,35 @@ public class ProductController {
     }
 
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 + 카테고리 필터
      *  visibility=ALL인 활성 상품만 반환
      */
     @GetMapping("/public/products/with-branches")
     public ResponseEntity<ResponseDto<Page<ProductWithBranchesDto>>> getPublicProductsWithBranches(
+            @RequestParam(required = false) Long categoryId,
             @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
-        log.info("고객용 상품 목록 조회 (지점 정보 포함) - 페이지: {}, 사이즈: {}", pageable.getPageNumber(), pageable.getPageSize());
+        log.info("고객용 상품 목록 조회 (지점 정보 포함) - 카테고리: {}, 페이지: {}, 사이즈: {}", 
+                categoryId, pageable.getPageNumber(), pageable.getPageSize());
 
-        Page<ProductWithBranchesDto> response = productService.getPublicProductsWithBranches(pageable);
+        Page<ProductWithBranchesDto> response = productService.getPublicProductsWithBranches(categoryId, pageable);
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
     }
 
     /**
-     * 고객용 상품 검색 (판매 지점 정보 포함) - 페이지네이션
+     * 고객용 상품 검색 (판매 지점 정보 포함) - 페이지네이션 + 카테고리 필터
      *  visibility=ALL인 활성 상품만 검색
      */
     @GetMapping("/public/products/search")
     public ResponseEntity<ResponseDto<Page<ProductWithBranchesDto>>> searchPublicProductsWithBranches(
             @RequestParam String keyword,
+            @RequestParam(required = false) Long categoryId,
             @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC)
             Pageable pageable) {
-        log.info("고객용 상품 검색 - 키워드: {}, 페이지: {}, 사이즈: {}", keyword, pageable.getPageNumber(), pageable.getPageSize());
+        log.info("고객용 상품 검색 - 키워드: {}, 카테고리: {}, 페이지: {}, 사이즈: {}", 
+                keyword, categoryId, pageable.getPageNumber(), pageable.getPageSize());
 
-        Page<ProductWithBranchesDto> response = productService.searchPublicProductsWithBranches(keyword, pageable);
+        Page<ProductWithBranchesDto> response = productService.searchPublicProductsWithBranches(keyword, categoryId, pageable);
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
     }
 
