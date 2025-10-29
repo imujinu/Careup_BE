@@ -6,17 +6,11 @@ import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.chat.dto.SalesStatisticsDto;
-import com.careup.branch.domain.chat.dto.res.attendance.AttendanceAllResDto;
-import com.careup.branch.domain.chat.dto.res.attendance.AttendanceCompareResDto;
-import com.careup.branch.domain.chat.dto.res.attendance.AttendanceModifyRequestDto;
-import com.careup.branch.domain.chat.dto.res.attendance.TodayAttendanceResDto;
-import com.careup.branch.domain.chat.dto.res.sales.AllBranchesSalesResponseDto;
-import com.careup.branch.domain.chat.dto.res.sales.BranchSalesDetailResponseDto;
-import com.careup.branch.domain.chat.dto.res.sales.ProductSalesResponseDto;
-import com.careup.branch.domain.chat.dto.res.sales.SalesStatisticsResponseDto;
+import com.careup.branch.domain.chat.dto.attendance.*;
+import com.careup.branch.domain.chat.dto.sales.*;
 import com.careup.branch.domain.employee.controller.ScheduleController;
+import com.careup.branch.domain.employee.dto.request.ScheduleUpdateDto;
 import com.careup.branch.domain.employee.dto.response.*;
-import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.AuthorityType;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
@@ -27,6 +21,7 @@ import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -36,16 +31,14 @@ import org.json.JSONObject;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.time.ZoneId;
+import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -67,13 +60,24 @@ public class ChatUserService {
     private final DispatchStatusRepository dispatchStatusRepository;
     private final LeaveTypeRepository leaveTypeRepository;
     private final WorkTypeRepository workTypeRepository;
-
+    private final ChatFeignClient chatFeignClient;
     @Autowired
-
     @Qualifier("attendanceSuggestionClient")
     private ChatClient attendanceSuggestionClient;
 
+    @Autowired
+    @Qualifier("inventoryAdvisorClient")
+    private ChatClient inventoryAdvisorClient;
 
+    // [ 인건비 분석 모델 ]
+    @Autowired
+    @Qualifier("salesLaborAnalysisClient")
+    private ChatClient salesLaborAnalysisClient;
+
+    // [ 매출 보고 모델 ]
+    @Autowired
+    @Qualifier("salesReportClient")
+    private ChatClient salesReportClient;
     // [근태 서비스 ]
 
     public ResponseEntity<?> handleAttendanceAction(String action, JSONObject params, Long branchId) {
@@ -84,7 +88,7 @@ public class ChatUserService {
         branchId = getBranchIdFromToken();
         }
 
-
+        System.out.println("branchId ===" + branchId);
         if (!params.has("range")) {
             LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
             startDate = now.withDayOfMonth(1);
@@ -151,9 +155,22 @@ public class ChatUserService {
             }
             //[ 근태 수정 ]
             case "PATCH" ->{
+                ScheduleUpdateReq req = null;
+                try {
+                    req = objectMapper.readValue(params.toString(), ScheduleUpdateReq.class);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+                if(req.getBranchId()==null){
+                    req.setBranchId(branchId);
+                }
+                System.out.println("req===" + req.toString());
+                scheduleService.updateSchedule(
+                        req.getScheduleId(),
+                        ScheduleUpdateDto.makeDto(req)
+                );
+                return ResponseEntity.ok("근태 수정 완료");
 
-
-                return null;
             }
             case "CALCULATE" ->{
                 ZoneId zone = ZoneId.of("Asia/Seoul");
@@ -368,30 +385,98 @@ public class ChatUserService {
 
         switch (action) {
             case "GET" -> {
-//                CommonSuccessDto response = orderingInventoryClient.getBranchProducts(branchId);
-                System.out.println("branchID ======" + branchId);
                 CommonSuccessDto response = client.getBranchProducts(branchId);
-                System.out.println("response =====" + response);
-                List<OrderingInventoryClient.BranchProductResponseDto> dtos =
+
+                List<OrderingInventoryClient.BranchProductResponseDto> stocks =
                         objectMapper.convertValue(
                                 response.getResult(),
                                 new TypeReference<List<OrderingInventoryClient.BranchProductResponseDto>>() {}
                         );
-                return ResponseEntity.ok(dtos);
+
+//                CommonSuccessDto response = orderingInventoryClient.getBranchProducts(branchId);
+                System.out.println("branchID ======" + branchId);
+
+                System.out.println("response =====" + response);
+
+                return ResponseEntity.ok(stocks);
+
             }
-//            case "CREATE" -> {
-//                int amount = json.path("amount").asInt(0);
-//                return salesService.createSalesRecord(amount);
-//            }
-//            case "PATCH" -> {
-//                String id = json.path("id").asText();
-//                int newAmount = json.path("amount").asInt();
-//                return salesService.updateSales(id, newAmount);
-//            }
-//            case "DELETE" -> {
-//                String id = json.path("id").asText();
-//                return salesService.deleteSales(id);
-//            }
+
+            case "PATCH" -> {
+                JSONArray itemsArr = params.getJSONArray("items");
+
+                for (int i = 0; i < itemsArr.length(); i++) {
+                    JSONObject item = itemsArr.getJSONObject(i);
+                    Long productId = item.getLong("productId");
+                    String product = item.getString("product");
+                    Long quantity = item.getLong("quantity");
+                    String type = quantity>=0 ? "INCREASE" : "DECREASE";
+                    String reason = item.getString("reason");
+                    OrderingInventoryClient.StockAdjustRequest requestDto = OrderingInventoryClient.StockAdjustRequest.makeDto(productId,quantity, type,reason);
+                    orderingInventoryClient.adjustStock(requestDto);
+                }
+                return ResponseEntity.ok("재고 수정 완료");
+            }
+            case "ANALYZE" -> {
+                CommonSuccessDto response = client.getBranchProducts(branchId);
+
+                List<OrderingInventoryClient.BranchProductResponseDto> currentStocks =
+                        objectMapper.convertValue(
+                                response.getResult(),
+                                new TypeReference<List<OrderingInventoryClient.BranchProductResponseDto>>() {}
+                        );
+
+                    ZoneId zone = ZoneId.of("Asia/Seoul");
+                    LocalDate today = LocalDate.now(zone);
+                    LocalDate targetDate = today.plusDays(1);
+
+                // ✅ 지난 4주간 주별 판매 데이터 수집
+                List<Map<String, Object>> last4Weeks = new ArrayList<>();
+                for (int i = 4; i >= 1; i--) {
+                    LocalDate start = today.minusWeeks(i).with(DayOfWeek.MONDAY);
+                    LocalDate end = today.minusWeeks(i).with(DayOfWeek.SUNDAY);
+
+                    CommonSuccessDto weekSales = chatFeignClient.getProductSales(branchId, start, end, "HIGH_MARGIN");
+                    ProductSalesResponseDto weekData =
+                            objectMapper.convertValue(weekSales.getResult(), ProductSalesResponseDto.class);
+
+                    Map<String, Object> weekMap = new HashMap<>();
+                    weekMap.put("weekStart", start);
+                    weekMap.put("weekEnd", end);
+                    weekMap.put("products", weekData.getProducts());
+                    last4Weeks.add(weekMap);
+                }
+
+
+
+                Map<String, Object> input = new HashMap<>();
+                input.put("branchId", branchId);
+                input.put("stocks", last4Weeks);       // ✅ 지난 4주간 판매량
+                input.put("products", currentStocks);
+                    String jsonInput = null;
+                    try {
+                        jsonInput = objectMapper.writeValueAsString(input);
+                    } catch (JsonProcessingException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                System.out.println("input data" + jsonInput);
+
+
+                String result = inventoryAdvisorClient
+                            .prompt()
+                            .user(jsonInput)
+                            .call()
+                            .content();
+                JsonNode parsed = null;
+                try {
+                    parsed = objectMapper.readTree(result);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+                return ResponseEntity.ok(parsed);
+
+            }
             default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
         }
     }
@@ -494,7 +579,8 @@ public class ChatUserService {
             case "GET" -> {
                     CommonSuccessDto response = null;
                     // 당일 매출
-                    if(periodType.equals("DAY")){
+
+                    if(periodType!=null &&periodType.equals("DAY")){
                         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
                         startDate = today;
                         endDate = today;
@@ -527,26 +613,174 @@ public class ChatUserService {
 
 
             }
-              case "COMPARE" -> {
-                CommonSuccessDto response = null;
-                if(params.has("branchIds")){
-                      Object branchIdsObj = params.get("branchIds");
-                      List<Long> branchIds = new ArrayList<>();
-                      JSONArray array = (JSONArray) branchIdsObj;
-                      for (int i = 0; i < array.length(); i++) {
-                          branchIds.add(array.getLong(i));
-                      }
-                       response = client.compareBranchesSales(branchIds, startDate, endDate, periodType);
+            case "CALCULATE" -> {
+                ZoneId zone = ZoneId.of("Asia/Seoul");
+                LocalDate today = LocalDate.now(zone);
 
-                }  // 기간별 매출
-                else{
+                // 당일 매출
+                CommonSuccessDto response = client.getSalesStatistics(branchId, today, today, "HOUR");
+                SalesStatisticsResponseDto sales = objectMapper.convertValue(response.getResult(), SalesStatisticsResponseDto.class);
+                List<SalesStatisticsDto> stats = Optional.ofNullable(sales.getStatistics()).orElse(Collections.emptyList());
 
-                    response = client.getSalesStatistics(branch.getId(), startDate, endDate, periodType);
-                    SalesStatisticsResponseDto dto = objectMapper.convertValue(response.getResult(), SalesStatisticsResponseDto.class);
-                    log.info("[Sales] : " + dto);
-                    return ResponseEntity.ok(dto);
+                // 당일 스케줄
+                List<ScheduleListDto> schedules = scheduleService.listAll(today, today);
+
+                //전주 매출
+                LocalDate prevWeekStart = today.minusWeeks(1).with(DayOfWeek.MONDAY);
+                LocalDate prevWeekEnd = today.minusWeeks(1).with(DayOfWeek.SUNDAY);
+                CommonSuccessDto prevSale = client.getSalesStatistics(branchId, prevWeekStart, prevWeekEnd, "HOUR");
+                SalesStatisticsResponseDto prevSales = objectMapper.convertValue(prevSale.getResult(), SalesStatisticsResponseDto.class);
+                List<SalesStatisticsDto> prevStats = Optional.ofNullable(prevSales.getStatistics()).orElse(Collections.emptyList());
+
+                // 전주 스케줄
+
+                List<ScheduleListDto> prevSchedules = scheduleService.listAll(prevWeekStart, prevWeekEnd);
+                // 직원 별 임금 정보
+                List<DispatchStatus> dispatchStatuses = dispatchStatusRepository.findAllByBranch(branch);
+                List<EmployeeDetailDto> employees = new ArrayList<>();
+
+                for(DispatchStatus ds : dispatchStatuses){
+                    employees.add(new EmployeeDetailDto().fromEntity(ds.getEmployee()));
                 }
-                throw new IllegalArgumentException("지점 아이디 값이 입력되지 않았습니다.");
+
+                String employeeSummary = employees.stream()
+                        .map(e -> String.format("{id:%d, name:'%s', hourlyPay:'%s'}",
+                                e.getId(), e.getName(), e.getHourlyPay()))
+                        .collect(Collectors.joining(",\n"));
+
+                Map<String, Object> input = new HashMap<>();
+                input.put("branchId", branchId);
+                input.put("todaySales", stats);
+                input.put("prevSales", prevStats);
+                input.put("todaySchedules", schedules);
+                input.put("prevSchedules", prevSchedules);
+                input.put("employees", employees);
+
+                String aiInput = null;
+                try {
+                    aiInput = objectMapper.writeValueAsString(input);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("ai 호출 시작");
+                // ✅ AI 분석 호출
+                String aiInsight = salesLaborAnalysisClient
+                        .prompt()
+                        .user(aiInput)
+                        .call()
+                        .content()
+                        .trim();
+
+                if (!aiInsight.startsWith("{")) {
+                    int start = aiInsight.indexOf("{");
+                    int end = aiInsight.lastIndexOf("}") + 1;
+
+                    if (start >= 0 && end > start) {
+                        aiInsight = aiInsight.substring(start, end);
+                    } else {
+                        throw new RuntimeException("유효한 JSON 응답 아님: " + aiInsight);
+                    }
+                }
+                SalesLaborInsightDto insight = null;
+                try {
+                    insight = objectMapper.readValue(aiInsight, SalesLaborInsightDto.class);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+
+                log.info("📊 AI 인건비 인사이트 === " + insight);
+                return ResponseEntity.ok(insight);
+            }
+
+            case "ANALYZE" ->{
+                ZoneId zone = ZoneId.of("Asia/Seoul");
+                LocalDate today = LocalDate.now(zone);
+                // 당일 매출
+                CommonSuccessDto response = client.getSalesStatistics(branchId, today, today, "HOUR");
+                SalesStatisticsResponseDto sales = objectMapper.convertValue(response.getResult(), SalesStatisticsResponseDto.class);
+                List<SalesStatisticsDto> stats = Optional.ofNullable(sales.getStatistics()).orElse(Collections.emptyList());
+
+                // 당일 스케줄
+                List<ScheduleListDto> schedules = scheduleService.listAll(today, today);
+
+                //전주 매출
+                LocalDate prevWeekStart = today.minusWeeks(1).with(DayOfWeek.MONDAY);
+                LocalDate prevWeekEnd = today.minusWeeks(1).with(DayOfWeek.SUNDAY);
+                CommonSuccessDto prevSale = client.getSalesStatistics(branchId, prevWeekStart, prevWeekEnd, "HOUR");
+                SalesStatisticsResponseDto prevSales = objectMapper.convertValue(prevSale.getResult(), SalesStatisticsResponseDto.class);
+                List<SalesStatisticsDto> prevStats = Optional.ofNullable(prevSales.getStatistics()).orElse(Collections.emptyList());
+
+                //전월 매출
+                YearMonth lastMonth = YearMonth.now().minusMonths(1);
+                LocalDate startOfLastMonth = lastMonth.atDay(1);          // 전월 1일
+                LocalDate endOfLastMonth = lastMonth.atEndOfMonth();
+                CommonSuccessDto prevMonthSale = client.getSalesStatistics(branchId, startOfLastMonth, endOfLastMonth, "HOUR");
+                SalesStatisticsResponseDto prevMonthSales = objectMapper.convertValue(prevSale.getResult(), SalesStatisticsResponseDto.class);
+                List<SalesStatisticsDto> prevMonthStats = Optional.ofNullable(prevSales.getStatistics()).orElse(Collections.emptyList());
+                // 전주 스케줄
+
+                List<ScheduleListDto> prevSchedules = scheduleService.listAll(prevWeekStart, prevWeekEnd);
+                // 직원 별 임금 정보
+                List<DispatchStatus> dispatchStatuses = dispatchStatusRepository.findAllByBranch(branch);
+                List<EmployeeDetailDto> employees = new ArrayList<>();
+
+                for(DispatchStatus ds : dispatchStatuses){
+                    employees.add(new EmployeeDetailDto().fromEntity(ds.getEmployee()));
+                }
+
+                CommonSuccessDto productSales = client.getProductSales(branch.getId(),startOfLastMonth,endOfLastMonth,"HIGH_MARGIN");
+                ProductSalesResponseDto salesProducts = objectMapper.convertValue(productSales.getResult(), ProductSalesResponseDto.class);
+
+                String employeeSummary = employees.stream()
+                        .map(e -> String.format("{id:%d, name:'%s', hourlyPay:'%s'}",
+                                e.getId(), e.getName(), e.getHourlyPay()))
+                        .collect(Collectors.joining(",\n"));
+
+                Map<String, Object> input = new HashMap<>();
+                input.put("branchId", branchId);
+                input.put("todaySales", stats);
+                input.put("prevSales", prevStats);
+                input.put("prevMonthSales", prevMonthStats);
+                input.put("salesProducts", salesProducts);
+                input.put("todaySchedules", schedules);
+                input.put("prevSchedules", prevSchedules);
+                input.put("employees", employees);
+
+                String aiInput = null;
+                try {
+                    aiInput = objectMapper.writeValueAsString(input);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+                System.out.println("ai 호출 시작");
+                // ✅ AI 분석 호출
+                String aiInsight = salesReportClient
+                        .prompt()
+                        .user(aiInput)
+                        .call()
+                        .content()
+                        .trim();
+
+                if (!aiInsight.startsWith("{")) {
+                    int start = aiInsight.indexOf("{");
+                    int end = aiInsight.lastIndexOf("}") + 1;
+
+                    if (start >= 0 && end > start) {
+                        aiInsight = aiInsight.substring(start, end);
+                    } else {
+                        throw new RuntimeException("유효한 JSON 응답 아님: " + aiInsight);
+                    }
+                }
+                SalesReportDto reportDto = null;
+                try {
+                    reportDto = objectMapper.readValue(aiInsight, SalesReportDto.class);
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+
+                log.info("📊 AI 매출 분석 인사이트 === " + reportDto);
+                return ResponseEntity.ok(reportDto);
+
               }
             default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
         }

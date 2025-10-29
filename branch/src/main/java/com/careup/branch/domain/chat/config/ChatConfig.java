@@ -40,7 +40,7 @@ public class ChatConfig {
         OpenAiChatOptions options = OpenAiChatOptions.builder()
                 .model(chatModelName)
                 .temperature(0.3)
-                .maxTokens(512)
+                .maxTokens(700)
                 .build();
         return new OpenAiChatModel(openAiApi, options);
     }
@@ -110,7 +110,7 @@ Rules:
         set `"intent": "ATTENDANCE"`, `"action": "GET"`,
      and include `"allAttendance": true`, `"periodType": "MONTH"`,
      and also ensure `"parameters": {"allAttendance": true}` is included in the final JSON.
-     * If the user is a manager comparing employees' attendance ("김민수와 박진우 근태 비교", "직원 근태 비교"),\s
+     * If the user is a manager comparing employees' attendance ("김민수와 박진우 근태 상세", "직원 근태 상세"),\s
      set `"action": "COMPARE"`, and include `"employees": ["김민수","박진우"]` with `"compareBy": "attendance"`.
      * Attendance comparisons are made after fetching all records, by filtering based on the listed employees.
 
@@ -134,50 +134,65 @@ Rules:
                               and automatically add {"periodType":"MONTH","range":{"start":"%s","end":"%s"}}.
 
     ✅ NEW RULE (EMPLOYEE HANDLING)
-    - When the user mentions one or more employee names along with words like "근무 현황", "근태 조회", or "출근 현황",
-      but does **not** explicitly say "비교" or "비교해줘",
+    - When the user mentions one or more employee names along with words like "근무 현황", "근태 조회", or "출근 현황", "상세 조회", "근태 상세 조회"
       set `"action": "GET"` and include `"employees": [<listed employee names>]` inside `"parameters"`.
       Example:
-        "승지 근무 현황" → {"intent":"ATTENDANCE","action":"GET","parameters":{"employees":["승지"]}}
-        "승지 도현 근무 현황" → {"intent":"ATTENDANCE","action":"GET","parameters":{"employees":["승지","도현"]}}
-      Only when the user explicitly uses comparison words (e.g., "비교", "차이", "누가 더"), 
-      should `"action": "COMPARE"` be applied.
+        "승지 근태 상세 현황" → {"intent":"ATTENDANCE","action":"GET","parameters":{"employees":["승지"]}}
+        "승지 도현 근무 상세 현황" → {"intent":"ATTENDANCE","action":"GET","parameters":{"employees":["승지","도현"]}}
+     
     ---
+✅ NEW FEATURE: SALES ANALYTICS
+When the user mentions **"인건비 계산", "인건비 효율", "인건비 분석"**, \s
+respond with:
+```json
+{
+  "intent": "SALES",
+  "action": "CALCULATE",
+  "parameters": {
+    "analysisType": "LABOR_COST",
+    "periodType": "HOUR",
+    "comparisonBasis": ["LAST_WEEK", "TODAY"],
+    "evaluationMetrics": ["highestCostHour", "lowestCostHour", "avgCostRatio"]
+  }
+}
+ When the user mentions **"매출 분석", "매출 리포트", "매출 보고서", "매출 변화"**,\s
+ respond with:
+ ```json
+ {
+   "intent": "SALES",
+   "action": "ANALYZE",
+   "parameters": {
+     "analysisType": "SALES_TREND",
+     "periodType": "DAY",
+     "comparisonBasis": ["LAST_WEEK", "LAST_MONTH"],
+     "evaluationMetrics": ["peakHours", "weekChange", "monthChange", "avgLaborRatio"]
+   }
+ }    
     
-    ✅ NEW FEATURE: PAYROLL CALCULATION (인건비 계산)
-                        
-                            - When the user requests an "인건비 계산" or uses expressions like\s
-                              "이번 주 인건비", "지난주 인건비", "오늘 인건비", or "인건비 효율 확인",
-                              set `"intent": "ATTENDANCE"` and `"action": "CALCULATE"`.
-                        
-                            - The assistant (you) will:
-                              1. Retrieve last week's hourly sales and last week's work schedules.
-                              2. Calculate the **average labor cost per hour**.
-                              3. Compare today's labor cost ratio against sales to determine efficiency.
-                              4. Look up next week's schedule for the **same weekday** and determine if staffing is:
-                                 - `"adequate"` (적정),
-                                 - `"insufficient"` (부족),
-                                 - `"excessive"` (과잉).
-                              5. Suggest schedule adjustments based on predefined schedule templates.
-                        
-                            - Parameters must include:
-                              ```json
-                              {
-                                "intent": "ATTENDANCE",
-                                "action": "CALCULATE",
-                                "parameters": {
-                                  "calculateType": "PAYROLL",
-                                  "comparisonBasis": "LAST_WEEK",
-                                  "periodType": "DAY",
-                                  "evaluation": ["adequate", "insufficient", "excessive"],
-                                  "scheduleTemplate": true
-                                }
-                              }
 
-- For inventory (STOCK):
-    * "입고", "추가" → `"action": "CREATE"`
-    * "출고", "차감" → `"action": "DELETE"`
-    * "재고 확인", "재고 조회" → `"action": "GET"`
+For inventory (STOCK):
++    * "입고", "판매", "주문취소", "환불", "폐기", "상품불량", "재고 수정" 등의 요청은 모두 `"action": "PATCH"`로 처리한다.
++    * 각 수정 항목은 `"items"` 배열로 표현하고, 각 요소는 다음 필드를 포함한다:
++        - `"productId"` (number)
++        - `"product"` (string)
++        - `"quantity"` (number, 입고 시 양수 / 판매·폐기 등 출고 시 음수)
++        - `"reason"` (string, 반드시 아래 중 하나)
++            ["입고","판매","주문취소","환불","폐기","상품불량"]
++    * 예시:
++        - "콜라 200개 입고해줘" →
++          {"intent":"STOCK","action":"PATCH","parameters":{"items":[{"productId":2,"product":"콜라","quantity":200,"reason":"입고"}]}}
++        - "콜라 50개 판매로 차감해줘" →
++          {"intent":"STOCK","action":"PATCH","parameters":{"items":[{"productId":2,"product":"콜라","quantity":-50,"reason":"판매"}]}}
++
+  +    * "재고 회전율", "재고 분석", "재고 효율", "회전율 조회" 등의 요청은 `"action": "ANALYZE"`로 처리한다.
+  +      - 이 경우 `"intent": "STOCK"`, `"action": "ANALYZE"`, `"parameters": {"analysisType": "ROTATION"}` 를 포함한다.
+  +      - 예시:
+  +          "이번 주 재고 회전율 보여줘" →
+  +          {"intent":"STOCK","action":"ANALYZE","parameters":{"analysisType":"ROTATION","periodType":"WEEK"}}
+  +          "지난주 재고 효율 분석해줘" →
+  +          {"intent":"STOCK","action":"ANALYZE","parameters":{"analysisType":"ROTATION","periodType":"WEEK"}}
+  +          "현재 재고 회전율 조회" →
+  +          {"intent":"STOCK","action":"ANALYZE","parameters":{"analysisType":"ROTATION","periodType":"DAY"}}
 - For order (ORDER):
     * "주문 등록", "신규 주문" → `"action": "CREATE"`
     * "주문 수정" → `"action": "PATCH"`
@@ -197,8 +212,7 @@ Rules:
           {"intent":"ORDER","action":"CREATE","parameters":{"items":[{"productId":1,"product":"콜라","quantity":50},{"productId":2,"product":"물티슈","quantity":300}]}}
     * Quantities must always be numeric. Product names are strings.
     * If the product ID is not explicitly provided by the user, leave `"productId"` empty or null.
-- Output only valid JSON — no additional text or explanation.
-
+- Output only valid JSON — no additional text or explanation.              
 Examples:
 "Show all attendance records." →
 {"intent":"ATTENDANCE","action":"GET","parameters":{"periodType":"MONTH","range":{"start":"2025-01-01","end":"2025-01-31"}}}
@@ -214,9 +228,15 @@ Examples:
 
 "Order 100 bottles of water and 200 cans of soda." →
 {"intent":"ORDER","action":"CREATE","parameters":{"items":[{"productId":1,"product":"water","quantity":100},{"productId":2,"product":"soda","quantity":200}]}}
+
+ Return only valid JSON without any markdown, code blocks, or backticks.\s
+ Do not include ```json or ``` in your response.\s
+ Your response must start directly with '{' and end with '}'.
 """.formatted(today, start, end, start, end))
                 .build();
     }
+
+
 
 
     //근태 수정 제안
@@ -239,9 +259,222 @@ Examples:
                 .build();
     }
 
+    @Bean("inventoryAdvisorClient")
+    public ChatClient inventoryAdvisorClient(OpenAiChatModel chatModel) {
+        return ChatClient.builder(chatModel)
+                .defaultSystem("""
+You are an AI assistant for ERP inventory management.
+
+You will receive:
+1. `stocks`: last 4 weeks of weekly sales data per product.
+2. `products`: current stock levels for each product.
+
+---
+
+### 🧮 Calculation Rules
+- avgWeeklySales = average(last4WeeksSales)
+- lastMonthWeeklySales = average(sales during previous calendar month)
+- lastWeekSales = most recent week’s total sales
+- turnoverRate = (avgWeeklySales ÷ ((currentStock + avgWeeklySales)/2)) × 100
+- recommendedOrderQuantity = forecastNextWeekDemand - currentStock + safetyStock
+  * forecastNextWeekDemand = avgWeeklySales
+  * safetyStock = avgWeeklySales × 0.2
+  * if recommendedOrderQuantity < 0 → set to 0
+  * When suggesting orders, consider both `lastWeekSales` and `lastMonthWeeklySales` trends:
+    - If lastWeekSales > lastMonthWeeklySales × 1.1 → sales rising, increase order quantity by 10–20%.
+    - If lastWeekSales < lastMonthWeeklySales × 0.9 → sales falling, reduce order quantity by 10–20%.
+
+---
+
+### 📊 Status Criteria
+**회전율 상태 (turnoverStatus):**
+- turnoverRate ≥ 70 → "높음"
+- 40 ≤ turnoverRate < 70 → "주의"
+- turnoverRate < 40 → "낮음"
+
+**발주 상태 (orderStatus):**
+- turnoverRate ≥ 70 → "부족"
+- 40 ≤ turnoverRate < 70 → "적정"
+- turnoverRate < 40 → "과다"
+
+---
+
+### 💬 Message Rules
+After analyzing all products, write concise, high-level summaries.
+Do **not** list all products — focus on key insights and examples.
+
+- **turnoverMessage (재고 회전율 요약)**  
+  Summarize overall rotation trend with 1–2 examples only.  
+  ✅ Example:  
+  - "대부분의 제품이 안정적인 회전율을 보입니다. 베이직 티셔츠는 75%로 높으며, 푸룻한 제품은 30%로 낮은 편입니다."
+
+- **orderMessage (발주 추천 요약)**  
+  Describe **only products with a positive recommendedOrderQuantity (>0)**.  
+  Provide 1–2 concise sentences that explain reorder recommendations **using numerical evidence** from recent sales trends.  
+  Explicitly include **the previous month's average weekly sales value** as a basis for your reasoning.
+
+  ✅ Example:  
+  - "화이트 티셔츠의 지난달 주간 평균 판매량은 120개였고, 지난주는 145개로 20% 증가했습니다. 재고 소진 속도가 빨라 40개 발주를 권장합니다."  
+  - "블랙 팬츠의 지난달 주간 평균은 200개였지만, 지난주는 170개로 15% 감소했습니다. 추가 발주는 필요하지 않습니다."
+
+---
+
+### 📦 Output JSON format
+{
+  "branchId": <number>,
+  "summary": {
+    "turnoverMessage": "<string>",
+    "orderMessage": "<string>",
+    "avgTurnoverRate": <number>
+  },
+  "products": [
+    {
+      "productId": <number>,
+      "productName": "<string>",
+      "supplyPrice": <number>,
+      "avgWeeklySales": <number>,
+      "lastWeekSales": <number>,
+      "lastMonthWeeklySales": <number>,
+      "currentStock": <number>,
+      "turnoverRate": <number>,
+      "turnoverStatus": "<높음|주의|낮음>",
+      "orderStatus": "<부족|적정|과다>",
+      "recommendedOrderQuantity": <number>
+    }
+  ]
+}
+
+Return only valid JSON. No markdown, code blocks, or explanations.
+""")
+                .build();
+    }
 
 
 
+    // [인건비 분석 모델 ]
+    @Bean("salesLaborAnalysisClient")
+    public ChatClient salesLaborAnalysisClient(OpenAiChatModel chatModel) {
+        return ChatClient.builder(chatModel)
+                .defaultSystem("""
+You are an AI assistant that analyzes ERP labor cost efficiency.
+
+You will receive:
+1. `todaySales`: today's hourly sales data (hour, totalSales, totalOrders, averageOrderAmount)
+2. `prevSales`: last week's hourly sales data for comparison
+3. `todaySchedules`: today's employee schedules (employeeName, clockIn, clockOut)
+4. `prevSchedules`: last week's schedules
+5. `employees`: employee wage info (id, name, hourlyPay)
+
+---
+
+### 🧮 Analysis Goals
+- Calculate labor cost ratio per hour = (total hourly wage ÷ total sales) × 100
+- Compare today vs last week average ratio change.
+- Identify highest & lowest cost hours.
+ + Include **hourlyDetails** only for representative hours (e.g., 5–7 points).
+ + If the input is large, summarize hourly trends instead of listing all.
+
+---
+
+### 💬 Output Example
+{
+  "branchId": 2,
+  "summary": {
+    "highestCostHour": 15,
+    "highestCostRatio": 42.3,
+    "lowestCostHour": 20,
+    "lowestCostRatio": 18.7,
+    "avgCostRatioChange": 5.0,
+    "message": "금일 인건비가 가장 높은 시간대는 15시(42.3%)이며, 가장 낮은 시간대는 20시(18.7%)입니다."
+  },
+  "hourlyDetails": [
+       { "period": "morning", "avgSales": 145000, "avgLaborCost": 28000, "avgRatio": 19.3 },
+         { "period": "lunch", "avgSales": 210000, "avgLaborCost": 42000, "avgRatio": 20.0 },
+         { "period": "evening", "avgSales": 300000, "avgLaborCost": 76000, "avgRatio": 25.3 }
+        
+}
+
+Return **only valid JSON** starting directly with '{' and ending with '}'.
+Do not include placeholders like <number>, comments, or '...'.
+""")
+                .build();
+    }
+
+
+
+
+
+    // [ 매출 리포트 생성 모델 ]
+    @Bean("salesReportClient")
+    public ChatClient salesReportClient(OpenAiChatModel chatModel) {
+        return ChatClient.builder(chatModel)
+                .defaultSystem("""
+You are an advanced AI assistant that generates **strategic sales performance reports** for an ERP dashboard.
+
+You will receive:
+1. `todaySales`: today’s hourly sales data (hour, totalSales, totalOrders, averageOrderAmount)
+2. `lastWeekSales`: sales data from the same weekday last week
+3. `lastMonthSales`: average sales per hour for the previous month
+4. `productSales`: product-level sales summary (productName, totalSales, marginRate, totalQuantity)
+5. (Optional) `laborRatio`: average labor cost ratio if available
+
+---
+
+### 🧾 Analysis Rules
+Analyze and summarize:
+1. **Sales Concentration**  
+   - Identify top 1–2 peak sales hours (e.g. “13~14시”, “19~20시”)
+   - Calculate the share of total daily sales during those hours (%)
+
+2. **Trend Comparison**
+   - Compare today’s total sales with:
+     - The same weekday last week → % increase/decrease
+     - The same weekday last month → % increase/decrease
+   - Describe performance direction (growth / decline / stable)
+
+3. **Product & Profitability**
+   - Identify products with the highest and lowest **marginRate**
+   - Comment on which product category contributed most to profit
+
+4. **Labor Efficiency (if laborRatio provided)**
+   - Mention whether the labor cost ratio is high, low, or appropriate.
+
+5. **Forecasting**
+   - Predict next week’s expected sales trend (“increase”, “decrease”, or “stable”)
+   - Base prediction on current performance momentum and historical comparison.
+
+---
+
+### 💬 Output Example
+"금일 매출은 13시~14시에 집중되어 있었으며, 전주 동일 요일 대비 12% 상승했습니다.  
+전월 평균 대비 8% 증가하였고, 평균 인건비율은 26.3%입니다.  
+가장 높은 마진율을 기록한 상품은 ‘화이트 셔츠(42%)’, 가장 낮은 상품은 ‘블랙 팬츠(18%)’입니다.  
+이번 주 추세로 보아 다음 주 매출은 완만한 증가세를 보일 것으로 예상됩니다.  
+오후 시간대(13~15시) 인력 배치를 강화하는 것이 좋습니다."
+
+---
+
+### 📦 Output JSON format
+{
+  "branchId": <number>,
+  "summary": {
+    "topHours": ["13:00~14:00"],
+    "weekChange": "+12%",
+    "monthChange": "+8%",
+    "topMarginProduct": "화이트 셔츠",
+    "lowMarginProduct": "블랙 팬츠",
+    "avgLaborRatio": "26.3%",
+    "nextWeekForecast": "increase",
+    "message": "<string>"
+  }
+}
+
+Return only valid JSON.  
+No markdown, no code blocks, no backticks.  
+Start directly with '{' and end with '}'.
+""")
+                .build();
+    }
 
 
 

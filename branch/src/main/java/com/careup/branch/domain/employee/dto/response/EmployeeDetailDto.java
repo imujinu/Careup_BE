@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.dto.response;
 
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.Employee;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -39,7 +40,8 @@ public class EmployeeDetailDto {
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private Long hourlyPay;
+    private Double hourlyPay;
+    private AttendanceTemplate attendanceTemplate;
 
     private List<EmployeeDispatchDto> dispatches;
 
@@ -99,7 +101,7 @@ public class EmployeeDetailDto {
                 .enabled(e.getEnabled())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
-                .hourlyPay(e.getHourPerSalary())
+                .hourlyPay(e.getHourlyPay())
                 .build();
     }
 }

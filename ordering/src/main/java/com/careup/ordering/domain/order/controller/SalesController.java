@@ -65,7 +65,7 @@ public class SalesController {
      * GET /sales/products?branchId=1&startDate=2025-01-01&endDate=2025-01-31&sortType=HIGH_MARGIN
      */
     @GetMapping("/products")
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
+//    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
     public ResponseEntity<?> getProductSales(
             @RequestParam Long branchId,
             @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,

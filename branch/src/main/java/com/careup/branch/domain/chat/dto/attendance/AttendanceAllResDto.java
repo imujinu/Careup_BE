@@ -1,4 +1,4 @@
-package com.careup.branch.domain.chat.dto.res.attendance;
+package com.careup.branch.domain.chat.dto.attendance;
 
 import com.careup.branch.domain.employee.dto.response.AttendanceTemplateListDto;
 import com.careup.branch.domain.employee.dto.response.LeaveTypeDetailDto;

@@ -1,4 +1,4 @@
-package com.careup.branch.domain.chat.dto.res.attendance;
+package com.careup.branch.domain.chat.dto.attendance;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
