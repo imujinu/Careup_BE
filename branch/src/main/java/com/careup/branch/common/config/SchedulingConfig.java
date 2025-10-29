@@ -8,3 +8,4 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 public class SchedulingConfig {
     // 스케줄링 기능 활성화
 }
+

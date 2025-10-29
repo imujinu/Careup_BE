@@ -38,3 +38,4 @@ public class AutoOrderHistoryDto {
         private Long safetyStock;
     }
 }
+

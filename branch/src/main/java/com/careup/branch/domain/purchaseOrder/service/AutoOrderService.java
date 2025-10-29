@@ -59,7 +59,7 @@ public class AutoOrderService {
     /**
      * 매일 지정 시각에 모든 지점의 재고를 체크하여 자동 발주 실행
      */
-    @Scheduled(cron = "0 10 17 * * *")
+    @Scheduled(cron = "0 40 20 * * *")
     public void checkAllBranchesInventory() {
         try {
             log.info("일일 자동 발주 체크 시작");

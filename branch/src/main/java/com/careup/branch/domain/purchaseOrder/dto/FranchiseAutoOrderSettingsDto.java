@@ -36,3 +36,4 @@ public class FranchiseAutoOrderSettingsDto {
         private Long currentStock;
     }
 }
+
