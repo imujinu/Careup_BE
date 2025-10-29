@@ -88,4 +88,6 @@ public class EmployeeCreateDto {
     @Valid
     @Size(min = 1, message = "최소 1개 지점 배치가 필요합니다.")
     private List<DispatchAssignmentDto> dispatches;
+
+    private Long hourlyPay;
 }

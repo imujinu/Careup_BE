@@ -6,7 +6,7 @@ import com.careup.branch.domain.chat.dto.req.ChatBotReqDto;
 import com.careup.branch.domain.chat.dto.req.ChatOrderDto;
 import com.careup.branch.domain.chat.dto.req.QueryRequestDto;
 import com.careup.branch.domain.chat.dto.res.*;
-import com.careup.branch.domain.chat.dto.res.sales.SalesPredictionResponseDto;
+import com.careup.branch.domain.chat.dto.sales.SalesPredictionResponseDto;
 import com.careup.branch.domain.chat.service.ChatService;
 import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.chat.service.RagService;
@@ -16,7 +16,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
 import java.util.List;
 
 @RestController

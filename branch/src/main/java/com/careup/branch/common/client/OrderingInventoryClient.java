@@ -1,5 +1,7 @@
 package com.careup.branch.common.client;
 
+import com.careup.branch.domain.chat.dto.stock.StockAdjustRequestDto;
+import lombok.Builder;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.*;
 
@@ -116,11 +118,21 @@ public interface OrderingInventoryClient {
     }
 
     // 재고 조절
+    @Builder
     class StockAdjustRequest {
         public Long branchProductId;
         public Long quantity;
         public String type; // "INCREASE" or "DECREASE"
         public String reason;
+
+        public static StockAdjustRequest makeDto(Long productId, Long quantity, String type, String reason){
+            return StockAdjustRequest.builder()
+                    .branchProductId(productId)
+                    .quantity(quantity)
+                    .type(type)
+                    .reason(reason)
+                    .build();
+        }
     }
 
     // 입출고 기록

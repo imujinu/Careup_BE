@@ -13,10 +13,9 @@ import com.careup.branch.domain.chat.dto.req.ChatDailyPaymentsDto;
 import com.careup.branch.domain.chat.dto.req.ChatOrderDto;
 import com.careup.branch.domain.chat.dto.req.LaborCostRequestDto;
 import com.careup.branch.domain.chat.dto.res.*;
-import com.careup.branch.domain.chat.dto.res.sales.SalesPredictionRequestDto;
-import com.careup.branch.domain.chat.dto.res.sales.SalesPredictionResponseDto;
+import com.careup.branch.domain.chat.dto.sales.SalesPredictionRequestDto;
+import com.careup.branch.domain.chat.dto.sales.SalesPredictionResponseDto;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
-import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
@@ -283,7 +282,7 @@ public class ChatService {
         long totalLaborCost = 0L;
 
         for(DispatchStatus ds : dispatchStatuses){
-            Long hourPerSalary = ds.getEmployee().getHourPerSalary();
+            Double hourPerSalary = ds.getEmployee().getHourlyPay();
             if(hourPerSalary == null || hourPerSalary <= 0) continue;
 
             Optional<Schedule> scheduleOpt = scheduleRepository.findByEmployeeAndRegisteredDate(ds.getEmployee(), today);
