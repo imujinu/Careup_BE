@@ -16,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -25,6 +26,8 @@ public class BranchKpiService {
     private final BranchKpiRepository branchKpiRepository;
     private final KpiRepository kpiRepository;
     private final EntityManager em;
+    private final KpiCalculationService kpiCalculationService;
+    private final KpiVariableService kpiVariableService;
 
     // 지점별 KPI 생성
     public BranchKpiCreateResDto createBranchKpi(BranchKpiCreateReqDto request) {
@@ -32,12 +35,36 @@ public class BranchKpiService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 KPI입니다."));
         Branch branch = em.getReference(Branch.class, request.getBranchId());
 
+        // 공식이 있는 경우 자동 계산
+        BigDecimal currentValue = request.getCurrentValue();
+        if (kpi.getCalculationFormula() != null && !kpi.getCalculationFormula().isEmpty()) {
+            try {
+                // 변수 데이터 조회
+                Map<String, Double> variables = kpiVariableService.getKpiVariables(
+                    request.getBranchId(),
+                    request.getStartDate(),
+                    request.getEndDate()
+                );
+
+                // 공식 계산
+                currentValue = kpiCalculationService.calculateFormula(
+                    kpi.getCalculationFormula(),
+                    variables
+                );
+                log.info("KPI 공식 계산 완료 - KPI ID: {}, 결과: {}", kpi.getId(), currentValue);
+            } catch (Exception e) {
+                log.error("KPI 공식 계산 실패: {}", e.getMessage(), e);
+                // 계산 실패 시 요청값 사용 또는 0
+                currentValue = request.getCurrentValue() != null ? request.getCurrentValue() : BigDecimal.ZERO;
+            }
+        }
+
         BranchKpi branchKpi = BranchKpi.builder()
                 .kpiId(kpi)
                 .branchId(branch)
                 .targetValue(request.getTargetValue())
-                .currentValue(request.getCurrentValue())
-                .achievementRate(calcAchievementRate(request.getCurrentValue(), request.getTargetValue()))
+                .currentValue(currentValue)
+                .achievementRate(calcAchievementRate(currentValue, request.getTargetValue()))
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .kpiStatus(request.getKpiStatus())
@@ -64,13 +91,37 @@ public class BranchKpiService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 KPI입니다."));
         Branch branch = em.getReference(Branch.class, request.getBranchId());
 
+        // 공식이 있는 경우 자동 계산
+        BigDecimal currentValue = request.getCurrentValue();
+        if (kpi.getCalculationFormula() != null && !kpi.getCalculationFormula().isEmpty()) {
+            try {
+                // 변수 데이터 조회
+                Map<String, Double> variables = kpiVariableService.getKpiVariables(
+                    request.getBranchId(),
+                    request.getStartDate(),
+                    request.getEndDate()
+                );
+
+                // 공식 계산
+                currentValue = kpiCalculationService.calculateFormula(
+                    kpi.getCalculationFormula(),
+                    variables
+                );
+                log.info("KPI 공식 계산 완료 - KPI ID: {}, 결과: {}", kpi.getId(), currentValue);
+            } catch (Exception e) {
+                log.error("KPI 공식 계산 실패: {}", e.getMessage(), e);
+                // 계산 실패 시 요청값 사용 또는 기존값
+                currentValue = request.getCurrentValue() != null ? request.getCurrentValue() : branchKpi.getCurrentValue();
+            }
+        }
+
         // 엔티티의 업데이트 메서드 사용
         branchKpi.updateBranchKpi(
                 kpi,
                 branch,
                 request.getTargetValue(),
-                request.getCurrentValue(),
-                calcAchievementRate(request.getCurrentValue(), request.getTargetValue()),
+                currentValue,
+                calcAchievementRate(currentValue, request.getTargetValue()),
                 request.getStartDate(),
                 request.getEndDate(),
                 request.getKpiStatus()

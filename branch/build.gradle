@@ -91,6 +91,9 @@ dependencies {
 	implementation 'org.apache.poi:poi:5.2.5'
 	implementation 'org.apache.poi:poi-ooxml:5.2.5'
 
+	// exp4j (수식 계산용)
+	implementation 'net.objecthunter:exp4j:0.4.8'
+
 }
 dependencyManagement {
 	imports {
