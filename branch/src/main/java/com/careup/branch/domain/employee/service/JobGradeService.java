@@ -4,6 +4,7 @@ import com.careup.branch.domain.employee.dto.request.JobGradeCreateDto;
 import com.careup.branch.domain.employee.dto.request.JobGradeUpdateDto;
 import com.careup.branch.domain.employee.dto.response.JobGradeListDto;
 import com.careup.branch.domain.employee.dto.response.JobGradeOptionDto;
+import com.careup.branch.domain.employee.entity.AuthorityType;
 import com.careup.branch.domain.employee.entity.JobGrade;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.JobGradeRepository;
@@ -13,6 +14,9 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,12 +30,37 @@ public class JobGradeService {
     private final JobGradeRepository jobGradeRepository;
     private final EmployeeRepository employeeRepository;
 
+    private String readRole() {
+        Authentication a = SecurityContextHolder.getContext().getAuthentication();
+        if (a == null || !a.isAuthenticated()) throw new EntityNotFoundException("권한을 확인할 수 없습니다.");
+        String role = a.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .map(r -> r.startsWith("ROLE_") ? r.substring(5) : r)
+                .findFirst().orElse(null);
+        if (role == null) throw new EntityNotFoundException("권한을 확인할 수 없습니다.");
+        return role;
+    }
+
+    private void validateAuthorityForJobGradeMutation(AuthorityType proposed) {
+        String role = readRole();
+        if ("HQ_ADMIN".equals(role)) return;
+        if (proposed != AuthorityType.STAFF) {
+            throw new IllegalArgumentException("해당 권한의 직급을 생성/수정할 수 없습니다.");
+        }
+    }
+
     @Transactional
     public JobGradeListDto create(JobGradeCreateDto dto) {
         if (jobGradeRepository.existsByName(dto.getName())) {
             throw new IllegalArgumentException("이미 존재하는 직급명입니다.");
         }
-        JobGrade saved = jobGradeRepository.save(JobGrade.builder().name(dto.getName()).build());
+        validateAuthorityForJobGradeMutation(dto.getAuthorityType());
+        JobGrade saved = jobGradeRepository.save(
+                JobGrade.builder()
+                        .name(dto.getName())
+                        .authorityType(dto.getAuthorityType())
+                        .build()
+        );
         return JobGradeListDto.fromEntity(saved);
     }
 
@@ -52,7 +81,8 @@ public class JobGradeService {
         if (!found.getName().equals(dto.getName()) && jobGradeRepository.existsByName(dto.getName())) {
             throw new IllegalArgumentException("이미 존재하는 직급명입니다.");
         }
-        found.update(dto.getName());
+        validateAuthorityForJobGradeMutation(dto.getAuthorityType());
+        found.update(dto.getName(), dto.getAuthorityType());
         return JobGradeListDto.fromEntity(found);
     }
 
@@ -61,7 +91,6 @@ public class JobGradeService {
         JobGrade found = jobGradeRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
 
-        /// 해당 직급을 참조중인 직원들의 job_grade를 NULL로 세팅
         employeeRepository.detachJobGradeById(id);
 
         if (employeeRepository.existsByJobGradeId(id)) {

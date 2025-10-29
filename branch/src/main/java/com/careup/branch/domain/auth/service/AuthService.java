@@ -76,11 +76,19 @@ public class AuthService {
             branchName = active.get().getBranch().getName();
         }
 
-        // NEW: 이메일 클레임 포함
-        String at = jwt.createAccessToken(employeeId, role, branchId, emp.getEmail());
-        String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
-
         String title = (emp.getJobGrade() != null) ? emp.getJobGrade().getName() : null;
+
+        // ★ AT에 email + name + profileImageUrl + title 포함
+        String at = jwt.createAccessToken(
+                employeeId,
+                role,
+                branchId,
+                emp.getEmail(),
+                emp.getName(),
+                emp.getProfileImageUrl(),
+                title
+        );
+        String rt = jwt.createRefreshToken(employeeId, req.isRememberMe());
 
         return AuthLoginResponse.builder()
                 .tokenType("Bearer")
@@ -95,6 +103,8 @@ public class AuthService {
                 .mobile(emp.getMobile())
                 .branchId(branchId)
                 .branchName(branchName)
+                // 응답에도 사진 포함(프론트 안정성↑)
+                .profileImageUrl(emp.getProfileImageUrl())
                 .build();
     }
 
@@ -126,8 +136,18 @@ public class AuthService {
             branchName = active.get().getBranch().getName();
         }
 
-        // NEW: 이메일 클레임 포함
-        String at = jwt.createAccessToken(employeeId, role, branchId, emp.getEmail());
+        String title = (emp.getJobGrade() != null) ? emp.getJobGrade().getName() : null;
+
+        // ★ 리프레시 시에도 동일 클레임으로 AT 재발급
+        String at = jwt.createAccessToken(
+                employeeId,
+                role,
+                branchId,
+                emp.getEmail(),
+                emp.getName(),
+                emp.getProfileImageUrl(),
+                title
+        );
 
         return AuthRefreshResponse.builder()
                 .tokenType("Bearer")
@@ -141,6 +161,8 @@ public class AuthService {
                 .branchId(branchId)
                 .branchName(branchName)
                 .issuedAt(Instant.now())
+                // 응답에도 사진 포함(일관성)
+                .profileImageUrl(emp.getProfileImageUrl())
                 .build();
     }
 
