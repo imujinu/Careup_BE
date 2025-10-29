@@ -1,6 +1,7 @@
 package com.careup.ordering.domain.product.repository;
 
 import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.entity.Visibility;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -12,7 +13,12 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-    List<Product> findByCategoryId(Long categoryId);
+    // ========== 관리자용 조회 (모든 상품) ==========
+
+    /**
+     * 카테고리별 상품 조회 (관리자용)
+     */
+    Page<Product> findByCategoryId(Long categoryId, Pageable pageable);
 
     /**
      * 상품 검색
@@ -26,6 +32,46 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND (p.name LIKE %:keyword% OR p.description LIKE %:keyword%)")
     Page<Product> searchByCategoryAndKeyword(@Param("categoryId") Long categoryId, @Param("keyword") String keyword, Pageable pageable);
 
+    // ========== 고객용 조회 (활성화 + visibility 필터링) ==========
+
+    /**
+     * 고객용: visibility=ALL인 활성 상품만 조회 (페이지네이션)
+     * - status = ACTIVE
+     * - isDelYn = 'N'
+     * - visibility = ALL
+     */
+    @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByVisibilityAndActive(@Param("visibility") Visibility visibility, Pageable pageable);
+
+    /**
+     * 고객용: visibility + 카테고리로 활성 상품 조회
+     */
+    @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND p.category.id = :categoryId AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByVisibilityAndCategoryIdAndActive(
+            @Param("visibility") Visibility visibility,
+            @Param("categoryId") Long categoryId,
+            Pageable pageable
+    );
+
+    /**
+     * 고객용: 카테고리 + visibility + 활성 상품 조회 (간편 메서드)
+     */
+    @Query("SELECT p FROM Product p WHERE p.category.id = :categoryId AND p.visibility = :visibility AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByCategoryIdAndVisibilityAndActive(
+            @Param("categoryId") Long categoryId,
+            @Param("visibility") Visibility visibility,
+            Pageable pageable
+    );
+
+    /**
+     * 고객용: visibility + 검색어로 활성 상품 조회
+     */
+    @Query("SELECT p FROM Product p WHERE p.visibility = :visibility AND (p.name LIKE %:keyword% OR p.description LIKE %:keyword%) AND p.status = 'ACTIVE' AND p.isDelYn = 'N'")
+    Page<Product> findByVisibilityAndKeywordAndActive(
+            @Param("visibility") Visibility visibility,
+            @Param("keyword") String keyword,
+            Pageable pageable
+    );
     /**
      * 가격 범위로 상품 검색
      */

@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -29,7 +30,7 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private final TossPaymentConfig tossPaymentConfig;  // ⭐ Config 주입
+    private final TossPaymentConfig tossPaymentConfig;  //  Config 주입
 
     /**
      * 결제 승인 (토스페이먼츠 공식 샘플 코드 기반)
@@ -50,10 +51,50 @@ public class PaymentService {
                             order.getTotalAmount(), request.getAmount()));
         }
 
-        // 2. 토스페이먼츠 API 호출 (공식 샘플 코드 방식)
-        JSONObject responseData = callTossPaymentsApi(request);
+        // 2. 이미 해당 결제키로 처리가 완료되었는지 확인
+        Optional<Payment> existingPaymentByKey = paymentRepository.findByPaymentKey(request.getPaymentKey());
+        
+        if (existingPaymentByKey.isPresent()) {
+            Payment existingPayment = existingPaymentByKey.get();
+            log.info("이미 처리된 결제입니다 - paymentId: {}, orderId: {}, paymentKey: {}", 
+                    existingPayment.getId(), existingPayment.getOrder().getId(), request.getPaymentKey());
+            
+            // 기존 결제 정보 반환
+            Map<String, Object> result = new HashMap<>();
+            result.put("paymentId", existingPayment.getId());
+            result.put("orderId", existingPayment.getOrder().getId());
+            result.put("amount", existingPayment.getAmount());
+            result.put("paymentKey", existingPayment.getPaymentKey());
+            result.put("status", existingPayment.getPaymentStatus().name());
+            log.info("기존 결제 정보 반환 - paymentKey: {}", existingPayment.getPaymentKey());
+            return result;
+        }
+        
+        // 3. 같은 주문에 이미 결제가 있는지 확인
+        Optional<Payment> existingPaymentOpt = paymentRepository.findByOrderId(order.getId());
+        
+        if (existingPaymentOpt.isPresent()) {
+            Payment existingPayment = existingPaymentOpt.get();
+            log.warn("이미 주문에 결제가 존재합니다 - paymentId: {}, orderId: {}", 
+                    existingPayment.getId(), order.getId());
+            
+            // 기존 결제 정보 반환
+            Map<String, Object> result = new HashMap<>();
+            result.put("paymentId", existingPayment.getId());
+            result.put("orderId", order.getId());
+            result.put("amount", existingPayment.getAmount());
+            result.put("paymentKey", existingPayment.getPaymentKey());
+            result.put("status", existingPayment.getPaymentStatus().name());
+            return result;
+        }
+        
+        log.info("새로운 결제 승인 처리 시작");
 
-        // 3. Payment 엔티티 저장
+        // 4. 토스페이먼츠 API 호출 (getTossOrderId() 사용)
+        // 토스페이먼츠는 6자 이상 형식을 요구하므로 getTossOrderId() 사용
+        JSONObject responseData = callTossPaymentsApi(request, order.getTossOrderId());
+
+        // 5. Payment 엔티티 저장
         Payment payment = Payment.builder()
                 .order(order)
                 .amount(request.getAmount())
@@ -64,7 +105,7 @@ public class PaymentService {
 
         log.info("결제 승인 완료 - paymentId: {}, orderId: {}", payment.getId(), order.getId());
 
-        // 4. 응답 데이터 변환
+        // 6. 응답 데이터 변환
         Map<String, Object> result = new HashMap<>();
         result.put("paymentId", payment.getId());
         result.put("orderId", order.getId());
@@ -78,14 +119,18 @@ public class PaymentService {
 
     /**
      * 토스페이먼츠 API 호출 (공식 샘플 코드)
+     * @param request 결제 확인 요청 (프론트에서 받은 데이터)
+     * @param tossOrderId 토스페이먼츠용 orderId (CAREUP_ORDER_형식)
      */
     @SuppressWarnings("unchecked")
-    private JSONObject callTossPaymentsApi(PaymentConfirmRequest request) throws Exception {
-        // 요청 데이터 생성
+    private JSONObject callTossPaymentsApi(PaymentConfirmRequest request, String tossOrderId) throws Exception {
+        // 요청 데이터 생성 - ⭐ tossOrderId 사용
         JSONObject requestData = new JSONObject();
-        requestData.put("orderId", request.getOrderId());
+        requestData.put("orderId", tossOrderId);  // ⭐ getTossOrderId() 결과 사용
         requestData.put("amount", request.getAmount());
         requestData.put("paymentKey", request.getPaymentKey());
+
+        log.info("토스페이먼츠 API 호출 - tossOrderId: {}, amount: {}", tossOrderId, request.getAmount());
 
         // Authorization 헤더 생성 ⭐ Config 사용
         String authorization = "Basic " + tossPaymentConfig.getEncodedSecretKey();

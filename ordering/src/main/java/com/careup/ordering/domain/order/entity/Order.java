@@ -72,6 +72,17 @@ public class Order {
     }
 
     // 비즈니스 로직
+    
+    /**
+     * 토스페이먼츠 API용 orderId 반환
+     * 형식: CAREUP_ORDER_{orderId}
+     * 토스페이먼츠는 6자 이상 64자 이하의 영문 대소문자, 숫자, 특수문자(-, _)만 허용
+     * 예: CAREUP_ORDER_1, CAREUP_ORDER_12345
+     */
+    public String getTossOrderId() {
+        return "CAREUP_ORDER_" + this.id;
+    }
+    
     public void updateStatus(OrderStatus status) {
         this.orderStatus = status;
     }

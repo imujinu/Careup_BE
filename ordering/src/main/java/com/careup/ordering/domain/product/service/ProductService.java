@@ -16,6 +16,7 @@ import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,7 +114,8 @@ public class ProductService {
     // 카테고리별 상품 조회
     @Transactional(readOnly = true)
     public List<ProductResponseDto> getProductsByCategory(Long categoryId) {
-        List<Product> products = productRepository.findByCategoryId(categoryId);
+        Page<Product> productsPage = productRepository.findByCategoryId(categoryId, Pageable.unpaged());
+        List<Product> products = productsPage.getContent();
         return products.stream()
                 .map(ProductResponseDto::from)
                 .collect(Collectors.toList());
@@ -239,13 +241,35 @@ public class ProductService {
         productRepository.delete(product);
     }
     /**
-     * 고객용 상품 목록 조회 (판매 지점 정보 포함)
+     * 고객용 상품 목록 조회 (페이지네이션)
+     *  visibility=ALL인 활성 상품만 반환
      */
     @Transactional(readOnly = true)
-    public List<ProductWithBranchesDto> getPublicProductsWithBranches() {
-        List<Product> products = productRepository.findAll();
+    public Page<ProductResponseDto> getPublicProducts(Pageable pageable) {
+        Page<Product> products = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
+        return products.map(ProductResponseDto::from);
+    }
 
-        return products.stream()
+    /**
+     * 고객용 상품 목록 조회 (판매 지점 정보 포함) - 페이지네이션 + 카테고리 필터
+     *  visibility=ALL인 활성 상품만 반환
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductWithBranchesDto> getPublicProductsWithBranches(Long categoryId, Pageable pageable) {
+        // 카테고리 필터링 여부에 따라 다른 쿼리 사용
+        Page<Product> productsPage;
+        
+        if (categoryId != null) {
+            // 카테고리 + visibility=ALL + 활성 필터링
+            productsPage = productRepository.findByCategoryIdAndVisibilityAndActive(categoryId, Visibility.ALL, pageable);
+        } else {
+            // 전체 상품 중 visibility=ALL + 활성 필터링
+            productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
+        }
+        
+        List<Product> products = productsPage.getContent();
+
+        List<ProductWithBranchesDto> result = products.stream()
                 .map(product -> {
                     // 해당 상품을 판매하는 모든 지점 정보 조회
                     List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
@@ -256,6 +280,7 @@ public class ProductService {
                                     .branchId(bp.getBranchId())
                                     .branchName("지점명")  // Branch 서비스에서 조회 필요
                                     .stockQuantity(bp.getStockQuantity())
+                                    .price(bp.getPrice())  // 지점별 가격 추가
                                     .build())
                             .collect(Collectors.toList());
 
@@ -265,11 +290,70 @@ public class ProductService {
                             .description(product.getDescription())
                             .imageUrl(product.getImageUrl())
                             .categoryName(product.getCategory().getName())
+                            .minPrice(product.getMinPrice())  // 최소 가격 추가
+                            .maxPrice(product.getMaxPrice())  // 최대 가격 추가
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
                             .build();
                 })
                 .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
                 .collect(Collectors.toList());
+
+        // Page 객체로 변환
+        return new PageImpl<>(result, pageable, productsPage.getTotalElements());
+    }
+
+    /**
+     * 고객용 상품 검색 (판매 지점 정보 포함) - 페이지네이션 + 카테고리 필터
+     *  visibility=ALL인 활성 상품만 검색
+     */
+    @Transactional(readOnly = true)
+    public Page<ProductWithBranchesDto> searchPublicProductsWithBranches(String keyword, Long categoryId, Pageable pageable) {
+        // 카테고리 + 키워드 검색
+        Page<Product> productsPage;
+        
+        if (categoryId != null) {
+            // 카테고리 + 키워드 검색
+            productsPage = productRepository.searchByCategoryAndKeyword(categoryId, keyword, pageable);
+        } else {
+            // 전체 카테고리에서 키워드 검색
+            productsPage = productRepository.searchByKeyword(keyword, pageable);
+        }
+        
+        List<Product> products = productsPage.getContent();
+
+        List<ProductWithBranchesDto> result = products.stream()
+                .filter(product -> product.getVisibility() == Visibility.ALL && product.isActive())
+                .map(product -> {
+                    // 해당 상품을 판매하는 모든 지점 정보 조회
+                    List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
+
+                    List<ProductWithBranchesDto.BranchInfoDto> branchInfos = branchProducts.stream()
+                            .filter(bp -> bp.getStockQuantity() > 0)  // 재고 있는 지점만
+                            .map(bp -> ProductWithBranchesDto.BranchInfoDto.builder()
+                                    .branchId(bp.getBranchId())
+                                    .branchName("지점명")  // Branch 서비스에서 조회 필요
+                                    .stockQuantity(bp.getStockQuantity())
+                                    .price(bp.getPrice())  // 지점별 가격 추가
+                                    .build())
+                            .collect(Collectors.toList());
+
+                    return ProductWithBranchesDto.builder()
+                            .productId(product.getId())
+                            .productName(product.getName())
+                            .description(product.getDescription())
+                            .imageUrl(product.getImageUrl())
+                            .categoryName(product.getCategory().getName())
+                            .minPrice(product.getMinPrice())  // 최소 가격 추가
+                            .maxPrice(product.getMaxPrice())  // 최대 가격 추가
+                            .availableBranchCount(branchInfos.size())
+                            .availableBranches(branchInfos)
+                            .build();
+                })
+                .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
+                .collect(Collectors.toList());
+
+        // Page 객체로 변환
+        return new PageImpl<>(result, pageable, result.size());
     }
 }

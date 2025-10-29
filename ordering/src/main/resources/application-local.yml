@@ -94,8 +94,8 @@ cloud:
 # ========== 토스 결제 설정 ==========
 payment:
   toss:
-    client-key: test_ck_Z61JOxRQVEE6gXGaDjv2VW0X9bAq
-    secret-key: test_sk_P9BRQmyarYleRRplKdkZVJ07KzLN
+    client-key: test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq
+    secret-key: test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6
     security-key: 9e164b0107777969ccefd888fe6f416b949c04bd051c9a07ff69f6ab38fe680c
     api-url: https://api.tosspayments.com
 
