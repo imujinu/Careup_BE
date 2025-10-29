@@ -15,20 +15,11 @@ import com.careup.branch.domain.employee.dto.request.ScheduleMassItemDto;
 import com.careup.branch.domain.employee.dto.request.WorkTypeUpsertDto;
 import com.careup.branch.domain.employee.dto.request.LeaveTypeUpsertDto;
 import com.careup.branch.domain.employee.dto.response.JobGradeListDto;
+import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.dto.response.WorkTypeDetailDto;
 import com.careup.branch.domain.employee.dto.response.LeaveTypeDetailDto;
-import com.careup.branch.domain.employee.entity.AuthorityType;
-import com.careup.branch.domain.employee.entity.AttendanceTemplate;
-import com.careup.branch.domain.employee.entity.EmploymentStatus;
-import com.careup.branch.domain.employee.entity.EmploymentType;
-import com.careup.branch.domain.employee.entity.Gender;
-import com.careup.branch.domain.employee.entity.Relationship;
-import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
-import com.careup.branch.domain.employee.repository.EmployeeRepository;
-import com.careup.branch.domain.employee.repository.JobGradeRepository;
-import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
-import com.careup.branch.domain.employee.repository.ScheduleRepository;
-import com.careup.branch.domain.employee.repository.WorkTypeRepository;
+import com.careup.branch.domain.employee.entity.*;
+import com.careup.branch.domain.employee.repository.*;
 import com.careup.branch.domain.employee.service.AttendanceService;
 import com.careup.branch.domain.employee.service.EmployeeService;
 import com.careup.branch.domain.employee.service.JobGradeService;
@@ -46,6 +37,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -70,6 +62,7 @@ public class DataInitializer implements CommandLineRunner {
     private final AttendanceTemplateRepository attendanceTemplateRepository;
     private final AttendanceService attendanceService;
     private final ScheduleRepository scheduleRepository;
+    private final ScheduleEventRepository scheduleEventRepository;
 
     private static final String DEFAULT_PROFILE_URL =
             "https://beyond-16-care-up.s3.ap-northeast-2.amazonaws.com/image/employee/profile/default/default_user.png";
@@ -78,7 +71,6 @@ public class DataInitializer implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         if (employeeRepository.count() > 0L) return;
-
         runAsSystem(() -> {
             Long hqId = ensureBranch(
                     "본점", OwnershipType.NO, "101-10-00001", "110101-1000001",
@@ -292,7 +284,8 @@ public class DataInitializer implements CommandLineRunner {
                                 String emergencyTel, String emergencyName, Relationship relationship,
                                 LocalDate dateOfBirth, LocalDate hireDate,
                                 String profileImageUrl, String remark,
-                                List<DispatchAssignmentDto> dispatches) {
+                                List<DispatchAssignmentDto> dispatches
+    ) {
 
         if (employeeRepository.findByEmailIgnoreCase(email).isPresent()) return;
 

@@ -1,4 +1,4 @@
-package com.careup.branch.domain.chat.dto.res.sales;
+package com.careup.branch.domain.chat.dto.sales;
 
 import lombok.*;
 

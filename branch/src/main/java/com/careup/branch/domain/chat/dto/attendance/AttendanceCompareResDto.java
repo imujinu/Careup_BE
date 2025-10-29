@@ -1,4 +1,4 @@
-package com.careup.branch.domain.chat.dto.res.attendance;
+package com.careup.branch.domain.chat.dto.attendance;
 
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
 import lombok.AllArgsConstructor;
@@ -59,6 +59,7 @@ public class AttendanceCompareResDto {
     @AllArgsConstructor
     @Builder
     public static class AttendanceDetailDto {
+        private Long scheduleId;
         private LocalDate date;
         private String workType;
         private String status;
@@ -85,6 +86,7 @@ public class AttendanceCompareResDto {
 
                     List<AttendanceDetailDto> details = records.stream()
                             .map(a -> AttendanceDetailDto.builder()
+                                    .scheduleId(a.getId())
                                     .date(a.getRegisteredDate())
                                     .workType(a.getWorkTypeName())
                                     .status(String.valueOf(a.getStatus()))
