@@ -29,8 +29,8 @@ public class PaymentController {
             @RequestBody PaymentConfirmRequest request) {
         
         log.info("POST /api/payments/confirm - 결제 승인 요청");
-        log.info("Request - orderId: {}, paymentKey: {}, amount: {}", 
-                request.getOrderId(), request.getPaymentKey(), request.getAmount());
+        log.info("Request - orderId: {}, tossOrderId: {}, paymentKey: {}, amount: {}", 
+                request.getOrderId(), request.getTossOrderId(), request.getPaymentKey(), request.getAmount());
 
         try {
             Map<String, Object> response = paymentService.confirmPayment(request);

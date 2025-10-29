@@ -16,5 +16,6 @@ import lombok.NoArgsConstructor;
 public class PaymentConfirmRequest {
     private String paymentKey;  // 토스페이먼츠에서 발급한 결제 키
     private String orderId;     // 주문 ID (Order.id를 String으로)
+    private String tossOrderId; // 토스페이먼츠에 전송한 원본 orderId (타임스탬프 포함, 예: CAREUP_ORDER_4_1761756734173)
     private Long amount;        // 결제 금액
 }
