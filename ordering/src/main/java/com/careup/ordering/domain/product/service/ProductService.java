@@ -63,6 +63,9 @@ public class ProductService {
         if (imageFile != null && !imageFile.isEmpty()) {
             imageUrl = awsS3Uploader.uploadFile("products", 0L, imageFile);
             log.info("상품 이미지 업로드 완료 - URL: {}", imageUrl);
+        } else if (imageUrl == null || imageUrl.isEmpty()) {
+            // 이미지가 없으면 빈 문자열로 설정
+            imageUrl = "";
         }
 
         // 상품 생성
@@ -73,7 +76,7 @@ public class ProductService {
                 .supplyPrice(request.getSupplyPrice())
                 .minPrice(request.getMinPrice())
                 .maxPrice(request.getMaxPrice())
-                .imageUrl(imageUrl != null ? imageUrl : "default-image.jpg")
+                .imageUrl(imageUrl)
                 .visibility(visibilityEnum)
                 .build();
 
@@ -133,7 +136,7 @@ public class ProductService {
         String newImageUrl = null;
         if (imageFile != null && !imageFile.isEmpty()) {
             // 기존 이미지 삭제
-            if (product.getImageUrl() != null && !product.getImageUrl().equals("default-image.jpg")) {
+            if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
                 try {
                     awsS3Uploader.deleteByUrl(product.getImageUrl());
                     log.info("기존 상품 이미지 삭제 완료 - URL: {}", product.getImageUrl());
@@ -144,6 +147,16 @@ public class ProductService {
 
             newImageUrl = awsS3Uploader.uploadFile("products", productId, imageFile);
             log.info("새 상품 이미지 업로드 완료 - URL: {}", newImageUrl);
+        } else if (request.getImageUrl() != null && request.getImageUrl().isEmpty()) {
+            // 이미지 파일이 없고 imageUrl이 빈 문자열이면 이미지 제거
+            if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+                try {
+                    awsS3Uploader.deleteByUrl(product.getImageUrl());
+                } catch (Exception e) {
+                    log.warn(e.getMessage());
+                }
+            }
+            newImageUrl = ""; // 빈 문자열로 설정
         }
         // 상품 정보 업데이트
         product.updateInfo(
