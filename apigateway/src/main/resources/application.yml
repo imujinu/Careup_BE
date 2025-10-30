@@ -6,6 +6,7 @@ spring:
     name: api-gateway
   cloud:
     gateway:
+      # 글로벌 CORS (게이트웨이 전담)
       globalcors:
         add-to-simple-url-handler-mapping: true
         cors-configurations:
@@ -17,10 +18,12 @@ spring:
             allowedHeaders: "*"
             allowCredentials: true
 
+      # 헤더 중복 제거 (multiple values 문제 방지)
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
 
       routes:
+        # 프리픽스 접근 유지
         - id: ordering-service-prefixed
           predicates:
             - Path=/ordering-service/**
@@ -53,7 +56,13 @@ spring:
             - Path=/auth/customers/**
           uri: lb://ordering-service
 
-        # 공개 상품/카테고리/재고
+        # 자동 발주
+        - id: branch-auto-order-apis
+          predicates:
+            - Path=/api/auto-order/**
+          uri: lb://branch-service
+
+        # 공개 상품/카테고리/재고 조회 등
         - id: ordering-public-apis
           predicates:
             - Path=/api/**, /inventory/**

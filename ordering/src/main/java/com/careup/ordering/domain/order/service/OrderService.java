@@ -4,6 +4,7 @@ import com.careup.ordering.common.client.BranchClient;
 import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
+import com.careup.ordering.domain.member.service.LoyalCustomerService;
 import com.careup.ordering.domain.notification.NotificationService;
 import com.careup.ordering.domain.notification.SseNotificationResDto;
 import com.careup.ordering.domain.order.dto.*;
@@ -35,6 +36,8 @@ public class OrderService {
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
     private final NotificationService notificationService;
+    private final LoyalCustomerService loyalCustomerService;
+
     /**
      * 주문 생성
      */
@@ -68,7 +71,7 @@ public class OrderService {
         Order savedOrder = orderRepository.save(order);
         log.info("주문 생성 완료 - orderId: {}", savedOrder.getId());
 
-        // 4. 주문 상품 생성 (✅ 커스텀 Builder - totalPrice 자동 계산)
+        // 4. 주문 상품 생성 ( 커스텀 Builder - totalPrice 자동 계산)
         List<OrderedItem> orderedItems = requestDto.getOrderItems().stream()
                 .map(itemDto -> {
                     BranchProduct branchProduct = branchProductRepository.findById(itemDto.getBranchProductId())
@@ -106,7 +109,7 @@ public class OrderService {
                                 branchProduct.getSafetystock());
                     }
 
-                    // ✅ 커스텀 Builder 사용 (totalPrice는 자동 계산됨!)
+                    //  커스텀 Builder 사용 (totalPrice는 자동 계산됨!)
                     return OrderedItem.builder()
                             .order(savedOrder)
                             .branchProduct(branchProduct)
@@ -189,6 +192,20 @@ public class OrderService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
         order.approve(approvedBy);
+
+        // ✨ 단골 고객 정보 자동 업데이트
+        try {
+            loyalCustomerService.updateLoyalCustomerByOrder(
+                    order.getMember().getId(),
+                    order.getBranchId(),
+                    java.math.BigDecimal.valueOf(order.getTotalAmount())
+            );
+            log.info("단골 고객 정보 업데이트 완료 - memberId: {}, branchId: {}, amount: {}",
+                    order.getMember().getId(), order.getBranchId(), order.getTotalAmount());
+        } catch (Exception e) {
+            log.error("단골 고객 정보 업데이트 실패: {}", e.getMessage());
+            // 주문 승인은 계속 진행 (단골 고객 업데이트 실패가 주문을 막지 않음)
+        }
 
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
         SseNotificationResDto dto = SseNotificationResDto.orderApproved(order.getBranchId(), order.getId(), approvedBy);

@@ -7,13 +7,10 @@ import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
-import com.careup.branch.domain.employee.service.AttendanceService;
 import com.careup.branch.domain.notification.dto.SseNotificationResDto;
 import com.careup.branch.domain.notification.service.SseAlarmService;
 import com.careup.branch.common.client.OrderingInventoryClient.ResponseDto;
 import com.careup.branch.domain.branch.repository.BranchRepository;
-import com.careup.branch.domain.employee.entity.Employee;
-import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
@@ -29,7 +26,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -78,19 +74,75 @@ public class PurchaseOrderService {
                 .price(calculateTotalPrice(details)) // Long 언박싱 NPE 방지 로직 포함
                 .build();
 
+        // 5) 상세 정보 저장
+        List<PurchaseOrderDetail> orderDetails = details.stream()
+                .map(detail -> {
+                    String productName = getProductName(detail.getProductId());
+                    return PurchaseOrderDetail.builder()
+                            .purchaseOrder(purchaseOrder)
+                            .productId(detail.getProductId())
+                            .productName(productName)
+                            .quantity(detail.getQuantity())
+                            .approvedQuantity(detail.getQuantity())
+                            .unitPrice(detail.getSupplyPrice())
+                            .subtotalPrice((long) detail.getQuantity() * detail.getSupplyPrice())
+                            .build();
+                })
+                .toList();
+
+        PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+        
+        // 상세 정보 저장
+        orderDetails.forEach(detail -> detail.setPurchaseOrder(savedOrder));
+        orderDetails.forEach(purchaseOrderDetailRepository::save);
+
+        log.info("발주 생성 완료: {}", savedOrder.getId());
+        return PurchaseOrderResponseDto.builder()
+                .purchaseOrderId(savedOrder.getId())
+                .branchId(savedOrder.getBranchId())
+                .orderStatus(savedOrder.getOrderStatus())
+                .totalPrice(savedOrder.getPrice())
+                .createdAt(savedOrder.getCreatedAt())
+                .build();
+    }
+
+    // 자동 발주 생성 (권한 검증 없음)
+    @Transactional
+    public PurchaseOrderResponseDto createAutoPurchaseOrder(PurchaseOrderRequestDto requestDto) {
+        // 1) 기본 검증 (권한 검증 제외)
+        validatePurchaseOrderRequestWithoutAuth(requestDto);
+
+        // 2) 중복 발주 방지
+        validateNoDuplicateOrder(requestDto);
+
+        // 3) 상품별 공급가 조회
+        List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details = setSupplyPrices(requestDto.getOrderDetails());
+
+        // 4) 주문 저장
+        PurchaseOrder purchaseOrder = PurchaseOrder.builder()
+                .branchId(requestDto.getBranchId())
+                .orderStatus(OrderStatus.PENDING)
+                .price(calculateTotalPrice(details))
+                .build();
+
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
         // 5) 상세 저장
         List<PurchaseOrderDetail> orderDetails = details.stream()
                 .filter(detail -> detail.getQuantity() > 0)
-                .map(detailDto -> PurchaseOrderDetail.builder()
-                        .purchaseOrder(savedOrder)
-                        .productId(detailDto.getProductId())
-                        .quantity(detailDto.getQuantity())
-                        .approvedQuantity(0)
-                        .unitPrice(detailDto.getSupplyPrice())
-                        .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
-                        .build())
+                .map(detailDto -> {
+                    // 상품명 조회
+                    String productName = getProductName(detailDto.getProductId());
+                    return PurchaseOrderDetail.builder()
+                            .purchaseOrder(savedOrder)
+                            .productId(detailDto.getProductId())
+                            .productName(productName)
+                            .quantity(detailDto.getQuantity())
+                            .approvedQuantity(0)
+                            .unitPrice(detailDto.getSupplyPrice())
+                            .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
+                            .build();
+                })
                 .collect(Collectors.toList());
 
         List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
@@ -104,7 +156,7 @@ public class PurchaseOrderService {
 
 
 
-        return convertToResponseDto(savedOrder, savedDetails);
+        return convertToCompletedResponseDto(savedOrder, savedDetails);
     }
 
     // 공급가 조회 및 설정 (Feign 응답 언랩 + null 가드)
@@ -158,6 +210,24 @@ public class PurchaseOrderService {
             throw new IllegalArgumentException("가맹점 ID는 필수입니다.");
         }
         validateBranchAccess(requestDto.getBranchId());
+
+        if (requestDto.getOrderDetails() == null || requestDto.getOrderDetails().isEmpty()) {
+            throw new IllegalArgumentException("발주 상품을 선택해주세요.");
+        }
+
+        boolean hasValidQuantity = requestDto.getOrderDetails().stream()
+                .anyMatch(detail -> detail.getQuantity() > 0);
+
+        if (!hasValidQuantity) {
+            throw new IllegalArgumentException("수량을 입력해주세요.");
+        }
+    }
+
+    // 발주 요청 유효성 검증 (권한 검증 제외)
+    private void validatePurchaseOrderRequestWithoutAuth(PurchaseOrderRequestDto requestDto) {
+        if (requestDto.getBranchId() == null) {
+            throw new IllegalArgumentException("가맹점 ID는 필수입니다.");
+        }
 
         if (requestDto.getOrderDetails() == null || requestDto.getOrderDetails().isEmpty()) {
             throw new IllegalArgumentException("발주 상품을 선택해주세요.");
