@@ -73,7 +73,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 String role = String.valueOf(c.get("role"));
                 if (role != null && !role.isBlank()) {
                     var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-                    var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), null, authorities);
+                    var auth = new UsernamePasswordAuthenticationToken(c.getSubject(), token, authorities);
                     auth.setDetails(c); // email 포함된 Claims 전달
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }

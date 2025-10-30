@@ -79,7 +79,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                     ? "CUSTOMER" : String.valueOf(c.get("role"));
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
-            var auth = new UsernamePasswordAuthenticationToken(memberId, null, authorities);
+            var auth = new UsernamePasswordAuthenticationToken(memberId, token, authorities);
             auth.setDetails(Map.of("realm", "CUS", "claims", c));
             SecurityContextHolder.getContext().setAuthentication(auth);
             return true;
