@@ -82,8 +82,42 @@ public class BranchController {
         }
     }
 
+    /**
+     * 내 소속 지점 상세 조회 (지점/가맹점 관리자 전용)
+     * JWT 토큰에서 직원 정보를 추출하여 소속 지점 정보와 점주 정보를 조회
+     * GET /branch/my
+     */
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyBranch() {
+        try {
+            MyBranchDto myBranch = branchService.getMyBranch();
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(myBranch)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("내 소속 지점 조회 성공")
+                            .build()
+            );
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.BAD_REQUEST.value())
+                            .status_message(e.getMessage())
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("내 소속 지점 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
     // 지점 상세 조회 API - ALL 권한
-    @GetMapping("/{branchId}")
+    @GetMapping("/{branchId:[0-9]+}")
     public ResponseEntity<?> getBranch(@PathVariable Long branchId) {
         try {
             BranchDto branchDetailDto = branchService.getBranch(branchId);
@@ -103,6 +137,7 @@ public class BranchController {
             );
         }
     }
+
 
     // 지점 수정 API
     @PreAuthorize("hasRole('HQ_ADMIN')")
@@ -180,7 +215,7 @@ public class BranchController {
      * 특정 지점의 인근 지점 조회 (위치 기반)
      * GET /branch/{branchId}/nearby?radiusKm=10
      */
-    @GetMapping("/{branchId}/nearby")
+    @GetMapping("/{branchId:[0-9]+}/nearby")
     public ResponseEntity<?> getNearbyBranches(
             @PathVariable Long branchId,
             @RequestParam(defaultValue = "10.0") Double radiusKm) {
