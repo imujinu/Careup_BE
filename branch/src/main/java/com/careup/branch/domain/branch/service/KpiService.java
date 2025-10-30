@@ -2,13 +2,19 @@ package com.careup.branch.domain.branch.service;
 
 import com.careup.branch.domain.branch.dto.kpi.*;
 import com.careup.branch.domain.branch.entity.kpi.KPI;
+import com.careup.branch.domain.branch.entity.kpi.KpiStatus;
+import com.careup.branch.domain.branch.repository.BranchKpiRepository;
 import com.careup.branch.domain.branch.repository.KpiRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -16,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class KpiService {
     private final KpiRepository kpiRepository;
+    private final BranchKpiRepository branchKpiRepository;
 
     // KPI 템플릿 생성
     public KpiCreateResDto createKpi(KpiCreateReqDto request) {
@@ -39,11 +46,29 @@ public class KpiService {
                 .build();
     }
 
-    // KPI 템플릿 목록 조회
+    // KPI 템플릿 목록 조회 (BranchKpi 집계 데이터 포함)
     @Transactional(readOnly = true)
     public KpiListResDto getKpiList(Pageable pageable) {
         Page<KPI> page = kpiRepository.findAll(pageable);
-        Page<KpiDto> dtoPage = page.map(KpiDto::fromEntity);
+
+        // 각 KPI에 대한 BranchKpi 집계 데이터를 포함한 DTO로 변환
+        List<KpiDto> dtoList = page.getContent().stream()
+                .map(kpi -> {
+                    // 모든 지점의 평균값 조회
+                    Double avgCurrentValue = branchKpiRepository.getAverageCurrentValueByKpiId(kpi.getId());
+                    Double avgTargetValue = branchKpiRepository.getAverageTargetValueByKpiId(kpi.getId());
+                    Double avgAchievementRate = branchKpiRepository.getAverageAchievementRateByKpiId(kpi.getId());
+
+                    return KpiDto.fromEntityWithAggregation(
+                        kpi,
+                        avgCurrentValue != null ? java.math.BigDecimal.valueOf(avgCurrentValue) : java.math.BigDecimal.ZERO,
+                        avgTargetValue != null ? java.math.BigDecimal.valueOf(avgTargetValue) : java.math.BigDecimal.ZERO,
+                        avgAchievementRate
+                    );
+                })
+                .collect(Collectors.toList());
+
+        Page<KpiDto> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
         return KpiListResDto.fromPage(dtoPage);
     }
 
