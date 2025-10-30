@@ -26,6 +26,7 @@ public class IntrospectionController {
             Claims c = jwt.parseAccessToken(req.getToken());
             Long employeeId = c.get("employeeId", Long.class);
             Date iat = c.getIssuedAt();
+            Long branchId = c.get("branchId", Long.class);
             long iatMs = (iat != null) ? iat.getTime() : 0L;
 
             if (employeeId == null || forceLogoutStore.isTokenObsolete(employeeId, iatMs)) {
@@ -41,6 +42,7 @@ public class IntrospectionController {
                     .active(true)
                     .role(role)
                     .employeeId(employeeId)
+                    .branchId(branchId)
                     .iat(iatSec)
                     .exp(expSec)
                     .email(email)
