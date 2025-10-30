@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class IntrospectResponse {
     private boolean active;
     private Long employeeId;
+    private Long branchId;
     private String role;
     private Long iat; // seconds
     private Long exp; // seconds
