@@ -31,7 +31,7 @@ public class PurchaseOrderConsumerService {
                         branchProductId,
                         (long) orderDetail.getQuantity(),
                         "DECREASE",
-                        "발주 승인으로 인한 재고 차감 (발주ID: " + event.getPurchaseOrderId() + ")", null // 시스템 내부 호출
+                        "발주 승인으로 인한 재고 차감", null // 시스템 내부 호출
                     );
 
                 } else {
@@ -56,7 +56,7 @@ public class PurchaseOrderConsumerService {
                        branchProductId,
                        (long) orderDetail.getQuantity(),
                        "INCREASE",
-                       "발주 입고 완료로 인한 재고 증가 (발주ID: " + event.getPurchaseOrderId() + ")", null);
+                       "발주 입고 완료로 인한 재고 증가", null);
 
                } else {
                    log.warn("BranchProduct를 찾을 수 없음: branchId={}, productId={}",

@@ -66,9 +66,8 @@ public interface OrderingInventoryClient {
         public T data;
 
         public T data() {
-            return null;
+            return data;
         }
-        // 필요 시 확장: public String message; public int status; 등
     }
 
     // ====== DTOs ======

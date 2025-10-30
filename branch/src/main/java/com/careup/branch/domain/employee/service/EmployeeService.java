@@ -14,6 +14,7 @@ import com.careup.branch.domain.employee.dto.response.EmployeeDispatchDto;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.entity.JobGrade;
+import com.careup.branch.domain.employee.entity.AuthorityType;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.JobGradeRepository;
@@ -44,8 +45,6 @@ public class EmployeeService {
     private final PasswordEncoder passwordEncoder;
     private final AwsS3Uploader awsS3Uploader;
     private final Clock clock;
-
-    // NEW: 강제 로그아웃 컷오프 + RT 폐기용
     private final ForceLogoutStore forceLogoutStore;
     private final JwtTokenProvider jwt;
 
@@ -100,6 +99,12 @@ public class EmployeeService {
                     .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
         }
 
+        AuthorityType targetAuthority = jobGrade != null ? jobGrade.getAuthorityType() : AuthorityType.STAFF;
+        AuthorityType actorAuthority = AuthorityType.valueOf(role);
+        if (!AuthorityGrantRules.canGrant(actorAuthority, targetAuthority)) {
+            throw new IllegalArgumentException("해당 권한을 부여할 수 없습니다.");
+        }
+
         final String initialUrl = (dto.getProfileImageUrl() != null && !dto.getProfileImageUrl().isBlank())
                 ? dto.getProfileImageUrl()
                 : DEFAULT_PROFILE_URL;
@@ -120,7 +125,7 @@ public class EmployeeService {
                 .relationship(dto.getRelationship())
                 .hireDate(dto.getHireDate())
                 .terminateDate(dto.getTerminateDate())
-                .authorityType(dto.getAuthorityType())
+                .authorityType(targetAuthority)
                 .employmentStatus(dto.getEmploymentStatus())
                 .employmentType(dto.getEmploymentType())
                 .profileImageUrl(initialUrl)
@@ -158,7 +163,48 @@ public class EmployeeService {
         String role = auth.role();
         Long actorId = auth.employeeId();
 
-        if (!"HQ_ADMIN".equals(role)) {
+        boolean isHq = "HQ_ADMIN".equals(role);
+        boolean isSelf = Objects.equals(actorId, target.getId());
+
+        if (!isHq && isSelf) {
+            EmployeeUpdateDto limited = EmployeeUpdateDto.builder()
+                    .employeeNumber(target.getEmployeeNumber())
+                    .name(target.getName())
+                    .jobGradeId(target.getJobGrade() != null ? target.getJobGrade().getId() : null)
+                    .dateOfBirth(target.getDateOfBirth())
+                    .gender(target.getGender())
+                    .email(dto.getEmail())
+                    .zipcode(dto.getZipcode())
+                    .address(dto.getAddress())
+                    .addressDetail(dto.getAddressDetail())
+                    .mobile(normalizedMobile)
+                    .emergencyTel(normalizedEmergencyTel)
+                    .emergencyName(dto.getEmergencyName())
+                    .relationship(dto.getRelationship())
+                    .hireDate(target.getHireDate())
+                    .terminateDate(target.getTerminateDate())
+                    .employmentStatus(target.getEmploymentStatus())
+                    .employmentType(target.getEmploymentType())
+                    .profileImageUrl(target.getProfileImageUrl())
+                    .remark(target.getRemark())
+                    .rawPassword(null)
+                    .dispatches(null)
+                    .build();
+
+            target.updateFromDto(limited, target.getJobGrade());
+
+            List<DispatchStatus> actives = dispatchStatusRepository
+                    .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+                            target, "N", LocalDate.now(clock), LocalDate.now(clock)
+                    );
+            List<EmployeeDispatchDto> dispatchDtos = actives.stream()
+                    .map(EmployeeDispatchDto::fromEntity)
+                    .toList();
+
+            return EmployeeDetailDto.fromEntity(target, dispatchDtos);
+        }
+
+        if (!isHq) {
             Employee actor = employeeRepository.findById(actorId)
                     .orElseThrow(() -> new EntityNotFoundException("권한을 확인할 수 없습니다."));
             ensureTargetBelongsToMyBranches(target, actor, "수정");
@@ -169,6 +215,15 @@ public class EmployeeService {
         if (dto.getJobGradeId() != null) {
             jobGrade = jobGradeRepository.findById(dto.getJobGradeId())
                     .orElseThrow(() -> new EntityNotFoundException("직급을 찾을 수 없습니다."));
+        }
+
+        AuthorityType currentAuthority = target.getAuthorityType();
+        AuthorityType desiredAuthority = jobGrade != null ? jobGrade.getAuthorityType() : currentAuthority;
+        AuthorityType actorAuthority = AuthorityType.valueOf(role);
+        if (!Objects.equals(currentAuthority, desiredAuthority)) {
+            if (!AuthorityGrantRules.canGrant(actorAuthority, desiredAuthority)) {
+                throw new IllegalArgumentException("해당 권한을 부여할 수 없습니다.");
+            }
         }
 
         final String oldUrl = target.getProfileImageUrl();
@@ -201,7 +256,6 @@ public class EmployeeService {
                 .relationship(dto.getRelationship())
                 .hireDate(dto.getHireDate())
                 .terminateDate(dto.getTerminateDate())
-                .authorityType(dto.getAuthorityType())
                 .employmentStatus(dto.getEmploymentStatus())
                 .employmentType(dto.getEmploymentType())
                 .profileImageUrl(finalProfileUrl)
@@ -211,6 +265,7 @@ public class EmployeeService {
                 .build();
 
         target.updateFromDto(dto2, jobGrade);
+        target.changeAuthorityType(desiredAuthority);
 
         if (newUploadedUrl != null && !isDefaultImage(oldUrl) && !Objects.equals(oldUrl, newUploadedUrl)) {
             safeDeleteOldImage(oldUrl);
@@ -241,8 +296,6 @@ public class EmployeeService {
         }
 
         target.deactivate(LocalDate.now(clock));
-
-        // NEW: 즉시 세션 무효화 + RT 폐기
         forceLogoutStore.scheduleCutoverAfterSeconds(target.getId(), 0);
         jwt.revokeRefreshToken(target.getId());
     }
@@ -274,8 +327,6 @@ public class EmployeeService {
 
         return EmployeeDetailDto.fromEntity(target, dispatchDtos);
     }
-
-    // ===== 내부 유틸 =====
 
     private boolean isDefaultImage(String url) {
         return url != null && url.equals(DEFAULT_PROFILE_URL);
@@ -399,7 +450,6 @@ public class EmployeeService {
 
             String placementYn = (d.getPlacementYn() == null || d.getPlacementYn().isBlank()) ? "N" : d.getPlacementYn();
 
-            // 중복 배치(기간 겹침) 방지 보강
             boolean overlapped = dispatchStatusRepository
                     .existsByEmployee_IdAndBranch_IdAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
                             employee.getId(), branch.getId(), "N", d.getAssignedFrom(), d.getAssignedTo());

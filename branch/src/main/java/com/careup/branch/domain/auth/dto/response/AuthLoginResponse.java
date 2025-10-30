@@ -18,10 +18,13 @@ public class AuthLoginResponse {
     private Long employeeId;
 
     private String name;
-    private String title;
+    private String title; // 프론트에서 미사용 가능(유지)
     private String email;
     private String mobile;
 
     private Long branchId;
     private String branchName;
+
+    // ★ 헤더 사진 표기를 위한 프로필 이미지 URL
+    private String profileImageUrl;
 }

@@ -43,30 +43,40 @@ public class JwtTokenProvider {
         return "RT:EMP:" + employeeId;
     }
 
-    // 호환성 유지용 기존 시그니처
+    // 호환성 유지용(기존 시그니처)
     public String createAccessToken(Long employeeId, String role) {
-        return createAccessToken(employeeId, role, null, null);
+        return createAccessToken(employeeId, role, null, null, null, null, null);
     }
 
-    // 호환성 유지용 기존 시그니처
+    // 호환성 유지용(기존 시그니처)
     public String createAccessToken(Long employeeId, String role, Long branchId) {
-        return createAccessToken(employeeId, role, branchId, null);
+        return createAccessToken(employeeId, role, branchId, null, null, null, null);
     }
 
-    // NEW: email 클레임 포함 버전
+    // 호환성 유지용(기존 시그니처: email까지만)
     public String createAccessToken(Long employeeId, String role, Long branchId, String email) {
+        return createAccessToken(employeeId, role, branchId, email, null, null, null);
+    }
+
+    // ★ 확장 시그니처: email + name + profileImageUrl + title(직급) 포함
+    public String createAccessToken(Long employeeId,
+                                    String role,
+                                    Long branchId,
+                                    String email,
+                                    String name,
+                                    String profileImageUrl,
+                                    String title) {
         Date now = new Date();
         long atMillis = Duration.ofMinutes(props.getAccessTokenExpiryMinutes()).toMillis();
 
         Claims claims = Jwts.claims().setSubject(String.valueOf(employeeId));
         claims.put("role", role);
         claims.put("employeeId", employeeId);
-        if (branchId != null) {
-            claims.put("branchId", branchId);
-        }
-        if (email != null && !email.isBlank()) {
-            claims.put("email", email);
-        }
+        if (branchId != null) claims.put("branchId", branchId);
+        if (email != null && !email.isBlank()) claims.put("email", email);
+        if (name != null && !name.isBlank()) claims.put("name", name);
+        if (profileImageUrl != null && !profileImageUrl.isBlank()) claims.put("profileImageUrl", profileImageUrl);
+        if (title != null && !title.isBlank()) claims.put("title", title);
 
         return Jwts.builder()
                 .setClaims(claims)
