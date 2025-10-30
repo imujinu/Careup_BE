@@ -26,5 +26,5 @@ public class BranchTokenIntrospectionClient {
     }
 
     public record IntrospectionRequest(String token) {}
-    public record IntrospectionResult(boolean active, String role, Long employeeId, Long iat, Long exp, String email) {}
+    public record IntrospectionResult(boolean active, String role, Long employeeId, Long branchId, Long iat, Long exp, String email) {}
 }

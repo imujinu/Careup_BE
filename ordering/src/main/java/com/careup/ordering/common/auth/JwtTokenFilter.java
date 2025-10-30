@@ -98,6 +98,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 auth.setDetails(Map.of(
                         "realm", "EMP",
                         "employeeId", res.employeeId(),
+                        "branchId", res.branchId(),
                         "role", res.role(),
                         "iat", res.iat(),
                         "exp", res.exp()
