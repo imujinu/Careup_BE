@@ -63,6 +63,17 @@ public class InventoryService {
                     authority.getAuthority().equals("ROLE_BRANCH_ADMIN") ||
                     authority.getAuthority().equals("ROLE_FRANCHISE_OWNER"));
     }
+
+    // 지점 직원인지 확인
+    private boolean isBranchStaff(Authentication auth) {
+        return auth.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equals("ROLE_STAFF"));
+    }
+
+    // 지점 사용자(관리자 + 직원)인지 확인
+    private boolean isBranchUser(Authentication auth) {
+        return isBranchAdmin(auth) || isBranchStaff(auth);
+    }
     
     /**
      * DB에서 사용자의 실제 지점 ID 조회
@@ -164,7 +175,7 @@ public class InventoryService {
             return 1L;
         }
         
-        if (isBranchAdmin(auth)) {
+        if (isBranchUser(auth)) {
             // JWT에서 employeeId 추출
             Long employeeId = getEmployeeIdFromAuth(auth);
             if (employeeId != null) {
@@ -193,7 +204,7 @@ public class InventoryService {
             return;
         }
         
-        if (isBranchAdmin(auth)) {
+        if (isBranchUser(auth)) {
             // 가맹점은 자신의 지점만 접근 가능
             Long userBranchId = getCurrentUserBranchId(auth);
             if (!userBranchId.equals(branchId)) {
