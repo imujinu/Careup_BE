@@ -46,21 +46,25 @@ public class KpiService {
                 .build();
     }
 
-    // KPI 템플릿 목록 조회 (통계 정보 포함)
+    // KPI 템플릿 목록 조회 (BranchKpi 집계 데이터 포함)
     @Transactional(readOnly = true)
     public KpiListResDto getKpiList(Pageable pageable) {
         Page<KPI> page = kpiRepository.findAll(pageable);
 
-        // 각 KPI에 대한 통계 정보를 포함한 DTO로 변환
+        // 각 KPI에 대한 BranchKpi 집계 데이터를 포함한 DTO로 변환
         List<KpiDto> dtoList = page.getContent().stream()
                 .map(kpi -> {
-                    Long totalBranchCount = branchKpiRepository.countTotalBranchesByKpiId(kpi.getId());
-                    Long activeBranchCount = branchKpiRepository.countBranchesByKpiIdAndStatus(kpi.getId(), KpiStatus.ACTIVE);
-                    Long achievedBranchCount = branchKpiRepository.countBranchesByKpiIdAndStatus(kpi.getId(), KpiStatus.ACHIEVED);
-                    Double averageAchievementRate = branchKpiRepository.getAverageAchievementRateByKpiId(kpi.getId());
+                    // 모든 지점의 평균값 조회
+                    Double avgCurrentValue = branchKpiRepository.getAverageCurrentValueByKpiId(kpi.getId());
+                    Double avgTargetValue = branchKpiRepository.getAverageTargetValueByKpiId(kpi.getId());
+                    Double avgAchievementRate = branchKpiRepository.getAverageAchievementRateByKpiId(kpi.getId());
 
-                    return KpiDto.fromEntityWithStats(kpi, totalBranchCount, activeBranchCount,
-                                                     achievedBranchCount, averageAchievementRate);
+                    return KpiDto.fromEntityWithAggregation(
+                        kpi,
+                        avgCurrentValue != null ? java.math.BigDecimal.valueOf(avgCurrentValue) : java.math.BigDecimal.ZERO,
+                        avgTargetValue != null ? java.math.BigDecimal.valueOf(avgTargetValue) : java.math.BigDecimal.ZERO,
+                        avgAchievementRate
+                    );
                 })
                 .collect(Collectors.toList());
 

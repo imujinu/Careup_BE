@@ -21,5 +21,13 @@ public interface BranchKpiRepository extends JpaRepository<BranchKpi, Long> {
     // KPI별 평균 달성률 조회
     @Query("SELECT AVG(bk.achievementRate) FROM BranchKpi bk WHERE bk.kpiId.id = :kpiId")
     Double getAverageAchievementRateByKpiId(@Param("kpiId") Long kpiId);
+
+    // KPI별 평균 현재값 조회
+    @Query("SELECT AVG(bk.currentValue) FROM BranchKpi bk WHERE bk.kpiId.id = :kpiId")
+    Double getAverageCurrentValueByKpiId(@Param("kpiId") Long kpiId);
+
+    // KPI별 평균 목표값 조회
+    @Query("SELECT AVG(bk.targetValue) FROM BranchKpi bk WHERE bk.kpiId.id = :kpiId")
+    Double getAverageTargetValueByKpiId(@Param("kpiId") Long kpiId);
 }
 

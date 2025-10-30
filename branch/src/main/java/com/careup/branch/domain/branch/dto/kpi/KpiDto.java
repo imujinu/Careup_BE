@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -23,11 +24,10 @@ public class KpiDto {
     private PeriodType periodType;
     private String calculationFormula;
 
-    // 추가 통계 정보
-    private Long totalBranchCount; // 이 KPI를 사용하는 전체 지점 수
-    private Long activeBranchCount; // 진행중인 지점 수
-    private Long achievedBranchCount; // 달성한 지점 수
-    private Double averageAchievementRate; // 평균 달성률
+    // KPI 목록에 필요한 실제 데이터
+    private BigDecimal currentValue; // 현재값 (모든 지점의 평균 또는 합계)
+    private BigDecimal targetValue; // 목표값 (모든 지점의 평균 또는 합계)
+    private Double achievementRate; // 진행도(%) (전체 평균 달성률)
     private LocalDateTime createdAt; // 생성일시
 
     // Entity -> DTO (기본)
@@ -43,11 +43,11 @@ public class KpiDto {
                 .build();
     }
 
-    // Entity -> DTO (통계 포함)
-    public static KpiDto fromEntityWithStats(KPI kpi, Long totalBranchCount,
-                                             Long activeBranchCount,
-                                             Long achievedBranchCount,
-                                             Double averageAchievementRate) {
+    // Entity -> DTO (BranchKpi 집계 데이터 포함)
+    public static KpiDto fromEntityWithAggregation(KPI kpi,
+                                                   BigDecimal currentValue,
+                                                   BigDecimal targetValue,
+                                                   Double achievementRate) {
         return KpiDto.builder()
                 .id(kpi.getId())
                 .name(kpi.getName())
@@ -56,10 +56,9 @@ public class KpiDto {
                 .periodType(kpi.getPeriodType())
                 .calculationFormula(kpi.getCalculationFormula())
                 .createdAt(kpi.getCreatedAt())
-                .totalBranchCount(totalBranchCount != null ? totalBranchCount : 0L)
-                .activeBranchCount(activeBranchCount != null ? activeBranchCount : 0L)
-                .achievedBranchCount(achievedBranchCount != null ? achievedBranchCount : 0L)
-                .averageAchievementRate(averageAchievementRate != null ? averageAchievementRate : 0.0)
+                .currentValue(currentValue != null ? currentValue : BigDecimal.ZERO)
+                .targetValue(targetValue != null ? targetValue : BigDecimal.ZERO)
+                .achievementRate(achievementRate != null ? achievementRate : 0.0)
                 .build();
     }
 }
