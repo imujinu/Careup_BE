@@ -15,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -312,24 +311,22 @@ public class BranchService {
     }
 
     /**
-     * 직영점/가맹점 관리자(BRANCH_ADMIN, FRANCHISE_OWNER)의 소속 지점 조회
+     * 내 소속 지점 조회 (지점/가맹점 관리자 및 직원용)
      * JWT 토큰에서 employeeId를 추출하여 해당 직원의 현재 배치된 지점 정보와 점주 정보를 조회
+     *
+     * @return MyBranchDto - 지점 상세 정보 + 점주 정보
+     * @throws IllegalArgumentException - 직원 정보가 없거나 배치된 지점이 없는 경우
      */
     @Transactional(readOnly = true)
     public MyBranchDto getMyBranch() {
         // 1. 인증 정보 추출
         Auth auth = readAuth();
 
-        // 2. 권한 확인 (BRANCH_ADMIN 또는 FRANCHISE_OWNER만 허용)
-        if (!auth.isBranchOrFranchiseAdmin()) {
-            throw new AccessDeniedException("직영점/가맹점 관리자만 조회할 수 있습니다.");
-        }
-
-        // 3. 직원 정보 조회
+        // 2. 직원 정보 조회
         Employee employee = employeeRepository.findById(auth.employeeId())
                 .orElseThrow(() -> new IllegalArgumentException("직원 정보를 찾을 수 없습니다."));
 
-        // 4. 현재 배치된 지점 조회
+        // 3. 현재 배치된 지점 조회
         LocalDate today = LocalDate.now();
         Optional<DispatchStatus> currentDispatch = dispatchStatusRepository
                 .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
@@ -345,10 +342,10 @@ public class BranchService {
         log.info("내 소속 지점 조회 - 직원: {} ({}), 지점: {} ({})",
                 employee.getName(), employee.getId(), branch.getName(), branch.getId());
 
-        // 5. 점주 정보 조회 (해당 지점의 BRANCH_ADMIN 또는 FRANCHISE_OWNER)
+        // 4. 점주 정보 조회 (해당 지점의 BRANCH_ADMIN 또는 FRANCHISE_OWNER)
         MyBranchDto.OwnerInfoDto ownerInfo = findBranchOwner(branch, today);
 
-        // 6. DTO 반환
+        // 5. DTO 반환
         return MyBranchDto.fromEntity(branch, ownerInfo);
     }
 

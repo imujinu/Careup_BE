@@ -83,11 +83,14 @@ public class BranchController {
     }
 
     /**
-     * 내 소속 지점 상세 조회 (지점/가맹점 관리자 전용)
+     * 내 소속 지점 상세 조회 (지점/가맹점 관리자 및 직원)
      * JWT 토큰에서 직원 정보를 추출하여 소속 지점 정보와 점주 정보를 조회
      * GET /branch/my
+     *
+     * @return MyBranchDto - 지점 상세 정보 + 점주 정보
+     * @throws IllegalArgumentException - 배치 정보가 없는 경우
      */
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER')")
+    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER', 'STAFF')")
     @GetMapping("/my")
     public ResponseEntity<?> getMyBranch() {
         try {
