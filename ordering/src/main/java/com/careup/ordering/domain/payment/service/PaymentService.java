@@ -37,8 +37,8 @@ public class PaymentService {
      */
     @Transactional
     public Map<String, Object> confirmPayment(PaymentConfirmRequest request) throws Exception {
-        log.info("결제 승인 시작 - orderId: {}, paymentKey: {}, amount: {}", 
-                request.getOrderId(), request.getPaymentKey(), request.getAmount());
+        log.info("결제 승인 시작 - orderId: {}, tossOrderId: {}, paymentKey: {}, amount: {}", 
+                request.getOrderId(), request.getTossOrderId(), request.getPaymentKey(), request.getAmount());
 
         // 1. 주문 조회 및 금액 검증
         Order order = orderRepository.findById(Long.parseLong(request.getOrderId()))
@@ -90,9 +90,14 @@ public class PaymentService {
         
         log.info("새로운 결제 승인 처리 시작");
 
-        // 4. 토스페이먼츠 API 호출 (getTossOrderId() 사용)
-        // 토스페이먼츠는 6자 이상 형식을 요구하므로 getTossOrderId() 사용
-        JSONObject responseData = callTossPaymentsApi(request, order.getTossOrderId());
+        // 4. 토스페이먼츠 API 호출
+        // 프론트엔드에서 전달한 tossOrderId가 있으면 사용, 없으면 Order의 getTossOrderId() 사용
+        String tossOrderId = (request.getTossOrderId() != null && !request.getTossOrderId().isEmpty()) 
+                ? request.getTossOrderId()  // 프론트엔드에서 전달한 타임스탬프 포함 원본
+                : order.getTossOrderId();   // 기존 방식 (타임스탬프 없음)
+        
+        log.info("토스페이먼츠 orderId 사용 - tossOrderId: {}", tossOrderId);
+        JSONObject responseData = callTossPaymentsApi(request, tossOrderId);
 
         // 5. Payment 엔티티 저장
         Payment payment = Payment.builder()
