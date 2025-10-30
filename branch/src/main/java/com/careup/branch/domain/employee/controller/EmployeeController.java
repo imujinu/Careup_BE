@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 @RestController
-@RequestMapping("/employee")
+@RequestMapping({"/employee", "/employees"})
 @RequiredArgsConstructor
 public class EmployeeController {
 
@@ -38,7 +38,7 @@ public class EmployeeController {
     }
 
     @PatchMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> update(
             @PathVariable Long id,
             @Valid @RequestPart("meta") EmployeeUpdateDto meta,

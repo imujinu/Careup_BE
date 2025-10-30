@@ -85,4 +85,27 @@ public class ScheduleEvent extends BaseTimeEntity {
         this.clockOutLat = lat;
         this.clockOutLon = lon;
     }
+
+    public ScheduleEvent(Schedule schedule,
+                         LocalDate eventDate,
+                         LocalDateTime clockInAt,
+                         LocalDateTime breakStartAt,
+                         LocalDateTime breakEndAt,
+                         LocalDateTime clockOutAt,
+                         double lat,
+                         double lon) {
+        this.schedule = schedule;
+        this.eventDate = eventDate;
+        this.clockInAt = clockInAt;
+        this.breakStartAt = breakStartAt;
+        this.breakEndAt = breakEndAt;
+        this.clockOutAt = clockOutAt;
+        this.clockInLat = BigDecimal.valueOf(lat);
+        this.clockInLon = BigDecimal.valueOf(lon);
+        this.clockOutLat = BigDecimal.valueOf(lat);
+        this.clockOutLon = BigDecimal.valueOf(lon);
+        this.missedCheckout = false;
+        this.totalWorkMinutes = 0;
+        this.totalBreakMinutes = 0;
+    }
 }

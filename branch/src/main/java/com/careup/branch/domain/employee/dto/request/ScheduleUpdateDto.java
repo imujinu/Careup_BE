@@ -1,5 +1,6 @@
 package com.careup.branch.domain.employee.dto.request;
 
+import com.careup.branch.domain.chat.dto.attendance.ScheduleUpdateReq;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,4 +31,14 @@ public class ScheduleUpdateDto {
     private LocalDateTime registeredBreakStart;
     private LocalDateTime registeredBreakEnd;
     private LocalDateTime registeredClockOut;
+
+    public static ScheduleUpdateDto makeDto(ScheduleUpdateReq dto){
+        return ScheduleUpdateDto.builder()
+                .workTypeId(dto.getWorkTypeId())
+                .leaveTypeId(dto.getLeaveTypeId())
+                .branchId(dto.getBranchId())
+                .attendanceTemplateId(dto.getTemplateId())
+                .registeredDate(dto.getDate())
+                .build();
+    }
 }

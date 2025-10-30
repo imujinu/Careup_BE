@@ -8,5 +8,8 @@ import java.util.Optional;
 public interface JobGradeRepository extends JpaRepository<JobGrade, Long> {
     boolean existsByName(String name);
     Optional<JobGrade> findByName(String name);
-    Optional<JobGrade> findById(Long id);
+
+    Optional<JobGrade> findTopByOrderByOrderIndexDesc();
+    Optional<JobGrade> findTopByOrderIndexLessThanOrderByOrderIndexDesc(Integer orderIndex);
+    Optional<JobGrade> findTopByOrderIndexGreaterThanOrderByOrderIndexAsc(Integer orderIndex);
 }

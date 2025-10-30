@@ -72,4 +72,17 @@ public class ScheduleListDto {
                 .missedCheckout(e != null && e.isMissedCheckout())
                 .build();
     }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "{id=%d, employeeId=%d, employeeName='%s', date=%s, start='%s', end='%s'}",
+                this.getId(),
+                this.getEmployeeId(),
+                this.getEmployeeName(),
+                this.getRegisteredDate(),
+                this.getRegisteredClockIn(),
+                this.getRegisteredClockOut()
+        );
+    }
 }

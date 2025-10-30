@@ -4,7 +4,10 @@ import com.careup.branch.common.domain.BaseTimeEntity;
 import com.careup.branch.domain.employee.dto.request.EmployeeUpdateDto;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -99,7 +102,7 @@ public class Employee extends BaseTimeEntity {
     @Builder.Default
     private Boolean enabled = true;
 
-    private Long hourPerSalary;
+    private Double hourlyPay;
 
     @JsonIgnore
     @OneToMany(mappedBy = "employee", cascade = CascadeType.REMOVE, orphanRemoval = true)
@@ -121,7 +124,6 @@ public class Employee extends BaseTimeEntity {
         this.relationship = dto.getRelationship();
         this.hireDate = dto.getHireDate();
         this.terminateDate = dto.getTerminateDate();
-        this.authorityType = dto.getAuthorityType();
         this.employmentStatus = dto.getEmploymentStatus();
         this.employmentType = dto.getEmploymentType();
         this.profileImageUrl = dto.getProfileImageUrl();
@@ -130,6 +132,9 @@ public class Employee extends BaseTimeEntity {
 
     public void changePasswordHash(String encoded) { this.passwordHash = encoded; }
     public void changeProfileImageUrl(String url)   { this.profileImageUrl = url; }
+    public void changeEmail(String email)           { this.email = email; }
+    public void changeMobile(String mobile)         { this.mobile = mobile; }
+    public void changeAuthorityType(AuthorityType authorityType) { this.authorityType = authorityType; }
 
     public void deactivate(LocalDate terminatedAt) {
         this.employmentStatus = EmploymentStatus.TERMINATED;
@@ -143,8 +148,4 @@ public class Employee extends BaseTimeEntity {
         this.hireDate = newHireDate;
         this.enabled = true;
     }
-
-    public void changeEmail(String email)   { this.email = email; }
-    public void changeMobile(String mobile) { this.mobile = mobile; }
-    public void changeAuthorityType(AuthorityType authorityType) { this.authorityType = authorityType; }
 }

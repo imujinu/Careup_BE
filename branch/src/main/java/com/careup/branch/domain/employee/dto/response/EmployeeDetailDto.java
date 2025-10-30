@@ -1,10 +1,11 @@
 package com.careup.branch.domain.employee.dto.response;
 
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
 import com.careup.branch.domain.employee.entity.Employee;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
+import lombok.Builder;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -12,33 +13,49 @@ import java.util.List;
 
 @Getter
 @Builder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 public class EmployeeDetailDto {
+
     private Long id;
+
     private String employeeNumber;
     private String name;
+
+    private Long jobGradeId;
+
     private String jobGradeName;
+
     private LocalDate dateOfBirth;
     private com.careup.branch.domain.employee.entity.Gender gender;
+
     private String email;
     private String zipcode;
     private String address;
     private String addressDetail;
+
     private String mobile;
     private String emergencyTel;
     private String emergencyName;
+
     private com.careup.branch.domain.employee.entity.Relationship relationship;
+
     private LocalDate hireDate;
     private LocalDate terminateDate;
+
     private com.careup.branch.domain.employee.entity.AuthorityType authorityType;
     private com.careup.branch.domain.employee.entity.EmploymentStatus employmentStatus;
     private com.careup.branch.domain.employee.entity.EmploymentType employmentType;
+
     private String profileImageUrl;
     private String remark;
+
     private Boolean enabled;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    private Double hourlyPay;
+    private AttendanceTemplate attendanceTemplate;
 
     private List<EmployeeDispatchDto> dispatches;
 
@@ -47,6 +64,8 @@ public class EmployeeDetailDto {
                 .id(e.getId())
                 .employeeNumber(e.getEmployeeNumber())
                 .name(e.getName())
+                // ✅ 직급 id/name 모두 세팅
+                .jobGradeId(e.getJobGrade() != null ? e.getJobGrade().getId() : null)
                 .jobGradeName(e.getJobGrade() != null ? e.getJobGrade().getName() : null)
                 .dateOfBirth(e.getDateOfBirth())
                 .gender(e.getGender())
@@ -68,7 +87,42 @@ public class EmployeeDetailDto {
                 .enabled(e.getEnabled())
                 .createdAt(e.getCreatedAt())
                 .updatedAt(e.getUpdatedAt())
+                .hourlyPay(e.getHourlyPay())
+                .attendanceTemplate(null) // 필요 시 유지/세팅
                 .dispatches(dispatchDtos)
+                .build();
+    }
+
+    public static EmployeeDetailDto fromEntity(Employee e) {
+        return EmployeeDetailDto.builder()
+                .id(e.getId())
+                .employeeNumber(e.getEmployeeNumber())
+                .name(e.getName())
+                .jobGradeId(e.getJobGrade() != null ? e.getJobGrade().getId() : null)
+                .jobGradeName(e.getJobGrade() != null ? e.getJobGrade().getName() : null)
+                .dateOfBirth(e.getDateOfBirth())
+                .gender(e.getGender())
+                .email(e.getEmail())
+                .zipcode(e.getZipcode())
+                .address(e.getAddress())
+                .addressDetail(e.getAddressDetail())
+                .mobile(e.getMobile())
+                .emergencyTel(e.getEmergencyTel())
+                .emergencyName(e.getEmergencyName())
+                .relationship(e.getRelationship())
+                .hireDate(e.getHireDate())
+                .terminateDate(e.getTerminateDate())
+                .authorityType(e.getAuthorityType())
+                .employmentStatus(e.getEmploymentStatus())
+                .employmentType(e.getEmploymentType())
+                .profileImageUrl(e.getProfileImageUrl())
+                .remark(e.getRemark())
+                .enabled(e.getEnabled())
+                .createdAt(e.getCreatedAt())
+                .updatedAt(e.getUpdatedAt())
+                .hourlyPay(e.getHourlyPay())
+                .attendanceTemplate(null) // 필요 시 유지/세팅
+                .dispatches(null)
                 .build();
     }
 }
