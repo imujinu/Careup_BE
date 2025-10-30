@@ -65,4 +65,6 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
               or lower(e.email) like lower(concat('%', :keyword, '%'))
            """)
     boolean existsByKeyword(@Param("keyword") String keyword);
+
+    boolean existsByJobGrade_Id(Long jobGradeId);
 }

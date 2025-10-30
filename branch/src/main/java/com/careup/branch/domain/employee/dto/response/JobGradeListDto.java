@@ -19,6 +19,7 @@ public class JobGradeListDto {
     private AuthorityType authorityType;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private Integer orderIndex;
 
     public static JobGradeListDto fromEntity(JobGrade g) {
         return JobGradeListDto.builder()
@@ -27,6 +28,7 @@ public class JobGradeListDto {
                 .authorityType(g.getAuthorityType())
                 .createdAt(g.getCreatedAt())
                 .updatedAt(g.getUpdatedAt())
+                .orderIndex(g.getOrderIndex())
                 .build();
     }
 }

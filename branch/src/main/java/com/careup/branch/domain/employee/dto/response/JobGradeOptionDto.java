@@ -16,12 +16,14 @@ public class JobGradeOptionDto {
     private Long id;
     private String name;
     private AuthorityType authorityType;
+    private Integer orderIndex;
 
     public static JobGradeOptionDto fromEntity(JobGrade e) {
         return JobGradeOptionDto.builder()
                 .id(e.getId())
                 .name(e.getName())
                 .authorityType(e.getAuthorityType())
+                .orderIndex(e.getOrderIndex())
                 .build();
     }
 }

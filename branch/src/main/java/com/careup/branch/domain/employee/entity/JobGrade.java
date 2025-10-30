@@ -29,8 +29,15 @@ public class JobGrade extends BaseTimeEntity {
     @Column(length = 30, nullable = false)
     private AuthorityType authorityType;
 
+    @Column(nullable = false)
+    private Integer orderIndex; // 정렬 순서(작을수록 상단)
+
     public void update(String name, AuthorityType authorityType) {
         this.name = name;
         this.authorityType = authorityType;
+    }
+
+    public void changeOrderIndex(int orderIndex) {
+        this.orderIndex = orderIndex;
     }
 }

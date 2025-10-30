@@ -27,7 +27,7 @@ public class JobGradeController {
 
     @GetMapping("/list")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
-    public ResponseEntity<CommonSuccessDto> list(@PageableDefault(size = 20, sort = "id") Pageable pageable) {
+    public ResponseEntity<CommonSuccessDto> list(@PageableDefault(size = 20) Pageable pageable) {
         Page<JobGradeListDto> result = jobGradeService.list(pageable);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
@@ -64,7 +64,6 @@ public class JobGradeController {
         );
     }
 
-    // ★ '/update/{id}'로 경로 통일
     @PatchMapping("/update/{id}")
     @PreAuthorize("hasRole('HQ_ADMIN')")
     public ResponseEntity<CommonSuccessDto> update(@PathVariable Long id,
@@ -101,6 +100,35 @@ public class JobGradeController {
                         .result(result)
                         .status_code(200)
                         .status_message("직급 옵션 조회")
+                        .build()
+        );
+    }
+
+    // ===== 순서 이동/재정렬 =====
+
+    @PatchMapping("/{id}/move")
+    @PreAuthorize("hasRole('HQ_ADMIN')")
+    public ResponseEntity<CommonSuccessDto> move(@PathVariable Long id,
+                                                 @RequestParam("direction") String direction) {
+        jobGradeService.move(id, direction);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result("ok")
+                        .status_code(200)
+                        .status_message("직급 순서 이동")
+                        .build()
+        );
+    }
+
+    @PutMapping("/reorder")
+    @PreAuthorize("hasRole('HQ_ADMIN')")
+    public ResponseEntity<CommonSuccessDto> reorder(@RequestBody List<Long> ids) {
+        jobGradeService.reorder(ids);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result("ok")
+                        .status_code(200)
+                        .status_message("직급 순서 재정렬")
                         .build()
         );
     }
