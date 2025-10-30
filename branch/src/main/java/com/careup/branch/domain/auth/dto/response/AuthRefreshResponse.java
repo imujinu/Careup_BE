@@ -11,17 +11,21 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthRefreshResponse {
-    private String tokenType;         // "Bearer"
-    private String accessToken;       // 새 AT
-    private int expiresInMinutes;     // AT 만료(분)
+    private String tokenType;
+    private String accessToken;
+    private int expiresInMinutes;
 
     private Long employeeId;
     private String name;
     private String email;
     private String mobile;
     private String role;
+
     private Long branchId;
     private String branchName;
 
-    private Instant issuedAt;         // 재발급 시각
+    private Instant issuedAt;
+
+    // ★ 일관성 위해 리프레시 응답에도 포함
+    private String profileImageUrl;
 }
