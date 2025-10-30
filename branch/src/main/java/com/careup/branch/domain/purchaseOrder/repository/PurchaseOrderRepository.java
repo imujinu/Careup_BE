@@ -55,5 +55,16 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
            "ORDER BY SUM(po.price) DESC")
     List<Object[]> findBranchStatistics(@Param("startDate") LocalDateTime startDate, 
                                          @Param("endDate") LocalDateTime endDate);
+    
+    // 특정 지점과 상품에 대한 대기 중인 발주 확인 (자동 발주 중복 방지용)
+    @Query("SELECT COUNT(po) > 0 FROM PurchaseOrder po " +
+           "JOIN po.orderDetails pod " +
+           "WHERE po.branchId = :branchId " +
+           "AND pod.productId = :productId " +
+           "AND po.orderStatus IN ('PENDING', 'APPROVED', 'PARTIAL', 'SHIPPED') " +
+           "AND po.createdAt >= :checkDate")
+    boolean existsPendingOrderForBranchAndProduct(@Param("branchId") Long branchId, 
+                                                  @Param("productId") Long productId,
+                                                  @Param("checkDate") LocalDateTime checkDate);
 }
 

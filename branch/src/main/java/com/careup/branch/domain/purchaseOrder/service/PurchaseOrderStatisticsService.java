@@ -312,22 +312,15 @@ public class PurchaseOrderStatisticsService {
                 .limit(10) // TOP 10만
                 .map(result -> {
                     Long productId = (Long) result[0];
-                    Long totalQuantity = result[1] != null ? ((Number) result[1]).longValue() : 0L;
-                    Long approvedQuantity = result[2] != null ? ((Number) result[2]).longValue() : 0L;
-                    Long totalAmount = result[3] != null ? ((Number) result[3]).longValue() : 0L;
-                    Long orderCount = (Long) result[4];
+                    String productName = (String) result[1]; // 저장된 상품명 사용
+                    Long totalQuantity = result[2] != null ? ((Number) result[2]).longValue() : 0L;
+                    Long approvedQuantity = result[3] != null ? ((Number) result[3]).longValue() : 0L;
+                    Long totalAmount = result[4] != null ? ((Number) result[4]).longValue() : 0L;
+                    Long orderCount = (Long) result[5];
 
-                    // 상품명 조회
-                    String productName = "상품-" + productId;
-                    try {
-                        // ResponseDto<ProductResponseDto> 에서 .data()로 언랩
-                        OrderingInventoryClient.ProductResponseDto product =
-                                orderingInventoryClient.getProduct(productId).data();
-                        if (product != null && product.name != null) {
-                            productName = product.name;
-                        }
-                    } catch (Exception e) {
-                        log.warn("상품 정보 조회 실패: productId={}", productId, e);
+                    // 상품명이 null이거나 비어있으면 기본값 사용
+                    if (productName == null || productName.trim().isEmpty()) {
+                        productName = "상품-" + productId;
                     }
 
                     double approvalRate = totalQuantity > 0 ? (approvedQuantity * 100.0) / totalQuantity : 0.0;
@@ -454,17 +447,10 @@ public class PurchaseOrderStatisticsService {
                     TempProductStats s = new TempProductStats();
                     s.productId = productId;
 
-                    // 상품명 조회
-                    String productName = "상품-" + productId;
-                    try {
-                        // ResponseDto<ProductResponseDto> 에서 .data()로 언랩
-                        OrderingInventoryClient.ProductResponseDto product =
-                                orderingInventoryClient.getProduct(productId).data();
-                        if (product != null && product.name != null) {
-                            productName = product.name;
-                        }
-                    } catch (Exception e) {
-                        log.warn("상품 정보 조회 실패: productId={}", productId, e);
+                    // 저장된 상품명 사용
+                    String productName = detail.getProductName();
+                    if (productName == null || productName.trim().isEmpty()) {
+                        productName = "상품-" + productId;
                     }
                     s.productName = productName;
 

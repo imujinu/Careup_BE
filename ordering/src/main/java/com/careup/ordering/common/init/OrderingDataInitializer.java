@@ -183,7 +183,7 @@ public class OrderingDataInitializer implements CommandLineRunner {
         System.out.println("지점별 재고 생성 완료");
     }
 
-    private void createProduct(Category category, String name, String description, 
+    private void createProduct(Category category, String name, String description,
                                Long supplyPrice, Long minPrice, Long maxPrice, String imageUrl) {
         if (productRepository.existsByName(name)) {
             return;
@@ -206,7 +206,7 @@ public class OrderingDataInitializer implements CommandLineRunner {
     private void createBranchInventory() {
         // 모든 상품 조회
         var allProducts = productRepository.findAll();
-        
+
         // 지점 ID 1~5번에 대해 재고 생성
         for (Long branchId = 1L; branchId <= 5L; branchId++) {
             for (Product product : allProducts) {

@@ -20,13 +20,14 @@ public interface PurchaseOrderDetailRepository extends JpaRepository<PurchaseOrd
     
     // 기간별 상품별 통계 조회
     @Query("SELECT pod.productId, " +
+           "pod.productName, " +
            "SUM(pod.quantity), " +
            "SUM(pod.approvedQuantity), " +
            "SUM(pod.subtotalPrice), " +
            "COUNT(DISTINCT pod.purchaseOrder.id) " +
            "FROM PurchaseOrderDetail pod " +
            "WHERE pod.purchaseOrder.createdAt BETWEEN :startDate AND :endDate " +
-           "GROUP BY pod.productId " +
+           "GROUP BY pod.productId, pod.productName " +
            "ORDER BY SUM(pod.quantity) DESC")
     List<Object[]> findProductStatistics(@Param("startDate") LocalDateTime startDate, 
                                           @Param("endDate") LocalDateTime endDate);
