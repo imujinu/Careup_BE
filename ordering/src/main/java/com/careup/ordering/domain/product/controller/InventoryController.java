@@ -144,6 +144,13 @@ public class InventoryController {
         return ResponseEntity.ok().build();
     }
 
+    // 지점 상품 삭제
+    @DeleteMapping("/branch-products/{branchProductId}")
+    public ResponseEntity<Void> deleteBranchProduct(@PathVariable Long branchProductId, Authentication authentication) {
+        inventoryService.deleteBranchProduct(branchProductId, authentication);
+        return ResponseEntity.ok().build();
+    }
+
     // 재고 증감
     @PostMapping("/adjust")
     public ResponseEntity<Void> adjustStock(@RequestBody StockAdjustRequestDto request, Authentication authentication) {

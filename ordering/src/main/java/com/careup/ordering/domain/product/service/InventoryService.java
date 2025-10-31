@@ -439,6 +439,23 @@ public class InventoryService {
         branchProductRepository.save(branchProduct);
     }
 
+    // 지점 상품 삭제
+    public void deleteBranchProduct(Long branchProductId, Authentication auth) {
+        BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
+                .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+
+        if (auth != null) {
+            validateBranchAccess(auth, branchProduct.getBranchId());
+        }
+
+        // 재고가 0이 아닌 경우 삭제 방지
+        if (branchProduct.getStockQuantity() > 0) {
+            throw new IllegalStateException("재고가 남아있는 상품은 삭제할 수 없습니다. 먼저 재고를 정리해주세요.");
+        }
+
+        branchProductRepository.delete(branchProduct);
+    }
+
     // 재고 증감 (분산 락 적용)
     public void adjustStock(Long branchProductId, long quantity, String type, String reason, Authentication auth) {
         // BranchProduct를 조회해서 권한 체크
