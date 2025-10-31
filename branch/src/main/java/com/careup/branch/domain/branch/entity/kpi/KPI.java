@@ -26,8 +26,9 @@ public class KPI extends BaseTimeEntity {
     private String description;
 
     // 카테고리
+    @Enumerated(EnumType.STRING)
     @Column(length = 20, nullable = false)
-    private String category;
+    private KpiCategory category;
 
     // 기간 타입
     @Enumerated(EnumType.STRING)

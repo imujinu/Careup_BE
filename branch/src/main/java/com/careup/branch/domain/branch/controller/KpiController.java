@@ -32,6 +32,7 @@ public class KpiController {
                             .result(kpi)
                             .status_code(HttpStatus.CREATED.value())
                             .status_message("KPI 항목이 성공적으로 추가되었습니다.")
+                            .build()
             );
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
