@@ -18,7 +18,7 @@ import java.time.LocalDateTime;
 public class DocumentsDto {
 
     private Long id;
-    private Long employeeId;                 // 엔터티 직접 노출 대신 ID만 노출
+    private String branchName;               // 지점 이름
     private DocumentType documentType;
     private String title;
     private String documentUrl;              // 응답은 파일 자체가 아닌 URL 문자열 노출
@@ -30,9 +30,26 @@ public class DocumentsDto {
 
     // Entity -> DTO
     public static DocumentsDto fromEntity(Documents documents) {
+        String branchName = null;
+
+        // 1. 먼저 Documents에 직접 연결된 Branch에서 가져오기
+        if (documents.getBranch() != null) {
+            branchName = documents.getBranch().getName();
+        }
+        // 2. Branch가 없으면 Employee의 DispatchStatus에서 가져오기
+        else if (documents.getEmployee() != null) {
+            // 현재 활성화된 지점 정보 추출 (placementYn = "N"인 DispatchStatus)
+            branchName = documents.getEmployee().getDispatchStatuses().stream()
+                    .filter(ds -> "N".equals(ds.getPlacementYn()))
+                    .filter(ds -> ds.getBranch() != null)
+                    .map(ds -> ds.getBranch().getName())
+                    .findFirst()
+                    .orElse(null);
+        }
+
         return DocumentsDto.builder()
                 .id(documents.getId())
-                .employeeId(documents.getEmployee() != null ? documents.getEmployee().getId() : null)
+                .branchName(branchName)
                 .documentType(documents.getDocumentType())
                 .title(documents.getTitle())
                 .documentUrl(documents.getDocumentUrl())
