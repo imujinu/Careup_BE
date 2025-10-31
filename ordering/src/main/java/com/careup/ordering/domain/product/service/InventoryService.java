@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.service;
 
+import com.careup.ordering.common.client.BranchClient;
 import com.careup.ordering.common.service.DistributedLockService;
 import com.careup.ordering.domain.notification.NotificationService;
 import com.careup.ordering.domain.notification.SseNotificationResDto;
@@ -13,7 +14,6 @@ import com.careup.ordering.domain.product.repository.InventoryFlowDetailReposito
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
@@ -45,8 +45,10 @@ public class InventoryService {
     private final DistributedLockService distributedLockService;
     
     private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
+    private static final String EMPLOYEE_BRANCH_CACHE_PREFIX = "employee:branch:";
     private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
     private final NotificationService notificationService;
+    private final BranchClient branchClient;
 
     // 권한분리
     
@@ -76,31 +78,50 @@ public class InventoryService {
     }
     
     /**
-     * DB에서 사용자의 실제 지점 ID 조회
+     * employeeId로 현재 활성화된 branchId 조회
      */
     private Long getBranchIdByEmployeeId(Long employeeId) {
+        if (employeeId == null) {
+            return null;
+        }
+        
+        String cacheKey = EMPLOYEE_BRANCH_CACHE_PREFIX + employeeId;
+        
         try {
-            // TODO: 실제 구현 시 Branch 서버 API 호출 또는 DB 조회
-            // 현재는 더미 데이터로 시뮬레이션
-            log.debug("DB에서 사용자 지점 정보 조회 시도. employeeId: {}", employeeId);
-            
-            // 더미 데이터: employeeId에 따른 지점 매핑
-            if (employeeId.equals(2L)) {
-                return 2L; // 동작점 관리자
-            } else if (employeeId.equals(3L)) {
-                return 3L; // 보라매점 관리자
-            } else if (employeeId.equals(4L)) {
-                return 2L; // 동작점 직원
-            } else if (employeeId.equals(5L)) {
-                return 3L; // 보라매점 직원
+            // 1. Redis 캐시에서 조회
+            Object cachedBranchId = redisTemplate.opsForValue().get(cacheKey);
+            if (cachedBranchId != null) {
+                Long branchId = cachedBranchId instanceof Number 
+                    ? ((Number) cachedBranchId).longValue() 
+                    : Long.valueOf(cachedBranchId.toString());
+                log.debug("Redis 캐시에서 사용자 지점 정보 조회 성공. employeeId: {}, branchId: {}", employeeId, branchId);
+                return branchId;
             }
             
-            // 매핑되지 않은 경우
-            log.warn("사용자 지점 정보를 찾을 수 없습니다. employeeId: {}", employeeId);
+            // 2. 캐시 미스 시 Branch 서버 API 호출
+            log.debug("Redis 캐시 미스. Branch 서버에서 사용자 지점 정보 조회 시도. employeeId: {}", employeeId);
+            Map<String, Object> response = branchClient.getBranchIdByEmployeeId(employeeId);
+            
+            if (response != null && response.containsKey("branchId")) {
+                Object branchIdObj = response.get("branchId");
+                if (branchIdObj != null) {
+                    Long branchId = branchIdObj instanceof Number 
+                        ? ((Number) branchIdObj).longValue() 
+                        : Long.valueOf(branchIdObj.toString());
+                    
+                    // 3. 조회 결과를 캐시에 저장 (TTL: 1시간)
+                    redisTemplate.opsForValue().set(cacheKey, branchId, Duration.ofHours(1));
+                    
+                    log.debug("Branch 서버에서 사용자 지점 정보 조회 성공 및 캐시 저장. employeeId: {}, branchId: {}", employeeId, branchId);
+                    return branchId;
+                }
+            }
+            
+            log.warn("Branch 서버에서 사용자 지점 정보를 찾을 수 없습니다. employeeId: {}", employeeId);
             return null;
             
         } catch (Exception e) {
-            log.error("DB에서 사용자 지점 정보 조회 실패. employeeId: {}", employeeId, e);
+            log.error("사용자 지점 정보 조회 실패. employeeId: {}", employeeId, e);
             return null;
         }
     }
@@ -141,7 +162,7 @@ public class InventoryService {
      * 현재 사용자의 지점 ID 조회 (가맹점 관리자용)
      * JWT에서 branchId 추출하거나 role에 따라 결정
      */
-    private Long getCurrentUserBranchId(Authentication auth) {
+    public Long getCurrentUserBranchId(Authentication auth) {
         // 1. JWT Claims에서 branchId 추출 시도
         try {
             if (auth.getDetails() instanceof Claims) {
@@ -179,15 +200,16 @@ public class InventoryService {
             // JWT에서 employeeId 추출
             Long employeeId = getEmployeeIdFromAuth(auth);
             if (employeeId != null) {
-                // DB에서 사용자의 실제 지점 정보 조회
+                // 캐시/API를 통해 사용자의 실제 지점 정보 조회
                 Long userBranchId = getBranchIdByEmployeeId(employeeId);
                 if (userBranchId != null) {
                     return userBranchId;
                 }
+                log.warn("사용자의 지점 정보를 찾을 수 없습니다. employeeId: {}", employeeId);
             } else {
-                log.warn("employeeId를 찾을 수 없습니다. 가맹점 기본값 사용: 2L");
+                log.warn("JWT에서 employeeId를 찾을 수 없습니다.");
             }
-            return 2L;
+            throw new AccessDeniedException("사용자의 지점 정보를 확인할 수 없습니다.");
         }
         
         throw new AccessDeniedException("유효하지 않은 사용자 권한입니다.");
@@ -199,6 +221,9 @@ public class InventoryService {
      * - 가맹점: 자신의 지점만 접근 가능
      */
     private void validateBranchAccess(Authentication auth, Long branchId) {
+        log.debug("지점 접근 권한 검증 시작: branchId={}, authorities={}", 
+            branchId, auth.getAuthorities());
+        
         if (isHqAdmin(auth)) {
             // 본사는 모든 지점 접근 가능
             return;
@@ -206,11 +231,30 @@ public class InventoryService {
         
         if (isBranchUser(auth)) {
             // 가맹점은 자신의 지점만 접근 가능
-            Long userBranchId = getCurrentUserBranchId(auth);
-            if (!userBranchId.equals(branchId)) {
-                throw new AccessDeniedException("자신의 지점만 접근 가능합니다. 요청 지점: " + branchId + ", 사용자 지점: " + userBranchId);
+            if (branchId == 1L) {
+                log.debug("본사 지점 조회 허용 (자동발주 등에서 사용)");
+                return;
+            }
+            
+            log.debug("지점 사용자로 인식됨, 사용자 지점 정보 조회 시도");
+            try {
+                Long userBranchId = getCurrentUserBranchId(auth);
+                log.debug("사용자 지점 ID: {}, 요청 지점 ID: {}", userBranchId, branchId);
+                
+                if (!userBranchId.equals(branchId)) {
+                    log.warn("지점 접근 거부: 사용자 지점={}, 요청 지점={}", userBranchId, branchId);
+                    throw new AccessDeniedException("자신의 지점만 접근 가능합니다. 요청 지점: " + branchId + ", 사용자 지점: " + userBranchId);
+                }
+                log.debug("지점 접근 권한 확인 완료");
+            } catch (AccessDeniedException e) {
+                log.error("사용자 지점 정보 조회 실패: {}", e.getMessage());
+                throw e;
+            } catch (Exception e) {
+                log.error("지점 접근 권한 검증 중 예상치 못한 오류: {}", e.getMessage(), e);
+                throw new AccessDeniedException("지점 접근 권한을 확인할 수 없습니다: " + e.getMessage());
             }
         } else {
+            log.warn("재고 관리 권한 없음: authorities={}", auth.getAuthorities());
             throw new AccessDeniedException("재고 관리 권한이 없습니다.");
         }
     }
@@ -393,6 +437,23 @@ public class InventoryService {
         }
         
         branchProductRepository.save(branchProduct);
+    }
+
+    // 지점 상품 삭제
+    public void deleteBranchProduct(Long branchProductId, Authentication auth) {
+        BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
+                .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+
+        if (auth != null) {
+            validateBranchAccess(auth, branchProduct.getBranchId());
+        }
+
+        // 재고가 0이 아닌 경우 삭제 방지
+        if (branchProduct.getStockQuantity() > 0) {
+            throw new IllegalStateException("재고가 남아있는 상품은 삭제할 수 없습니다. 먼저 재고를 정리해주세요.");
+        }
+
+        branchProductRepository.delete(branchProduct);
     }
 
     // 재고 증감 (분산 락 적용)

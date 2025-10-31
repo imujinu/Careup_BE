@@ -238,6 +238,24 @@ public class EmployeeQueryService {
         return EmployeeDetailDto.fromEntity(target, history);
     }
 
+    /**
+     * 내부 API용: employeeId로 현재 활성화된 지점 ID 조회
+     * 여러 지점에 배치된 경우 첫 번째 지점을 반환
+     */
+    public Long getBranchIdByEmployeeId(Long employeeId) {
+        LocalDate today = LocalDate.now();
+        
+        Optional<DispatchStatus> activeDispatch = dispatchStatusRepository
+                .findActiveDispatchByEmployeeId(employeeId, today);
+        
+        if (activeDispatch.isPresent()) {
+            return activeDispatch.get().getBranch().getId();
+        }
+        
+        // 활성화된 배치가 없는 경우 null 반환
+        return null;
+    }
+
     private List<Branch> activeBranchesOf(Employee employee, LocalDate today) {
         return dispatchStatusRepository
                 .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(

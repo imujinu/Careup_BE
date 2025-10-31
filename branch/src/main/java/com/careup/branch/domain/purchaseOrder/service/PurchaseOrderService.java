@@ -106,57 +106,60 @@ public class PurchaseOrderService {
                 .build();
     }
 
-    // 자동 발주 생성 (권한 검증 없음)
+    // 자동 발주 생성
     @Transactional
     public PurchaseOrderResponseDto createAutoPurchaseOrder(PurchaseOrderRequestDto requestDto) {
-        // 1) 기본 검증 (권한 검증 제외)
-        validatePurchaseOrderRequestWithoutAuth(requestDto);
+        try {
+            // 1) 기본 검증
+            validatePurchaseOrderRequestWithoutAuth(requestDto);
 
-        // 2) 중복 발주 방지
-        validateNoDuplicateOrder(requestDto);
+            // 2) 중복 발주 방지
+            validateNoDuplicateOrder(requestDto);
 
-        // 3) 상품별 공급가 조회
-        List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details = setSupplyPrices(requestDto.getOrderDetails());
+            // 3) 상품별 공급가 조회
+            List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details = setSupplyPrices(requestDto.getOrderDetails());
 
-        // 4) 주문 저장
-        PurchaseOrder purchaseOrder = PurchaseOrder.builder()
-                .branchId(requestDto.getBranchId())
-                .orderStatus(OrderStatus.PENDING)
-                .price(calculateTotalPrice(details))
-                .build();
+            // 4) 주문 저장
+            PurchaseOrder purchaseOrder = PurchaseOrder.builder()
+                    .branchId(requestDto.getBranchId())
+                    .orderStatus(OrderStatus.PENDING)
+                    .price(calculateTotalPrice(details))
+                    .build();
 
-        PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+            PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
-        // 5) 상세 저장
-        List<PurchaseOrderDetail> orderDetails = details.stream()
-                .filter(detail -> detail.getQuantity() > 0)
-                .map(detailDto -> {
-                    // 상품명 조회
-                    String productName = getProductName(detailDto.getProductId());
-                    return PurchaseOrderDetail.builder()
-                            .purchaseOrder(savedOrder)
-                            .productId(detailDto.getProductId())
-                            .productName(productName)
-                            .quantity(detailDto.getQuantity())
-                            .approvedQuantity(0)
-                            .unitPrice(detailDto.getSupplyPrice())
-                            .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
-                            .build();
-                })
-                .collect(Collectors.toList());
+            // 5) 상세 저장
+            List<PurchaseOrderDetail> orderDetails = details.stream()
+                    .filter(detail -> detail.getQuantity() > 0)
+                    .map(detailDto -> {
+                        // 상품명 조회
+                        String productName = getProductName(detailDto.getProductId());
+                        return PurchaseOrderDetail.builder()
+                                .purchaseOrder(savedOrder)
+                                .productId(detailDto.getProductId())
+                                .productName(productName)
+                                .quantity(detailDto.getQuantity())
+                                .approvedQuantity(0)
+                                .unitPrice(detailDto.getSupplyPrice())
+                                .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
 
-        List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
+            List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
 
-        //[알림 - 발주 요청]
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(1L);
-        for(DispatchStatus ds : employees){
-        SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "REQUESTED");
-        sseAlarmService.publishNotification(dto);
+//            //[알림 - 발주 요청]
+//            List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
+//            for(DispatchStatus ds : employees){
+//                SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "REQUESTED");
+//                sseAlarmService.publishNotification(dto);
+//            }
+
+            return convertToCompletedResponseDto(savedOrder, savedDetails);
+            
+        } catch (SecurityException e) {
+            throw new RuntimeException("자동 발주 생성 실패: " + e.getMessage(), e);
         }
-
-
-
-        return convertToCompletedResponseDto(savedOrder, savedDetails);
     }
 
     // 공급가 조회 및 설정 (Feign 응답 언랩 + null 가드)
@@ -739,7 +742,11 @@ public class PurchaseOrderService {
     }
 
     public Employee getEmployee() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new SecurityException("인증되지 않은 사용자입니다. 자동 발주에서는 사용할 수 없습니다.");
+        }
+        String email = auth.getName();
         return employeeRepository.findByEmail(email).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 직원입니다."));
     }
 }
