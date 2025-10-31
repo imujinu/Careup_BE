@@ -103,7 +103,17 @@ public class InventoryController {
     public ResponseEntity<List<BranchProductResponseDto>> getBranchProducts(
             @PathVariable Long branchId, 
             Authentication authentication) {
-        List<BranchProduct> branchProducts = inventoryService.getBranchProducts(branchId, authentication);
+        // 자동발주 페이지에서 본사 조회 허용
+        Long actualBranchId;
+        if (branchId == 1L) {
+            // 본사 조회는 자동발주 등에서 사용하므로 허용
+            actualBranchId = 1L;
+        } else {
+            // 사용자는 자신의 지점 재고만 조회 가능
+            actualBranchId = inventoryService.getCurrentUserBranchId(authentication);
+        }
+        
+        List<BranchProduct> branchProducts = inventoryService.getBranchProducts(actualBranchId, authentication);
         List<BranchProductResponseDto> response = branchProducts.stream()
                 .map(this::convertToBranchProductResponse)
                 .collect(Collectors.toList());

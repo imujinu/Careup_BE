@@ -162,7 +162,7 @@ public class InventoryService {
      * 현재 사용자의 지점 ID 조회 (가맹점 관리자용)
      * JWT에서 branchId 추출하거나 role에 따라 결정
      */
-    private Long getCurrentUserBranchId(Authentication auth) {
+    public Long getCurrentUserBranchId(Authentication auth) {
         // 1. JWT Claims에서 branchId 추출 시도
         try {
             if (auth.getDetails() instanceof Claims) {
@@ -221,6 +221,9 @@ public class InventoryService {
      * - 가맹점: 자신의 지점만 접근 가능
      */
     private void validateBranchAccess(Authentication auth, Long branchId) {
+        log.debug("지점 접근 권한 검증 시작: branchId={}, authorities={}", 
+            branchId, auth.getAuthorities());
+        
         if (isHqAdmin(auth)) {
             // 본사는 모든 지점 접근 가능
             return;
@@ -228,11 +231,30 @@ public class InventoryService {
         
         if (isBranchUser(auth)) {
             // 가맹점은 자신의 지점만 접근 가능
-            Long userBranchId = getCurrentUserBranchId(auth);
-            if (!userBranchId.equals(branchId)) {
-                throw new AccessDeniedException("자신의 지점만 접근 가능합니다. 요청 지점: " + branchId + ", 사용자 지점: " + userBranchId);
+            if (branchId == 1L) {
+                log.debug("본사 지점 조회 허용 (자동발주 등에서 사용)");
+                return;
+            }
+            
+            log.debug("지점 사용자로 인식됨, 사용자 지점 정보 조회 시도");
+            try {
+                Long userBranchId = getCurrentUserBranchId(auth);
+                log.debug("사용자 지점 ID: {}, 요청 지점 ID: {}", userBranchId, branchId);
+                
+                if (!userBranchId.equals(branchId)) {
+                    log.warn("지점 접근 거부: 사용자 지점={}, 요청 지점={}", userBranchId, branchId);
+                    throw new AccessDeniedException("자신의 지점만 접근 가능합니다. 요청 지점: " + branchId + ", 사용자 지점: " + userBranchId);
+                }
+                log.debug("지점 접근 권한 확인 완료");
+            } catch (AccessDeniedException e) {
+                log.error("사용자 지점 정보 조회 실패: {}", e.getMessage());
+                throw e;
+            } catch (Exception e) {
+                log.error("지점 접근 권한 검증 중 예상치 못한 오류: {}", e.getMessage(), e);
+                throw new AccessDeniedException("지점 접근 권한을 확인할 수 없습니다: " + e.getMessage());
             }
         } else {
+            log.warn("재고 관리 권한 없음: authorities={}", auth.getAuthorities());
             throw new AccessDeniedException("재고 관리 권한이 없습니다.");
         }
     }
