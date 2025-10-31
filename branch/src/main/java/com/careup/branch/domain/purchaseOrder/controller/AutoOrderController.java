@@ -1,11 +1,17 @@
 package com.careup.branch.domain.purchaseOrder.controller;
 
+import com.careup.branch.domain.employee.service.EmployeeQueryService;
 import com.careup.branch.domain.purchaseOrder.dto.FranchiseAutoOrderSettingsDto;
 import com.careup.branch.domain.purchaseOrder.dto.AutoOrderHistoryDto;
 import com.careup.branch.domain.purchaseOrder.service.AutoOrderService;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -19,6 +25,37 @@ import java.util.Map;
 public class AutoOrderController {
 
     private final AutoOrderService autoOrderService;
+    private final EmployeeQueryService employeeQueryService;
+    
+    // 현재 로그인한 사용자의 branchId 조회
+    private Long getCurrentUserBranchId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new AccessDeniedException("인증되지 않은 사용자입니다.");
+        }
+        
+        // employeeId 추출
+        try {
+            if (auth.getDetails() instanceof Claims) {
+                Claims claims = (Claims) auth.getDetails();
+                Long employeeId = claims.get("employeeId", Long.class);
+                
+                if (employeeId != null) {
+                    // branchId 조회
+                    Long branchId = employeeQueryService.getBranchIdByEmployeeId(employeeId);
+                    if (branchId != null) {
+                        return branchId;
+                    }
+                    log.warn("사용자의 지점 정보를 찾을 수 없습니다. employeeId: {}", employeeId);
+                }
+            }
+        } catch (Exception e) {
+            log.error("branchId 조회 중 오류 발생: {}", e.getMessage(), e);
+        }
+        
+        throw new AccessDeniedException("사용자의 지점 정보를 확인할 수 없습니다.");
+    }
 
 
     /**
@@ -82,10 +119,10 @@ public class AutoOrderController {
      * 가맹점용 자동 발주 설정 조회
      */
     @GetMapping("/franchise/settings")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> getFranchiseAutoOrderSettings() {
         try {
-            // TODO: 실제 로그인한 사용자의 branchId 사용
-            Long branchId = 2L;
+            Long branchId = getCurrentUserBranchId();
             
             FranchiseAutoOrderSettingsDto settings = autoOrderService.getFranchiseAutoOrderSettings(branchId);
             
@@ -96,6 +133,12 @@ public class AutoOrderController {
             response.put("updatedAt", settings.getUpdatedAt());
             
             return ResponseEntity.ok(response);
+        } catch (AccessDeniedException e) {
+            log.error("가맹점 자동 발주 설정 조회 권한 오류: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(403).body(errorResponse);
         } catch (Exception e) {
             log.error("가맹점 자동 발주 설정 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();
@@ -106,12 +149,13 @@ public class AutoOrderController {
      * 가맹점용 자동 발주 설정 업데이트
      */
     @PutMapping("/franchise/settings")
-    public ResponseEntity<Map<String, Object>> updateFranchiseAutoOrderSettings(@RequestBody Map<String, Object> settings) {
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Map<String, Object>> updateFranchiseAutoOrderSettings(
+            @RequestBody Map<String, Object> settings) {
         try {
             log.info("가맹점 자동 발주 설정 업데이트: {}", settings);
-            
-            // TODO: 실제 로그인한 사용자의 branchId 사용
-            Long branchId = 2L;
+
+            Long branchId = getCurrentUserBranchId();
             
             FranchiseAutoOrderSettingsDto updatedSettings = autoOrderService.updateFranchiseAutoOrderSettings(branchId, settings);
             
@@ -124,6 +168,12 @@ public class AutoOrderController {
             response.put("updatedAt", updatedSettings.getUpdatedAt());
             
             return ResponseEntity.ok(response);
+        } catch (AccessDeniedException e) {
+            log.error("가맹점 자동 발주 설정 업데이트 권한 오류: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(403).body(errorResponse);
         } catch (Exception e) {
             log.error("가맹점 자동 발주 설정 업데이트 중 오류 발생: {}", e.getMessage(), e);
             
@@ -139,10 +189,10 @@ public class AutoOrderController {
      * 가맹점용 자동 발주 히스토리 조회
      */
     @GetMapping("/franchise/history")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> getFranchiseAutoOrderHistory() {
         try {
-            // TODO: 실제 로그인한 사용자의 branchId 사용
-            Long branchId = 2L;
+            Long branchId = getCurrentUserBranchId();
             
             List<AutoOrderHistoryDto> history = autoOrderService.getFranchiseAutoOrderHistory(branchId);
             
@@ -152,6 +202,12 @@ public class AutoOrderController {
             response.put("branchId", branchId);
             
             return ResponseEntity.ok(response);
+        } catch (AccessDeniedException e) {
+            log.error("가맹점 자동 발주 히스토리 조회 권한 오류: {}", e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(403).body(errorResponse);
         } catch (Exception e) {
             log.error("가맹점 자동 발주 히스토리 조회 중 오류 발생: {}", e.getMessage(), e);
             return ResponseEntity.internalServerError().build();

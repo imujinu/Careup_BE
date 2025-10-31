@@ -14,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Slf4j
 @RestController
 @RequiredArgsConstructor
@@ -98,6 +100,30 @@ public class EmployeeQueryController {
                         .result(result)
                         .status_code(HttpStatus.OK.value())
                         .status_message("직원 목록 조회")
+                        .build()
+        );
+    }
+
+    // 내부 API용: employeeId로 현재 활성화된 branchId 조회
+    @GetMapping("/internal/branch-id/{employeeId}")
+    public ResponseEntity<CommonSuccessDto> getBranchIdByEmployeeId(@PathVariable Long employeeId) {
+        Long branchId = employeeQueryService.getBranchIdByEmployeeId(employeeId);
+        
+        if (branchId == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonSuccessDto.builder()
+                            .result(null)
+                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_message("활성화된 지점 배치 정보를 찾을 수 없습니다.")
+                            .build()
+            );
+        }
+        
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result(Map.of("branchId", branchId))
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("지점 ID 조회 성공")
                         .build()
         );
     }

@@ -1,16 +1,26 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
+import com.careup.branch.common.auth.JwtTokenProvider;
 import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.purchaseOrder.dto.FranchiseAutoOrderSettingsDto;
 import com.careup.branch.domain.purchaseOrder.dto.AutoOrderHistoryDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
 import com.careup.branch.domain.purchaseOrder.repository.PurchaseOrderRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -27,6 +37,9 @@ public class AutoOrderService {
     private final OrderingInventoryClient orderingInventoryClient;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final RedisTemplate<Object, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
+    private final BranchRepository branchRepository;
+    private final JwtTokenProvider jwtTokenProvider;
     
     private static final String AUTO_ORDER_SETTINGS_PREFIX = "auto_order_settings:branch:";
 
@@ -39,37 +52,103 @@ public class AutoOrderService {
         try {
             log.info("재고 변경 이벤트 수신: {}", message);
             
-            // TODO: 메시지 파싱하여 지점 ID, 상품 ID 추출
-            Long branchId = 1L;
-            Long productId = 1L;
-            
-            // 해당 지점의 상품 정보 조회
-            OrderingInventoryClient.BranchProductResponseDto product = 
-                orderingInventoryClient.getBranchProduct(branchId, productId);
-            
-            if (product != null && product.stockQuantity < product.safetyStock) {
-                createAutoOrder(branchId, productId, product.safetyStock - product.stockQuantity);
+            // JSON 메시지 파싱하여 지점 ID, 상품 ID 추출
+            Map<String, Object> eventData = parseInventoryChangeEvent(message);
+            if (eventData == null) {
+                log.warn("재고 변경 이벤트 파싱 실패: {}", message);
+                return;
             }
+            
+            Long branchId = extractLongValue(eventData, "branchId");
+            Long productId = extractLongValue(eventData, "productId");
+            
+            if (branchId == null || productId == null) {
+                log.warn("재고 변경 이벤트에서 필수 정보 누락: branchId={}, productId={}, message={}", 
+                    branchId, productId, message);
+                return;
+            }
+            
+            log.debug("파싱된 재고 변경 이벤트: branchId={}, productId={}", branchId, productId);
+
+            executeWithSystemAuthentication(() -> {
+                // 해당 지점의 상품 정보 조회
+                OrderingInventoryClient.BranchProductResponseDto product = 
+                    orderingInventoryClient.getBranchProduct(branchId, productId);
+                
+                if (product != null && product.stockQuantity < product.safetyStock) {
+                    Long orderQuantity = product.safetyStock - product.stockQuantity;
+                    log.info("재고 부족 감지: branchId={}, productId={}, 현재재고={}, 안전재고={}, 발주수량={}", 
+                        branchId, productId, product.stockQuantity, product.safetyStock, orderQuantity);
+                    createAutoOrder(branchId, productId, orderQuantity);
+                }
+            });
             
         } catch (Exception e) {
             log.error("재고 변경 이벤트 처리 중 오류 발생: {}", e.getMessage(), e);
         }
     }
+    
+    /**
+     * 재고 변경 이벤트 JSON 메시지 파싱
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseInventoryChangeEvent(String message) {
+        try {
+            return objectMapper.readValue(message, Map.class);
+        } catch (Exception e) {
+            log.error("JSON 파싱 실패: message={}, error={}", message, e.getMessage());
+            return null;
+        }
+    }
+
+    private Long extractLongValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) {
+            return null;
+        }
+        
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        } else if (value instanceof String) {
+            try {
+                return Long.parseLong((String) value);
+            } catch (NumberFormatException e) {
+                log.warn("Long 변환 실패: key={}, value={}", key, value);
+                return null;
+            }
+        }
+        
+        log.warn("지원하지 않는 타입: key={}, value={}, type={}", key, value, value.getClass());
+        return null;
+    }
 
     /**
      * 매일 지정 시각에 모든 지점의 재고를 체크하여 자동 발주 실행
      */
-    @Scheduled(cron = "0 40 20 * * *")
+    @Scheduled(cron = "0 50 14 * * *")
     public void checkAllBranchesInventory() {
         try {
             log.info("일일 자동 발주 체크 시작");
             
-            // TODO: 모든 지점 조회
-            List<Long> branchIds = List.of(1L, 2L, 3L);
+            // 모든 지점 조회
+            List<Branch> branches = branchRepository.findAll();
+            List<Long> branchIds = branches.stream()
+                    .map(Branch::getId)
+                    .collect(Collectors.toList());
             
-            for (Long branchId : branchIds) {
-                checkBranchInventory(branchId);
-            }
+            log.info("조회된 지점 수: {}", branchIds.size());
+            
+            // 시스템 인증으로 모든 지점 체크
+            executeWithSystemAuthentication(() -> {
+                for (Long branchId : branchIds) {
+                    try {
+                        checkBranchInventory(branchId);
+                    } catch (Exception e) {
+                        log.error("지점 {} 자동 발주 체크 중 오류 발생: {}", branchId, e.getMessage(), e);
+                        // 한 지점에서 오류가 나도 다른 지점은 계속 체크
+                    }
+                }
+            });
             
             log.info("일일 자동 발주 체크 완료");
         } catch (Exception e) {
@@ -193,6 +272,37 @@ public class AutoOrderService {
             
         } catch (Exception e) {
             log.error("자동 발주 실행 중 오류 발생: {}", e.getMessage(), e);
+        }
+    }
+
+    private void executeWithSystemAuthentication(Runnable task) {
+        Authentication previousAuth = SecurityContextHolder.getContext().getAuthentication();
+        SecurityContext context = SecurityContextHolder.getContext();
+        
+        try {
+            String systemToken = jwtTokenProvider.createAccessToken(
+                1L,
+                "HQ_ADMIN",
+                1L,
+                "system@careup.com"
+            );
+
+            Claims systemClaims = jwtTokenProvider.parseAccessToken(systemToken);
+            
+            var authorities = List.of(new SimpleGrantedAuthority("ROLE_HQ_ADMIN"));
+            var systemAuth = new UsernamePasswordAuthenticationToken(
+                "1",
+                systemToken,
+                authorities
+            );
+            systemAuth.setDetails(systemClaims);
+
+            context.setAuthentication(systemAuth);
+
+            task.run();
+            
+        } finally {
+            context.setAuthentication(previousAuth);
         }
     }
 
