@@ -4,6 +4,7 @@ import com.careup.branch.common.auth.ForceLogoutStore;
 import com.careup.branch.common.auth.JwtTokenProvider;
 import com.careup.branch.domain.auth.dto.request.IntrospectRequest;
 import com.careup.branch.domain.auth.dto.response.IntrospectResponse;
+import com.careup.branch.domain.branch.repository.BranchRepository;
 import io.jsonwebtoken.Claims;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -17,6 +18,7 @@ public class IntrospectionController {
 
     private final JwtTokenProvider jwt;
     private final ForceLogoutStore forceLogoutStore;
+    private final BranchRepository branchRepository;
 
     @PostMapping(value = "/auth/introspect",
             consumes = MediaType.APPLICATION_JSON_VALUE,
@@ -38,11 +40,20 @@ public class IntrospectionController {
             long iatSec = (iat != null) ? iat.toInstant().getEpochSecond() : 0L;
             long expSec = (c.getExpiration() != null) ? c.getExpiration().toInstant().getEpochSecond() : 0L;
 
+            // 지점명 조회
+            String branchName = null;
+            if (branchId != null) {
+                branchName = branchRepository.findById(branchId)
+                        .map(branch -> branch.getName())
+                        .orElse(null);
+            }
+
             return IntrospectResponse.builder()
                     .active(true)
                     .role(role)
                     .employeeId(employeeId)
                     .branchId(branchId)
+                    .branchName(branchName)
                     .iat(iatSec)
                     .exp(expSec)
                     .email(email)
