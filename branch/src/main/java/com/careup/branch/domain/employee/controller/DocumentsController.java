@@ -27,12 +27,12 @@ public class DocumentsController {
 
     // 생성 - 특정 지점 하위
     @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
-    @PostMapping(value = "/{employeeId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/branch/{branchId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createDocument(
-            @PathVariable Long employeeId,
+            @PathVariable Long branchId,
             @ModelAttribute DocumentsCreateReqDto requestDto) {
         try {
-            DocumentsDto newDocument = documentsService.createDocuments(employeeId, requestDto);
+            DocumentsDto newDocument = documentsService.createDocuments(branchId, requestDto);
             log.info("DocumentsDto created: {}", newDocument.toString());
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
@@ -52,35 +52,35 @@ public class DocumentsController {
     }
 
     // 서류 조회 (페이지네이션) - 지점별 & ALL 권한 허용
-    @GetMapping("/{employeeId}")
-    public ResponseEntity<?> getDocumentsList(
-            @PathVariable Long employeeId,
+    @GetMapping("/branch/{branchId}")
+    public ResponseEntity<?> getDocumentsListByBranch(
+            @PathVariable Long branchId,
             @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable
-            ) {
+    ) {
         try {
-            DocumentsListResDto documentsList = documentsService.getDocumentsList(employeeId, pageable);
+            DocumentsListResDto documentsList = documentsService.getDocumentsListByBranch(branchId, pageable);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(documentsList)
                             .status_code(HttpStatus.OK.value())
-                            .status_message("서류 목록 조회 완료")
+                            .status_message("지점별 서류 목록 조회 완료")
                             .build()
             );
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.NOT_FOUND.value())
-                            .status_message("서류 목록 조회 중 오류가 발생했습니다. error: " + e.getMessage())
+                            .status_message("지점별 서류 목록 조회 중 오류가 발생했습니다. error: " + e.getMessage())
                             .build()
             );
         }
     }
 
-    // 서류 단건 조회 - 특정 지점 하위 - AL 권한 허용
-    @GetMapping("/{employeeId}/{documentId}")
-    public ResponseEntity<?> getDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
+    // 서류 단건 조회 - 특정 지점 하위 - ALL 권한 허용
+    @GetMapping("/{documentId}")
+    public ResponseEntity<?> getDocument(@PathVariable Long documentId) {
         try {
-            DocumentsDto findDocument = documentsService.getDocument(employeeId, documentId);
+            DocumentsDto findDocument = documentsService.getDocument(documentId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(findDocument)
@@ -100,13 +100,12 @@ public class DocumentsController {
 
     // 서류 수정 - 특정 지점 하위
     @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
-    @PatchMapping(value = "/{employeeId}/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping(value = "/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateDocument(
-            @PathVariable Long employeeId,
             @PathVariable Long documentId,
             @ModelAttribute DocumentsCreateReqDto requestDto) {
         try {
-            DocumentsDto result = documentsService.updateDocuments(employeeId, documentId, requestDto);
+            DocumentsDto result = documentsService.updateDocuments(documentId, requestDto);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(result)
@@ -126,10 +125,10 @@ public class DocumentsController {
 
     // 서류 삭제 - 특정 지점 하위
     @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
-    @DeleteMapping("/{employeeId}/{documentId}")
-    public ResponseEntity<?> deleteBranchDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
+    @DeleteMapping("/{documentId}")
+    public ResponseEntity<?> deleteBranchDocument(@PathVariable Long documentId) {
         try {
-            documentsService.deleteDocuments(employeeId, documentId);
+            documentsService.deleteDocuments(documentId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(documentId)
@@ -148,10 +147,10 @@ public class DocumentsController {
     }
 
     // 서류 다운로드 - 특정 지점 하위 - ALL 권한 허용
-    @GetMapping("/{employeeId}/{documentId}/download")
-    public ResponseEntity<?> downloadDocument(@PathVariable Long employeeId, @PathVariable Long documentId) {
+    @GetMapping("/{documentId}/download")
+    public ResponseEntity<?> downloadDocument(@PathVariable Long documentId) {
         try {
-            String downloadUrl = documentsService.getDocumentDownloadUrl(employeeId, documentId);
+            String downloadUrl = documentsService.getDocumentDownloadUrl(documentId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(downloadUrl)

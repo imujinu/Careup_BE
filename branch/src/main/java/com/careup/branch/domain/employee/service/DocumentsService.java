@@ -1,11 +1,12 @@
 package com.careup.branch.domain.employee.service;
 
 import com.careup.branch.common.file.AwsS3Uploader;
+import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.dto.request.DocumentsCreateReqDto;
 import com.careup.branch.domain.employee.dto.response.DocumentsDto;
 import com.careup.branch.domain.employee.dto.response.DocumentsListResDto;
 import com.careup.branch.domain.employee.entity.Documents;
-import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.DocumentsRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -25,23 +26,27 @@ public class DocumentsService {
 
     private final DocumentsRepository documentsRepository;
     private final EmployeeRepository employeeRepository;
+    private final BranchRepository branchRepository;
     private final AwsS3Uploader awsS3Uploader;
 
     private static final String TABLE_NAME = "documents";
 
     // 서류 생성 - 특정 지점 하위로 생성
-    public DocumentsDto createDocuments(Long employeeId, DocumentsCreateReqDto requestDto) {
-        Employee findEmployee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
-
+    public DocumentsDto createDocuments(Long branchId, DocumentsCreateReqDto requestDto) {
         MultipartFile file = requestDto.getDocumentUrl();
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("업로드할 파일이 필요합니다.");
         }
-        String uploadedUrl = awsS3Uploader.uploadFile(TABLE_NAME, findEmployee.getId(), file);
+
+        // Branch 조회
+        Branch branch = branchRepository.findById(branchId)
+                .orElseThrow(() -> new EntityNotFoundException("해당 지점이 존재하지 않습니다. branchId: " + branchId));
+
+        String uploadedUrl = awsS3Uploader.uploadFile(TABLE_NAME, branchId, file);
 
         Documents document = Documents.builder()
-                .employee(findEmployee)
+                .employee(null)
+                .branch(branch)
                 .documentType(requestDto.getDocumentType())
                 .title(requestDto.getTitle())
                 .documentUrl(uploadedUrl)
@@ -50,7 +55,6 @@ public class DocumentsService {
                 .description(requestDto.getDescription())
                 .build();
 
-        // 서류 상태 자동 계산
         document.updateStatus();
 
         Documents savedDocument = documentsRepository.save(document);
@@ -60,38 +64,34 @@ public class DocumentsService {
 
     // 서류 목록 조회 (페이지네이션) - 특정 지점
     @Transactional(readOnly = true)
-    public DocumentsListResDto getDocumentsList(Long employeeId, Pageable pageable) {
-        if (employeeId == null) {
-            throw new IllegalArgumentException("employeeId는 필수입니다.");
+    public DocumentsListResDto getDocumentsListByBranch(Long branchId, Pageable pageable) {
+        if (branchId == null) {
+            throw new IllegalArgumentException("branchId는 필수입니다.");
         }
-        Page<Documents> page = documentsRepository.findByEmployee_Id(employeeId, pageable);
+        // Branch에 직접 연결된 서류 조회
+        Page<Documents> page = documentsRepository.findByBranch_Id(branchId, pageable);
 
-        // 조회 시 서류 상태 업데이트
         page.getContent().forEach(Documents::updateStatus);
 
         Page<DocumentsDto> dtoPage = page.map(DocumentsDto::fromEntity);
         return DocumentsListResDto.fromPage(dtoPage);
     }
 
-    // 서류 단건 조회 - 특정 지점에 속한 문서만
+    // 서류 단건 조회
     @Transactional(readOnly = true)
-    public DocumentsDto getDocument(Long employeeId, Long id) {
-        Documents findDocument = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 지점의 문서가 존재하지 않습니다."));
+    public DocumentsDto getDocument(Long id) {
+        Documents findDocument = documentsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 문서가 존재하지 않습니다."));
 
-        // 조회 시 서류 상태 업데이트
         findDocument.updateStatus();
 
         return DocumentsDto.fromEntity(findDocument);
     }
 
-    // 서류 수정 - 특정 지점에 속한 문서만
-    public DocumentsDto updateDocuments(Long employeeId, Long id, DocumentsCreateReqDto request) {
-        Documents findDocuments = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 지점에 해당 문서가 존재하지 않습니다."));
-
-        Employee findEmployee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 직원이 존재하지 않습니다."));
+    // 서류 수정
+    public DocumentsDto updateDocuments(Long id, DocumentsCreateReqDto request) {
+        Documents findDocuments = documentsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 문서가 존재하지 않습니다."));
 
         String currentUrl = findDocuments.getDocumentUrl();
         String newUrl = currentUrl;
@@ -111,7 +111,8 @@ public class DocumentsService {
 
         findDocuments.update(
                 id,
-                findEmployee, // 지점 변경은 허용하지 않고 path의 branchId를 유지
+                findDocuments.getEmployee(),
+                findDocuments.getBranch(),
                 request.getDocumentType(),
                 request.getTitle(),
                 newUrl,
@@ -124,9 +125,9 @@ public class DocumentsService {
         return DocumentsDto.fromEntity(updatedDocument);
     }
 
-    // 서류 삭제 - 특정 지점에 속한 문서만
-    public void deleteDocuments(Long employeeId, Long id) {
-        Documents deletedDocument = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
+    // 서류 삭제
+    public void deleteDocuments(Long id) {
+        Documents deletedDocument = documentsRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("해당 문서가 존재하지 않습니다."));
 
         String url = deletedDocument.getDocumentUrl();
@@ -139,26 +140,11 @@ public class DocumentsService {
 
     // 서류 다운로드 URL 조회
     @Transactional(readOnly = true)
-    public String getDocumentDownloadUrl(Long employeeId, Long id) {
-        Documents findDocument = documentsRepository.findByIdAndEmployee_Id(id, employeeId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 지점의 문서가 존재하지 않습니다."));
+    public String getDocumentDownloadUrl(Long id) {
+        Documents findDocument = documentsRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("해당 문서가 존재하지 않습니다."));
 
         return findDocument.getDocumentUrl();
     }
-
-    // Entity -> DTO
-    private DocumentsDto toDto(Documents entity) {
-        return DocumentsDto.builder()
-                .id(entity.getId())
-                .employeeId(entity.getEmployee() != null ? entity.getEmployee().getId() : null)
-                .documentType(entity.getDocumentType())
-                .title(entity.getTitle())
-                .documentUrl(entity.getDocumentUrl())
-                .fileSize(entity.getFileSize())
-                .uploadedAt(entity.getCreatedAt())
-                .expiryDate(entity.getExpiryDate())
-                .description(entity.getDescription())
-                .documentStatus(entity.getDocumentStatus())
-                .build();
-    }
 }
+

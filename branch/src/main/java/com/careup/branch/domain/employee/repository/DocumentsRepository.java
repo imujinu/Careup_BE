@@ -10,9 +10,9 @@ import java.util.Optional;
 
 @Repository
 public interface DocumentsRepository extends JpaRepository<Documents, Long> {
-    // 특정 지점 ID로 필터링하여 페이지 조회
-    Page<Documents> findByEmployee_Id(Long employeeId, Pageable pageable);
+    // 특정 지점의 서류 조회 (Branch 직접 참조) - 페이지네이션
+    Page<Documents> findByBranch_Id(Long branchId, Pageable pageable);
 
-    // 특정 지점에 속한 단건 조회
-    Optional<Documents> findByIdAndEmployee_Id(Long id, Long employeeId);
+    // 특정 지점에 배치된 직원들의 서류 조회 (페이지네이션) - 기존 메서드 유지
+    Page<Documents> findByEmployee_DispatchStatuses_Branch_Id(Long branchId, Pageable pageable);
 }
