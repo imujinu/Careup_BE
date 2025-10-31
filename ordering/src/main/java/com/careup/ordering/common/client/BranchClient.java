@@ -41,4 +41,10 @@ public interface BranchClient {
     CommonSuccessDto getAllEmployees(
             @RequestHeader("Authorization") String token
     );
+
+    /**
+     * 내부 API용: employeeId로 현재 활성화된 branchId 조회
+     */
+    @GetMapping("/employees/internal/branch-id/{employeeId}")
+    Map<String, Object> getBranchIdByEmployeeId(@PathVariable("employeeId") Long employeeId);
 }
