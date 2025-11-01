@@ -39,6 +39,9 @@ public class BranchDto {
     private String attorneyName;
     private String attorneyPhoneNumber;
 
+    // 점주 정보
+    private OwnerInfoDto ownerInfo;
+
     public static BranchDto fromEntity(Branch branch) {
         return BranchDto.builder()
                 .id(branch.getId())
@@ -62,5 +65,48 @@ public class BranchDto {
                 .attorneyName(branch.getAttorneyName())
                 .attorneyPhoneNumber(branch.getAttorneyPhoneNumber())
                 .build();
+    }
+
+    public static BranchDto fromEntity(Branch branch, OwnerInfoDto ownerInfo) {
+        return BranchDto.builder()
+                .id(branch.getId())
+                .name(branch.getName())
+                .businessDomain(branch.getBusinessDomain())
+                .ownershipType(branch.getOwnershipType())
+                .status(branch.getStatus())
+                .openDate(branch.getOpenDate())
+                .phone(branch.getPhone())
+                .businessNumber(branch.getBusinessNumber())
+                .corporationNumber(branch.getCorporationNumber())
+                .zipcode(branch.getZipcode())
+                .address(branch.getAddress())
+                .addressDetail(branch.getAddressDetail())
+                .profileImageUrl(branch.getProfileImageUrl())
+                .email(branch.getEmail())
+                .geofenceRadius(branch.getGeofenceRadius())
+                .latitude(branch.getLatitude())
+                .longitude(branch.getLongitude())
+                .remark(branch.getRemark())
+                .attorneyName(branch.getAttorneyName())
+                .attorneyPhoneNumber(branch.getAttorneyPhoneNumber())
+                .ownerInfo(ownerInfo)
+                .build();
+    }
+
+    /**
+     * 점주(Owner) 정보 DTO
+     */
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class OwnerInfoDto {
+        private Long employeeId;
+        private String employeeNumber;
+        private String name;
+        private String email;
+        private String mobile;
+        private String authorityType;
+        private String profileImageUrl;
     }
 }

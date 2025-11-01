@@ -79,7 +79,11 @@ public class BranchService {
 
         log.info("지점 상세 조회: {}", findBranch);
 
-        return BranchDto.fromEntity(findBranch);
+        // 점주 정보 조회
+        LocalDate today = LocalDate.now();
+        BranchDto.OwnerInfoDto ownerInfo = findBranchOwnerForDto(findBranch, today);
+
+        return BranchDto.fromEntity(findBranch, ownerInfo);
     }
 
     // 지점 목록 조회 (페이징)
@@ -350,7 +354,7 @@ public class BranchService {
     }
 
     /**
-     * 지점의 점주(BRANCH_ADMIN 또는 FRANCHISE_OWNER) 정보 조회
+     * 지점의 점주(BRANCH_ADMIN 또는 FRANCHISE_OWNER) 정보 조회 (MyBranchDto용)
      */
     private MyBranchDto.OwnerInfoDto findBranchOwner(Branch branch, LocalDate today) {
         // 해당 지점에 배치된 직원 중 BRANCH_ADMIN 또는 FRANCHISE_OWNER 권한을 가진 직원 조회
@@ -372,6 +376,39 @@ public class BranchService {
 
         Employee ownerEmployee = owner.get();
         return MyBranchDto.OwnerInfoDto.builder()
+                .employeeId(ownerEmployee.getId())
+                .employeeNumber(ownerEmployee.getEmployeeNumber())
+                .name(ownerEmployee.getName())
+                .email(ownerEmployee.getEmail())
+                .mobile(ownerEmployee.getMobile())
+                .authorityType(ownerEmployee.getAuthorityType().name())
+                .profileImageUrl(ownerEmployee.getProfileImageUrl())
+                .build();
+    }
+
+    /**
+     * 지점의 점주(BRANCH_ADMIN 또는 FRANCHISE_OWNER) 정보 조회 (BranchDto용)
+     */
+    private BranchDto.OwnerInfoDto findBranchOwnerForDto(Branch branch, LocalDate today) {
+        // 해당 지점에 배치된 직원 중 BRANCH_ADMIN 또는 FRANCHISE_OWNER 권한을 가진 직원 조회
+        List<DispatchStatus> dispatches = dispatchStatusRepository
+                .findByBranchInAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+                        List.of(branch), "N", today, today
+                );
+
+        Optional<Employee> owner = dispatches.stream()
+                .map(DispatchStatus::getEmployee)
+                .filter(emp -> emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
+                            || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
+                .findFirst();
+
+        if (owner.isEmpty()) {
+            log.warn("지점 {} ({})에 점주 정보가 없습니다.", branch.getName(), branch.getId());
+            return null;
+        }
+
+        Employee ownerEmployee = owner.get();
+        return BranchDto.OwnerInfoDto.builder()
                 .employeeId(ownerEmployee.getId())
                 .employeeNumber(ownerEmployee.getEmployeeNumber())
                 .name(ownerEmployee.getName())
