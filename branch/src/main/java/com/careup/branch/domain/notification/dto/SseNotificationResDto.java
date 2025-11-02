@@ -54,7 +54,7 @@ public class SseNotificationResDto {
     }// ex: CHECK_IN, CANCEL, UPDATE 등
 
     /** ✅ 발주 상태 변경 알림 */
-    public static SseNotificationResDto orderStatusChanged(String receiver, Long orderId, String status) {
+    public static SseNotificationResDto orderStatusChanged(Long branchId, String receiver, Long orderId, String status) {
         String title;
         String body;
         String eventName = "PURCHASE";
@@ -84,6 +84,7 @@ public class SseNotificationResDto {
         }
 
         return SseNotificationResDto.builder()
+                .branchId(branchId)
                 .email(receiver)
                 .eventName(eventName)
                 .title(title)

@@ -96,6 +96,9 @@ public class PurchaseOrderService {
         orderDetails.forEach(detail -> detail.setPurchaseOrder(savedOrder));
         orderDetails.forEach(purchaseOrderDetailRepository::save);
 
+        // 6) 본사 재고 예약 (요청 시점 소프트 예약) - 실패 시 롤백
+        reserveHqStocksOrThrow(savedOrder, orderDetails);
+
         log.info("발주 생성 완료: {}", savedOrder.getId());
         return PurchaseOrderResponseDto.builder()
                 .purchaseOrderId(savedOrder.getId())
@@ -155,10 +158,89 @@ public class PurchaseOrderService {
 //                sseAlarmService.publishNotification(dto);
 //            }
 
+        // 본사 재고 예약 (자동 발주도 동일 정책)
+        reserveHqStocksOrThrow(savedOrder, savedDetails);
+
             return convertToCompletedResponseDto(savedOrder, savedDetails);
-            
+
         } catch (SecurityException e) {
             throw new RuntimeException("자동 발주 생성 실패: " + e.getMessage(), e);
+        }
+    }
+
+    private void reserveHqStocksOrThrow(PurchaseOrder savedOrder, List<PurchaseOrderDetail> orderDetails) {
+        Long hqBranchId = 1L;
+        for (PurchaseOrderDetail detail : orderDetails) {
+            try {
+                OrderingInventoryClient.BranchProductResponseDto hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
+                if (hqBp == null || hqBp.branchProductId == null) {
+                    throw new IllegalStateException("본사 재고를 찾을 수 없습니다. productId=" + detail.getProductId());
+                }
+                OrderingInventoryClient.ReservationRequest req = new OrderingInventoryClient.ReservationRequest();
+                req.branchProductId = hqBp.branchProductId;
+                req.quantity = (long) detail.getQuantity();
+                req.reason = "PURCHASE_ORDER_REQUEST";
+                req.purchaseOrderId = savedOrder.getId();
+                orderingInventoryClient.reserve(req);
+            } catch (Exception e) {
+                log.error("예약재고 확보 실패: orderId={}, productId={}, msg={}", savedOrder.getId(), detail.getProductId(), e.getMessage());
+                throw new RuntimeException("예약재고 확보 실패: productId=" + detail.getProductId(), e);
+            }
+        }
+    }
+
+    private void releaseHqStocks(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        Long hqBranchId = 1L;
+        for (PurchaseOrderDetail detail : orderDetails) {
+            try {
+                OrderingInventoryClient.BranchProductResponseDto hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
+                if (hqBp == null || hqBp.branchProductId == null) {
+                    log.warn("본사 재고를 찾을 수 없어 예약 해제 실패: productId={}", detail.getProductId());
+                    continue;
+                }
+                OrderingInventoryClient.ReservationRequest req = new OrderingInventoryClient.ReservationRequest();
+                req.branchProductId = hqBp.branchProductId;
+                req.quantity = (long) detail.getQuantity();
+                req.reason = "PURCHASE_ORDER_CANCELLED";
+                req.purchaseOrderId = purchaseOrder.getId();
+                orderingInventoryClient.releaseReservation(req);
+                log.info("예약재고 해제 완료: orderId={}, productId={}, quantity={}", 
+                    purchaseOrder.getId(), detail.getProductId(), detail.getQuantity());
+            } catch (Exception e) {
+                log.error("예약재고 해제 실패: orderId={}, productId={}, msg={}", 
+                    purchaseOrder.getId(), detail.getProductId(), e.getMessage());
+                // 예약 해제 실패는 경고만 하고 계속 진행 (발주 취소는 완료되어야 함)
+            }
+        }
+    }
+
+    private void releasePartialHqStocks(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+        Long hqBranchId = 1L;
+        for (PurchaseOrderDetail detail : orderDetails) {
+            // 거부된 수량만큼만 예약 해제
+            long rejectedQuantity = detail.getQuantity() - detail.getApprovedQuantity();
+            if (rejectedQuantity <= 0) {
+                continue;
+            }
+            
+            try {
+                OrderingInventoryClient.BranchProductResponseDto hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
+                if (hqBp == null || hqBp.branchProductId == null) {
+                    log.warn("본사 재고를 찾을 수 없어 예약 해제 실패: productId={}", detail.getProductId());
+                    continue;
+                }
+                OrderingInventoryClient.ReservationRequest req = new OrderingInventoryClient.ReservationRequest();
+                req.branchProductId = hqBp.branchProductId;
+                req.quantity = rejectedQuantity;
+                req.reason = "PURCHASE_ORDER_PARTIAL_REJECT";
+                req.purchaseOrderId = purchaseOrder.getId();
+                orderingInventoryClient.releaseReservation(req);
+                log.info("부분 예약재고 해제 완료: orderId={}, productId={}, rejectedQuantity={}", 
+                    purchaseOrder.getId(), detail.getProductId(), rejectedQuantity);
+            } catch (Exception e) {
+                log.error("부분 예약재고 해제 실패: orderId={}, productId={}, msg={}", 
+                    purchaseOrder.getId(), detail.getProductId(), e.getMessage());
+            }
         }
     }
 
@@ -284,8 +366,8 @@ public class PurchaseOrderService {
                 throw new SecurityException("인증되지 않은 사용자입니다.");
             }
 
-            Claims claims = (Claims) auth.getDetails();
-            if (claims == null) {
+            Object details = auth.getDetails();
+            if (!(details instanceof Claims claims)) {
                 throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
             }
 
@@ -383,7 +465,7 @@ public class PurchaseOrderService {
         //[알림 - 발주 승인]
         List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
         for(DispatchStatus ds : employees){
-            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
+            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(purchaseOrder.getBranchId(), ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
             sseAlarmService.publishNotification(dto);
         }
 
@@ -405,10 +487,13 @@ public class PurchaseOrderService {
 
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
 
+        // 예약재고 해제
+        releaseHqStocks(savedOrder, orderDetails);
+
         //[알림 - 발주 반려]
         List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
         for(DispatchStatus ds : employees){
-            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
+            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(purchaseOrder.getBranchId(), ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
             sseAlarmService.publishNotification(dto);
         }
         return convertToResponseDto(savedOrder, orderDetails);
@@ -433,13 +518,16 @@ public class PurchaseOrderService {
 
         List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
 
+        // 부분 승인 시 거부된 수량만큼 예약재고 해제
+        releasePartialHqStocks(savedOrder, savedDetails);
+
         publishPartialApprovedEvent(savedOrder, savedDetails);
 
 
         //[알림 - 발주 반려]
         List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
         for(DispatchStatus ds : employees){
-            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "PARTIALLY_APPROVED");
+            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(purchaseOrder.getBranchId(), ds.getEmployee().getEmail(), purchaseOrder.getId(), "PARTIALLY_APPROVED");
             sseAlarmService.publishNotification(dto);
         }
         return convertToResponseDto(savedOrder, savedDetails);
@@ -685,6 +773,10 @@ public class PurchaseOrderService {
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
+        
+        // 예약재고 해제
+        releaseHqStocks(savedOrder, orderDetails);
+        
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
