@@ -104,12 +104,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
-                // 주문 조회 - 고객 본인 + 관리자 가능
-                .requestMatchers(HttpMethod.GET, "/api/orders/**").hasAnyRole("CUSTOMER", "HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
+                // 주문 조회 - 고객 + 관리자 + 일반직원(조회 허용)
+                .requestMatchers(HttpMethod.GET, "/api/orders/**").hasAnyRole("CUSTOMER", "HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER", "STAFF")
 
-                // 주문 승인/거부 - 관리자 전용
-                .requestMatchers(HttpMethod.PUT, "/api/orders/*/approve").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
-                .requestMatchers(HttpMethod.PUT, "/api/orders/*/reject").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER")
+                // 주문 승인/거부 - 일반직원까지 허용(요구사항에 따라 확장)
+                .requestMatchers(HttpMethod.PUT, "/api/orders/*/approve").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/orders/*/reject").hasAnyRole("HQ_ADMIN", "BRANCH_ADMIN", "FRANCHISE_OWNER", "STAFF")
 
                 // 주문 생성 - 고객 전용
                 .requestMatchers(HttpMethod.POST, "/api/orders").hasRole("CUSTOMER")

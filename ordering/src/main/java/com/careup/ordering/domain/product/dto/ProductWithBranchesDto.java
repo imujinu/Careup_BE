@@ -28,8 +28,9 @@ public class ProductWithBranchesDto {
     @Builder
     public static class BranchInfoDto {
         private Long branchId;
+        private Long branchProductId;
         private String branchName;
         private Long stockQuantity;
-        private Long price;  // 지점별 가격 추가
+        private Long price;
     }
 }
