@@ -18,6 +18,8 @@ public class BranchProductResponseDto {
     private Long branchId;
     private String serialNumber;
     private Long stockQuantity;
+    private Long reservedQuantity;  // 예약재고 수량
+    private Long availableQuantity;  // 사용 가능한 재고 수량 (실재고 - 예약재고)
     private Long safetyStock;
     private Long price;  // 원가
     private String productName;
@@ -40,6 +42,8 @@ public class BranchProductResponseDto {
                 .branchId(branchProduct.getBranchId())
                 .serialNumber(branchProduct.getSerialNumber())
                 .stockQuantity(branchProduct.getStockQuantity())
+                .reservedQuantity(branchProduct.getReservedQuantity())
+                .availableQuantity(branchProduct.getAvailableQuantity())
                 .safetyStock(branchProduct.getSafetystock())
                 .price(branchProduct.getPrice())
                 .productName(branchProduct.getProduct().getName())
@@ -69,6 +73,8 @@ public class BranchProductResponseDto {
                 .branchId(branchProduct.getBranchId())
                 .serialNumber(branchProduct.getSerialNumber())
                 .stockQuantity(branchProduct.getStockQuantity())
+                .reservedQuantity(branchProduct.getReservedQuantity())
+                .availableQuantity(branchProduct.getAvailableQuantity())
                 .safetyStock(branchProduct.getSafetystock())
                 .price(branchProduct.getPrice())
                 .productName(branchProduct.getProduct().getName())

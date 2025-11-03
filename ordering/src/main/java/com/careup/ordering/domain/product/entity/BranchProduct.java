@@ -35,6 +35,9 @@ public class BranchProduct {
     @Column(name = "stock_quantity",nullable = false)
     private Long stockQuantity;
 
+    @Column(name = "reserved_quantity", nullable = false)
+    private Long reservedQuantity = 0L;
+
     @Column(name = "safety_stock",nullable = false)
     private Long safetystock = 0L;
 
@@ -56,6 +59,7 @@ public class BranchProduct {
         this.stockQuantity =stockQuantity;
         this.safetystock = safetystock;
         this.price =price;
+        this.reservedQuantity = 0L;
     }
 
     public void decreaseStock(Long quantity) {
@@ -78,6 +82,35 @@ public class BranchProduct {
     // 단가 설정
     public void updatePrice(Long price) {
         this.price = price;
+    }
+
+    public Long getReservedQuantity() {
+        return reservedQuantity;
+    }
+
+    public Long getAvailableQuantity() {
+        return stockQuantity - reservedQuantity;
+    }
+
+    public void increaseReserved(Long quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new IllegalArgumentException("예약 수량이 유효하지 않습니다.");
+        }
+        long available = getAvailableQuantity();
+        if (available < quantity) {
+            throw new IllegalArgumentException("가용 재고가 부족합니다.");
+        }
+        this.reservedQuantity += quantity;
+    }
+
+    public void decreaseReserved(Long quantity) {
+        if (quantity == null || quantity <= 0) {
+            throw new IllegalArgumentException("예약 해제 수량이 유효하지 않습니다.");
+        }
+        if (this.reservedQuantity < quantity) {
+            throw new IllegalArgumentException("예약 수량보다 큰 해제는 불가합니다.");
+        }
+        this.reservedQuantity -= quantity;
     }
 
 }

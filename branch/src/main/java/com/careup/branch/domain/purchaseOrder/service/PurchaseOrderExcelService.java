@@ -419,8 +419,8 @@ public class PurchaseOrderExcelService {
             }
 
             // 2. JWT Claims에서 사용자 정보 추출
-            Claims claims = (Claims) auth.getDetails();
-            if (claims == null) {
+            Object details = auth.getDetails();
+            if (!(details instanceof Claims claims)) {
                 throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
             }
 

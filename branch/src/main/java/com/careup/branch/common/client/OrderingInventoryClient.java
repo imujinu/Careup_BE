@@ -43,6 +43,16 @@ public interface OrderingInventoryClient {
     @PostMapping("/inventory/adjust")
     void adjustStock(@RequestBody StockAdjustRequest request);
 
+    // 예약재고
+    @PostMapping("/inventory/reserve")
+    void reserve(@RequestBody ReservationRequest request);
+
+    @PostMapping("/inventory/reservation/release")
+    void releaseReservation(@RequestBody ReservationRequest request);
+
+    @PostMapping("/inventory/reservation/commit")
+    void commitReservation(@RequestBody ReservationRequest request);
+
     @GetMapping("/inventory/flow")
     List<InventoryFlowResponseDto> getInventoryFlows(@RequestParam(required = false) Long branchId,
                                                      @RequestParam(required = false) Long productId);
@@ -104,6 +114,8 @@ public interface OrderingInventoryClient {
         public Long branchId;
         public String serialNumber;
         public Long stockQuantity;
+        public Long reservedQuantity;  // 예약재고 수량
+        public Long availableQuantity;  // 사용 가능한 재고 수량
         public Long safetyStock;
         public Long price;
         public String productName;
@@ -152,5 +164,13 @@ public interface OrderingInventoryClient {
         public Long outQuantity;
         public String remark;
         public String createdAt;
+    }
+
+    // Reservation
+    class ReservationRequest {
+        public Long branchProductId;
+        public Long quantity;
+        public String reason;
+        public Long purchaseOrderId;
     }
 }

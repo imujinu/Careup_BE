@@ -8,6 +8,7 @@ import com.careup.ordering.domain.product.dto.InventoryFlowResponseDto;
 import com.careup.ordering.domain.product.dto.InventoryUpdateRequestDto;
 import com.careup.ordering.domain.product.dto.SafetyStockRequestDto;
 import com.careup.ordering.domain.product.dto.StockAdjustRequestDto;
+import com.careup.ordering.domain.product.dto.ReservationRequestDto;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.service.InventoryService;
@@ -112,7 +113,7 @@ public class InventoryController {
             // 사용자는 자신의 지점 재고만 조회 가능
             actualBranchId = inventoryService.getCurrentUserBranchId(authentication);
         }
-        
+
         List<BranchProduct> branchProducts = inventoryService.getBranchProducts(actualBranchId, authentication);
         List<BranchProductResponseDto> response = branchProducts.stream()
                 .map(this::convertToBranchProductResponse)
@@ -163,7 +164,26 @@ public class InventoryController {
         );
         return ResponseEntity.ok().build();
     }
-    
+
+    // ========== 예약 재고 ==========
+    @PostMapping("/reserve")
+    public ResponseEntity<Void> reserve(@RequestBody ReservationRequestDto request) {
+        inventoryService.reserveStock(request.getBranchProductId(), request.getQuantity(), request.getReason());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reservation/release")
+    public ResponseEntity<Void> releaseReservation(@RequestBody ReservationRequestDto request) {
+        inventoryService.releaseReservation(request.getBranchProductId(), request.getQuantity(), request.getReason());
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/reservation/commit")
+    public ResponseEntity<Void> commitReservation(@RequestBody ReservationRequestDto request) {
+        inventoryService.commitReservation(request.getBranchProductId(), request.getQuantity(), request.getReason());
+        return ResponseEntity.ok().build();
+    }
+
     // ==================== 입출고 관리 ====================
     
     // 입출고 기록 조회
