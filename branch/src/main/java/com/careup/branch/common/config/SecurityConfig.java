@@ -51,7 +51,9 @@ public class SecurityConfig {
                         "/api/products/public/**",
                         "/sales-forecast/**",
                         "/sales/**",
-                        "/chatbot/**"
+                        "/chatbot/**",
+                        "/branch/list-by-ids",//  지점 목록 조회 공개 (ordering 서비스에서 사용)
+                        "/sse/**"
                 ).permitAll()
                 .anyRequest().authenticated()
         );

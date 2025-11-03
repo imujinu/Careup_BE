@@ -14,7 +14,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @RequestMapping("/noti")
 public class NotificationController {
-    private NotificationService notificationService;
+    private final NotificationService notificationService;
 
     @GetMapping("/list")
     public ResponseEntity<?> getNotificationList() {
@@ -23,9 +23,16 @@ public class NotificationController {
     }
 
     // 알림 읽음상태 변경
-    @PatchMapping("/read/{notiId}")
+    @PatchMapping("/read/{notificationId}")
     public ResponseEntity<?> readNotification(@PathVariable Long notificationId) {
         notificationService.readNotification(notificationId);
         return new ResponseEntity<>(new CommonSuccessDto(notificationId, HttpStatus.OK.value(), "알림상태 읽음으로 수정 성공"), HttpStatus.OK);
+    }
+
+    // 알림 전체 읽음
+    @PatchMapping("/read/all")
+    public ResponseEntity<?> readAllNotification(@RequestBody List<Long> notificationIds) {
+        notificationService.readAllNotification(notificationIds);
+        return new ResponseEntity<>(new CommonSuccessDto(notificationIds, HttpStatus.OK.value(), "알림상태 읽음으로 수정 성공"), HttpStatus.OK);
     }
 }

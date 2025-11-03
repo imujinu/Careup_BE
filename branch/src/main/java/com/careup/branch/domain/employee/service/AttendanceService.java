@@ -64,11 +64,11 @@ public class AttendanceService {
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
-
+        Branch branch = scheduleRepository.findById(scheduleId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 스케줄입니다.")).getBranch();
         //[알림 - 출근]
         Employee owner = getOwner();
         Employee employee = getEmployee();
-        SseNotificationResDto dto = SseNotificationResDto.attendanceCheckIn(owner.getEmail(), employee.getName());
+        SseNotificationResDto dto = SseNotificationResDto.attendanceCheckIn(employee.getName(), branch.getId());
         sseAlarmService.publishNotification(dto);
 
         return clockInAt(scheduleId, lat, lng, acc, ts);
@@ -101,10 +101,12 @@ public class AttendanceService {
         Integer acc = req != null ? req.getAccuracyMeters() : null;
 
         //[알림 - 퇴근]
+        Branch branch = scheduleRepository.findById(scheduleId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 스케줄입니다.")).getBranch();
         Employee owner = getOwner();
         Employee employee = getEmployee();
-        SseNotificationResDto dto = SseNotificationResDto.attendanceCheckOut(owner.getEmail(), employee.getName());
+        SseNotificationResDto dto = SseNotificationResDto.attendanceCheckOut( employee.getName(),branch.getId());
         sseAlarmService.publishNotification(dto);
+
         return clockOutAt(scheduleId, lat, lng, acc, ts);
     }
 

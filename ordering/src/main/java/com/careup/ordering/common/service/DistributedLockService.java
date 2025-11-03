@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RLock;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.concurrent.TimeUnit;
 
@@ -60,6 +62,60 @@ public class DistributedLockService {
     public <T> T executeInventoryLock(Long branchProductId, LockTask<T> task) {
         String lockKey = "inventory:lock:" + branchProductId;
         return executeWithLock(lockKey, 5, 10, task); // 5초 대기, 10초 보유
+    }
+
+    // 트랜잭션 커밋 이후에 락을 해제
+    public <T> T executeInventoryLockUntilCommit(Long branchProductId, LockTask<T> task) {
+        String lockKey = "inventory:lock:" + branchProductId;
+        RLock lock = redissonClient.getLock(lockKey);
+        try {
+            log.info("락 획득 시도: {}", lockKey);
+            boolean acquired = lock.tryLock(5, 10, TimeUnit.SECONDS);
+            if (!acquired) {
+                log.warn("락 획득 실패: {} (대기시간 초과)", lockKey);
+                throw new RuntimeException("재고 처리 중입니다. 잠시 후 다시 시도해주세요.");
+            }
+
+            log.info("락 획득 성공: {}", lockKey);
+
+            boolean txActive = TransactionSynchronizationManager.isActualTransactionActive();
+            if (txActive) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCompletion(int status) {
+                        try {
+                            if (lock.isHeldByCurrentThread()) {
+                                lock.unlock();
+                                log.info("락 해제 완료: {}", lockKey);
+                            }
+                        } catch (Exception e) {
+                            log.warn("락 해제 실패: {} - {}", lockKey, e.getMessage());
+                        }
+                    }
+                });
+                return task.execute();
+            } else {
+                try {
+                    return task.execute();
+                } finally {
+                    if (lock.isHeldByCurrentThread()) {
+                        lock.unlock();
+                        log.info("락 해제 완료(비트랜잭션): {}", lockKey);
+                    }
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("락 획득 중 오류가 발생했습니다.", e);
+        } catch (Exception e) {
+            try {
+                if (lock.isHeldByCurrentThread()) {
+                    lock.unlock();
+                    log.info("락 해제 완료(예외): {}", lockKey);
+                }
+            } catch (Exception ignore) {}
+            throw new RuntimeException("락 처리 중 오류가 발생했습니다.", e);
+        }
     }
 
     // 락 작업 인터페이스

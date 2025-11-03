@@ -44,6 +44,7 @@ public class ProductInquiry extends BaseTimeEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
+    @Builder.Default
     private InquiryStatus status = InquiryStatus.PENDING;
 
     @Column(name = "is_secret", nullable = false)
