@@ -11,8 +11,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @Builder
 public class SseNotificationResDto {
+    private Long id;
     private Long branchId; // 알림 대상
-    private String email;
+    private String memberEmail;
+    private String senderName;
     private String eventName;
     private String title;         // 알림 제목
     private String body;          // 알림 내용
@@ -21,8 +23,10 @@ public class SseNotificationResDto {
 
     public static SseNotificationResDto fromEntity(Notification notification){
         return SseNotificationResDto.builder()
-                .email(notification.getMemberEmail())
+                .id(notification.getId())
+                .branchId(notification.getBranchId())
                 .eventName(notification.getEventName())
+                .memberEmail(notification.getReceiverEmail())
                 .title(notification.getTitle())
                 .body(notification.getBody())
                 .type(notification.getType())
@@ -32,9 +36,10 @@ public class SseNotificationResDto {
     }
 
     /** ✅ 출근 알림 */
-    public static SseNotificationResDto attendanceCheckIn(String receiver, String employeeName) {
+    public static SseNotificationResDto attendanceCheckIn(String employeeName, Long branchId) {
         return SseNotificationResDto.builder()
-                .email(receiver)
+                .branchId(branchId)
+                .senderName(employeeName)
                 .eventName("ATTENDANCE")
                 .title("👋 출근 체크 완료")
                 .body(String.format("%s 님이 출근했습니다.", employeeName))
@@ -43,9 +48,10 @@ public class SseNotificationResDto {
     }
 
     /** ✅ 퇴근 알림 */
-    public static SseNotificationResDto attendanceCheckOut(String receiver, String employeeName) {
+    public static SseNotificationResDto attendanceCheckOut(String employeeName, Long branchId) {
         return SseNotificationResDto.builder()
-                .email(receiver)
+                .branchId(branchId)
+                .senderName(employeeName)
                 .eventName("ATTENDANCE")
                 .title("🏠 퇴근 체크 완료")
                 .body(String.format("%s 님이 퇴근했습니다.", employeeName))
@@ -54,7 +60,7 @@ public class SseNotificationResDto {
     }// ex: CHECK_IN, CANCEL, UPDATE 등
 
     /** ✅ 발주 상태 변경 알림 */
-    public static SseNotificationResDto orderStatusChanged(String receiver, Long orderId, String status) {
+    public static SseNotificationResDto orderStatusChanged(String senderBranch, Long orderId, String status, Long branchId) {
         String title;
         String body;
         String eventName = "PURCHASE";
@@ -63,28 +69,29 @@ public class SseNotificationResDto {
         switch (status.toUpperCase()) {
             case "REQUESTED" -> {
                 title = "📦 발주 요청 접수";
-                body = String.format("주문번호 [%d]의 발주 요청이 등록되었습니다.", orderId);
+                body = String.format("발주번호 : [%d], [%s]의 발주 요청이 등록되었습니다.", orderId, senderBranch);
             }
             case "APPROVED" -> {
                 title = "✅ 발주 승인 완료";
-                body = String.format("주문번호 [%d]의 발주가 승인되었습니다.", orderId);
+                body = String.format("발주번호 : [%d], [%s]의 발주가 승인되었습니다.", orderId, senderBranch);
             }
             case "REJECTED" -> {
                 title = "❌ 발주 반려 처리";
-                body = String.format("주문번호 [%d]의 발주가 반려되었습니다.", orderId);
+                body = String.format("발주번호 : [%d], [%s]의 발주가 반려되었습니다.", orderId,senderBranch);
             }
             case "PARTIALLY_APPROVED" -> {
                 title = "🟡 발주 부분 승인";
-                body = String.format("주문번호 [%d]의 발주가 일부 승인되었습니다.", orderId);
+                body = String.format("발주번호 :[%d], [%s]의 발주가 일부 승인되었습니다.", orderId,senderBranch);
             }
             default -> {
                 title = "ℹ️ 발주 상태 변경";
-                body = String.format("주문번호 [%d]의 상태가 [%s]로 변경되었습니다.", orderId, status);
+                body = String.format("발주번호 : [%d], [%s]의 발주가 [%s]로 변경되었습니다.", orderId,senderBranch, status);
             }
         }
 
         return SseNotificationResDto.builder()
-                .email(receiver)
+                .branchId(branchId)
+                .senderName(senderBranch)
                 .eventName(eventName)
                 .title(title)
                 .body(body)

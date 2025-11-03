@@ -20,14 +20,18 @@ public class Notification extends BaseTimeEntity {
     private Long id;
     private String title;
     private String body;
-
     private String type;
-
     private String action;
 
-    private Boolean isRead;
-    private Boolean isDeleted;
-    private String memberEmail;
+    @Builder.Default
+    private Boolean isRead = false;
+
+    @Builder.Default
+    private Boolean isDeleted = false;
+
+    private Long branchId;
+    private String senderName;
+    private String receiverEmail;
     private String eventName;
 
     public void readNotification(){
@@ -36,12 +40,16 @@ public class Notification extends BaseTimeEntity {
 
     public Notification toEntity(SseNotificationResDto dto, String email){
         return Notification.builder()
-                .memberEmail(email)
+                .receiverEmail(email)
+                .senderName(dto.getSenderName())
                 .eventName(dto.getEventName())
                 .title(dto.getTitle())
                 .body(dto.getBody())
                 .type(dto.getType())
                 .action(dto.getAction())
+                .branchId(dto.getBranchId())
                 .build();
     }
+
+
 }

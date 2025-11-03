@@ -1,6 +1,7 @@
 package com.careup.branch.domain.purchaseOrder.service;
 
 import com.careup.branch.common.client.OrderingInventoryClient;
+import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.chat.service.ChatUserService;
 import com.careup.branch.domain.employee.entity.AuthorityType;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
@@ -96,6 +97,13 @@ public class PurchaseOrderService {
         orderDetails.forEach(detail -> detail.setPurchaseOrder(savedOrder));
         orderDetails.forEach(purchaseOrderDetailRepository::save);
 
+                    //[알림 - 발주 요청]
+            Branch branch = branchRepository.findById(requestDto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
+            List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
+                SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "REQUESTED", HEAD_OFFICE_BRANCH_ID);
+                sseAlarmService.publishNotification(dto);
+
+
         log.info("발주 생성 완료: {}", savedOrder.getId());
         return PurchaseOrderResponseDto.builder()
                 .purchaseOrderId(savedOrder.getId())
@@ -148,12 +156,7 @@ public class PurchaseOrderService {
 
             List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
 
-//            //[알림 - 발주 요청]
-//            List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
-//            for(DispatchStatus ds : employees){
-//                SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "REQUESTED");
-//                sseAlarmService.publishNotification(dto);
-//            }
+
 
             return convertToCompletedResponseDto(savedOrder, savedDetails);
             
@@ -381,11 +384,11 @@ public class PurchaseOrderService {
         publishPurchaseOrderApprovedEvent(savedOrder, orderDetails);
 
         //[알림 - 발주 승인]
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
-        for(DispatchStatus ds : employees){
-            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
-            sseAlarmService.publishNotification(dto);
-        }
+        Branch branch = branchRepository.findById(purchaseOrder.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
+        SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "APPROVE", purchaseOrder.getBranchId());
+        sseAlarmService.publishNotification(dto);
+
 
         return convertToResponseDto(savedOrder, orderDetails);
     }
@@ -406,11 +409,10 @@ public class PurchaseOrderService {
         List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(savedOrder);
 
         //[알림 - 발주 반려]
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
-        for(DispatchStatus ds : employees){
-            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "APPROVED");
-            sseAlarmService.publishNotification(dto);
-        }
+        Branch branch = branchRepository.findById(purchaseOrder.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
+        SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "REJECTED", purchaseOrder.getBranchId());
+        sseAlarmService.publishNotification(dto);
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
@@ -436,12 +438,11 @@ public class PurchaseOrderService {
         publishPartialApprovedEvent(savedOrder, savedDetails);
 
 
-        //[알림 - 발주 반려]
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(purchaseOrder.getBranchId());
-        for(DispatchStatus ds : employees){
-            SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(ds.getEmployee().getEmail(), purchaseOrder.getId(), "PARTIALLY_APPROVED");
-            sseAlarmService.publishNotification(dto);
-        }
+        //[알림 - 발주 부분 승인]
+        Branch branch = branchRepository.findById(purchaseOrder.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
+        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
+        SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "PARTIALLY_APPROVED", purchaseOrder.getBranchId());
+        sseAlarmService.publishNotification(dto);
         return convertToResponseDto(savedOrder, savedDetails);
     }
 
