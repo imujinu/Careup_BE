@@ -57,7 +57,6 @@ public class AttendanceService {
         return ScheduleEventDetailDto.of(s, e, st);
     }
 
-    //[ 출근 ]
     @Transactional
     public ScheduleEventDetailDto clockIn(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
@@ -65,7 +64,6 @@ public class AttendanceService {
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
         Branch branch = scheduleRepository.findById(scheduleId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 스케줄입니다.")).getBranch();
-        //[알림 - 출근]
         Employee owner = getOwner();
         Employee employee = getEmployee();
         SseNotificationResDto dto = SseNotificationResDto.attendanceCheckIn(employee.getName(), branch.getId());
@@ -92,7 +90,7 @@ public class AttendanceService {
 
         return breakEndAt(scheduleId, lat, lng, acc, ts);
     }
-    // [ 퇴근 ]
+
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
     public ScheduleEventDetailDto clockOut(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
@@ -100,7 +98,6 @@ public class AttendanceService {
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
 
-        //[알림 - 퇴근]
         Branch branch = scheduleRepository.findById(scheduleId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 스케줄입니다.")).getBranch();
         Employee owner = getOwner();
         Employee employee = getEmployee();
@@ -239,60 +236,37 @@ public class AttendanceService {
         }
     }
 
-    @Transactional(noRollbackFor = MissedCheckoutLockException.class)
+    @Transactional
     public ScheduleEventDetailDto upsertEvent(Long scheduleId, ScheduleEventUpdateDto dto) {
-        try {
-            var auth = authz.readAuth();
-            Schedule s = scheduleRepository.findById(scheduleId)
-                    .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
-            authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
-            ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
-                    .orElseGet(() -> scheduleEventRepository.save(
-                            ScheduleEvent.builder()
-                                    .schedule(s)
-                                    .eventDate(dto.getEventDate() != null ? dto.getEventDate() : s.getRegisteredDate())
-                                    .missedCheckout(false)
-                                    .totalBreakMinutes(0)
-                                    .totalWorkMinutes(0)
-                                    .build()
-                    ));
-            if (dto.getEventDate() != null)    ev.changeEventDate(dto.getEventDate());
-            if (dto.getClockInAt() != null)    ev.changeClockIn(dto.getClockInAt());
-            if (dto.getBreakStartAt() != null) ev.changeBreakStart(dto.getBreakStartAt());
-            if (dto.getBreakEndAt() != null)   ev.changeBreakEnd(dto.getBreakEndAt());
-            if (dto.getClockOutAt() != null) {
-                LocalDateTime now = LocalDateTime.now(clock);
-                var regOut = s.getRegisteredClockOut();
-                boolean isAdmin = auth.isHqAdmin() || auth.isBranchOrFranchiseAdmin();
-                if (!isAdmin) {
-                    if (regOut != null && now.isAfter(regOut)) {
-                        long diffMin = Duration.between(regOut, now).toMinutes();
-                        if (diffMin >= CHECKOUT_BLOCK_AFTER_MINUTES && ev.getClockOutAt() == null) {
-                            ev.markMissedCheckout();
-                            scheduleEventRepository.save(ev);
-                            throw new MissedCheckoutLockException("퇴근 예정 시각으로부터 3시간이 경과하여 퇴근 처리가 불가능합니다. (퇴근 누락으로 기록)");
-                        }
-                    }
-                } else {
-                    if (Boolean.TRUE.equals(dto.getClearMissedCheckout())) {
-                        ev.clearMissedCheckout();
-                    }
-                }
-                ev.changeClockOut(dto.getClockOutAt());
-            } else if (Boolean.TRUE.equals(dto.getClearMissedCheckout())) {
-                if (!(auth.isHqAdmin() || auth.isBranchOrFranchiseAdmin())) {
-                    throw new org.springframework.security.access.AccessDeniedException("관리자 권한이 필요합니다.");
-                }
-                ev.clearMissedCheckout();
-            }
-            validateTimeline(ev);
-            recomputeTotals(ev);
-            AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
-            return ScheduleEventDetailDto.of(s, ev, st);
-        } catch (MissedCheckoutLockException ex) {
-            ScheduleEventDetailDto latest = detail(scheduleId);
-            throw new MissedCheckoutLockException(ex.getMessage(), latest);
+        var auth = authz.readAuth();
+        Schedule s = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
+        authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
+
+        ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId)
+                .orElseGet(() -> scheduleEventRepository.save(
+                        ScheduleEvent.builder()
+                                .schedule(s)
+                                .eventDate(dto.getEventDate() != null ? dto.getEventDate() : s.getRegisteredDate())
+                                .missedCheckout(false)
+                                .totalBreakMinutes(0)
+                                .totalWorkMinutes(0)
+                                .build()
+                ));
+
+        if (dto.getEventDate() != null)    ev.changeEventDate(dto.getEventDate());
+        if (dto.getClockInAt() != null)    ev.changeClockIn(dto.getClockInAt());
+        if (dto.getBreakStartAt() != null) ev.changeBreakStart(dto.getBreakStartAt());
+        if (dto.getBreakEndAt() != null)   ev.changeBreakEnd(dto.getBreakEndAt());
+        if (dto.getClockOutAt() != null)   ev.changeClockOut(dto.getClockOutAt());
+        if (Boolean.TRUE.equals(dto.getClearMissedCheckout())) {
+            ev.clearMissedCheckout();
         }
+
+        validateTimeline(ev);
+        recomputeTotals(ev);
+        AttendanceStatus st = statusResolver.resolve(s, ev, LocalDateTime.now(clock));
+        return ScheduleEventDetailDto.of(s, ev, st);
     }
 
     @Transactional
@@ -402,18 +376,12 @@ public class AttendanceService {
 
     public Employee getOwner(){
         Long branchId = ChatUserService.getBranchIdFromToken();
-
         List<DispatchStatus> list = dispatchStatusRepository.findAllByBranchId(branchId);
-
-        //  HQ_ADMIN,           /// 본사(본점) 관리자
-        //    BRANCH_ADMIN,       /// 지점(직영) 관리자
-        //    FRANCHISE_OWNER,
         return list.stream()
                 .filter(em -> em.getEmployee().getAuthorityType().equals(AuthorityType.HQ_ADMIN)
                         || em.getEmployee().getAuthorityType().equals(AuthorityType.BRANCH_ADMIN)
                         || em.getEmployee().getAuthorityType().equals(AuthorityType.FRANCHISE_OWNER))
                 .findFirst().orElseThrow(()-> new EntityNotFoundException("관리자가 존재하지 않습니다.")).getEmployee();
-
     }
 
     public Employee getEmployee() {

@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ScheduleDetailDto {
     private Long id;
+    private Long eventId; // ★ 추가
+
     private Long employeeId;
     private String employeeName;
     private Long branchId;
@@ -58,6 +60,7 @@ public class ScheduleDetailDto {
 
         return ScheduleDetailDto.builder()
                 .id(s.getId())
+                .eventId(e != null ? e.getId() : null) // ★ 추가
                 .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
                 .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
                 .branchId(s.getBranch() != null ? s.getBranch().getId() : null)

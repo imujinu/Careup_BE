@@ -163,10 +163,29 @@ public class ScheduleService {
         }
 
         LocalDate date = dto.getRegisteredDate();
-        LocalDateTime in = dto.getRegisteredClockIn();
-        LocalDateTime out = dto.getRegisteredClockOut();
 
-        // 기존 로직 그대로 유지(템플릿 기준 시간으로 치환)
+        // DTO 값 우선 적용, 누락 시 템플릿 기본값으로 보완 (at==null 안전 처리)
+        LocalDateTime in         = dto.getRegisteredClockIn();
+        LocalDateTime out        = dto.getRegisteredClockOut();
+        LocalDateTime breakStart = dto.getRegisteredBreakStart();
+        LocalDateTime breakEnd   = dto.getRegisteredBreakEnd();
+
+        if (at != null) {
+            if (in == null && at.getDefaultClockIn() != null) {
+                in = LocalDateTime.of(date, at.getDefaultClockIn());
+            }
+            if (out == null && at.getDefaultClockOut() != null) {
+                out = LocalDateTime.of(date, at.getDefaultClockOut());
+            }
+            if (breakStart == null && at.getDefaultBreakStart() != null) {
+                breakStart = LocalDateTime.of(date, at.getDefaultBreakStart());
+            }
+            if (breakEnd == null && at.getDefaultBreakEnd() != null) {
+                breakEnd = LocalDateTime.of(date, at.getDefaultBreakEnd());
+            }
+        }
+
+        // 기존 시그니처 및 파라미터 순서 유지
         schedule.changeSchedule(
                 branch,
                 category,
@@ -174,10 +193,10 @@ public class ScheduleService {
                 leaveType,
                 at,
                 date,
-                LocalDateTime.of(date, at.getDefaultClockIn()),
-                LocalDateTime.of(date, at.getDefaultClockOut()),
-                LocalDateTime.of(date, at.getDefaultBreakStart()),
-                LocalDateTime.of(date, at.getDefaultBreakEnd())
+                in,
+                out,
+                breakStart,
+                breakEnd
         );
     }
 
