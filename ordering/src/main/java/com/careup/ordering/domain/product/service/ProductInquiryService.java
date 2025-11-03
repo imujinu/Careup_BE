@@ -46,6 +46,7 @@ public class ProductInquiryService {
                 .content(request.getContent())
                 .inquiryType(request.getInquiryType())
                 .isSecret(request.getIsSecret() != null ? request.getIsSecret() : false)
+                .status(InquiryStatus.PENDING) // status 명시적 설정 추가 했음.
                 .build();
         
         ProductInquiry saved = productInquiryRepository.save(inquiry);
