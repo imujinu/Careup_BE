@@ -1,6 +1,7 @@
 package com.careup.branch.domain.employee.entity;
 
 import com.careup.branch.common.domain.BaseTimeEntity;
+import com.careup.branch.domain.branch.entity.Branch;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -19,6 +20,10 @@ public class Documents extends BaseTimeEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name ="employee_id")
     private Employee employee;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
@@ -45,11 +50,12 @@ public class Documents extends BaseTimeEntity {
     private DocumentStatus documentStatus;  // 서류 상태
 
     public void update(
-            Long id, Employee findEmployee, DocumentType documentType, String title,
+            Long id, Employee findEmployee, Branch branch, DocumentType documentType, String title,
             String documentUrl, Long fileSize, LocalDate expiryDate, String description
     ) {
         this.id = id;
         this.employee = findEmployee;
+        this.branch = branch;
         this.documentType = documentType;
         this.title = title;
         this.documentUrl = documentUrl;
