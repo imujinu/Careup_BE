@@ -36,7 +36,7 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show_sql: true
   servlet:
     multipart:
@@ -45,7 +45,7 @@ spring:
       max-request-size: 1000MB
   kafka:
     enabled: false
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9093
     consumer:
       group-id: ordering-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -55,6 +55,11 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  ai:
+    openai:
+      embedding:
+        options:
+          model: text-embedding-3-small
 
   mail:
     host: smtp.gmail.com

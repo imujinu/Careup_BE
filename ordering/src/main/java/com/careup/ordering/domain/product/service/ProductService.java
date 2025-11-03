@@ -13,6 +13,7 @@ import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.Visibility;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.careup.ordering.domain.recomendation.service.QdrantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,7 +37,7 @@ public class ProductService {
     private final AwsS3Uploader awsS3Uploader;
     private final BranchProductRepository branchProductRepository;
     private final BranchClient branchClient;
-
+    private final QdrantService qdrantService;
 
     /**
      * 상품 등록 (이미지 포함)
@@ -95,6 +96,7 @@ public class ProductService {
         }
 
         Product savedProduct = productRepository.save(product);
+        qdrantService.saveProduct(savedProduct);
         return ProductResponseDto.from(savedProduct);
     }
 
