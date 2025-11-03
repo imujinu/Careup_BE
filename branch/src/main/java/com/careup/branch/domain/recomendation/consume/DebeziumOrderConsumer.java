@@ -15,4 +15,6 @@ public class DebeziumOrderConsumer {
         System.out.println("Value: " + record.value());
         System.out.println("============================================");
     }
+
+
 }
