@@ -114,6 +114,8 @@ public interface OrderingInventoryClient {
         public Long branchId;
         public String serialNumber;
         public Long stockQuantity;
+        public Long reservedQuantity;  // 예약재고 수량
+        public Long availableQuantity;  // 사용 가능한 재고 수량
         public Long safetyStock;
         public Long price;
         public String productName;

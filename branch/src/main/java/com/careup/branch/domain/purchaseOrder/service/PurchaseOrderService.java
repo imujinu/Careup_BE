@@ -176,6 +176,7 @@ public class PurchaseOrderService {
                 if (hqBp == null || hqBp.branchProductId == null) {
                     throw new IllegalStateException("본사 재고를 찾을 수 없습니다. productId=" + detail.getProductId());
                 }
+                
                 OrderingInventoryClient.ReservationRequest req = new OrderingInventoryClient.ReservationRequest();
                 req.branchProductId = hqBp.branchProductId;
                 req.quantity = (long) detail.getQuantity();
@@ -184,7 +185,27 @@ public class PurchaseOrderService {
                 orderingInventoryClient.reserve(req);
             } catch (Exception e) {
                 log.error("예약재고 확보 실패: orderId={}, productId={}, msg={}", savedOrder.getId(), detail.getProductId(), e.getMessage());
-                throw new RuntimeException("예약재고 확보 실패: productId=" + detail.getProductId(), e);
+                
+                // 사용 가능한 재고 수량 조회
+                long availableQuantity = 0;
+                try {
+                    OrderingInventoryClient.BranchProductResponseDto hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
+                    if (hqBp != null) {
+                        // availableQuantity 필드가 있으면 사용, 없으면 stockQuantity 사용
+                        if (hqBp.availableQuantity != null) {
+                            availableQuantity = hqBp.availableQuantity;
+                        } else if (hqBp.stockQuantity != null) {
+                            availableQuantity = hqBp.stockQuantity;
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.warn("사용 가능한 재고 수량 조회 실패: productId={}", detail.getProductId(), ex);
+                }
+
+                String originalMessage = e.getMessage() != null ? e.getMessage() : "재고 확보 실패";
+                String errorMessage = String.format("재고 확보 실패: productId=%d, 요청수량=%d, 최대가능수량=%d, 원인=%s",
+                    detail.getProductId(), detail.getQuantity(), availableQuantity, originalMessage);
+                throw new RuntimeException(errorMessage, e);
             }
         }
     }
