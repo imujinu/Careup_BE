@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.service;
 
+import com.careup.ordering.common.client.BranchClient;
 import com.careup.ordering.common.file.AwsS3Uploader;
 import com.careup.ordering.domain.product.dto.ProductRequestDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
@@ -10,7 +11,6 @@ import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.Visibility;
-import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +35,7 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final AwsS3Uploader awsS3Uploader;
     private final BranchProductRepository branchProductRepository;
+    private final BranchClient branchClient;
 
 
     /**
@@ -282,6 +283,68 @@ public class ProductService {
         
         List<Product> products = productsPage.getContent();
 
+        // 모든 상품의 지점 ID 수집
+        Set<Long> allBranchIds = new HashSet<>();
+        products.forEach(product -> {
+            List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
+            branchProducts.stream()
+                    .filter(bp -> bp.getStockQuantity() > 0)
+                    .forEach(bp -> allBranchIds.add(bp.getBranchId()));
+        });
+
+        // BranchClient로 지점 정보 일괄 조회 (MSA 구조: Feign Client 사용)
+        Map<Long, String> branchIdToNameMap = new HashMap<>();
+        if (!allBranchIds.isEmpty()) {
+            try {
+                log.debug("지점 정보 조회 요청 - branchIds: {}", allBranchIds);
+                Map<String, Object> branchResponse = branchClient.getBranchesByIds(new ArrayList<>(allBranchIds));
+                log.debug("지점 정보 응답: {}", branchResponse);
+                
+                // 응답 구조: CommonSuccessDto { "result": [BranchSimpleDto { "id": 1, "name": "강남점", ... }], ... }
+                Object resultObj = branchResponse.get("result");
+                
+                if (resultObj != null) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> branchesData = (List<Map<String, Object>>) resultObj;
+                    
+                    if (branchesData != null && !branchesData.isEmpty()) {
+                        branchesData.forEach(branch -> {
+                            try {
+                                Object idObj = branch.get("id");
+                                Object nameObj = branch.get("name");
+                                
+                                if (idObj != null && nameObj != null) {
+                                    Long id = idObj instanceof Number 
+                                        ? ((Number) idObj).longValue() 
+                                        : Long.parseLong(idObj.toString());
+                                    String name = nameObj.toString();
+                                    
+                                    if (name != null && !name.isEmpty()) {
+                                        branchIdToNameMap.put(id, name);
+                                        log.debug("지점 정보 매핑 - id: {}, name: {}", id, name);
+                                    }
+                                }
+                            } catch (Exception e) {
+                                log.warn("지점 데이터 파싱 중 오류 - branch: {}, error: {}", branch, e.getMessage());
+                            }
+                        });
+                    }
+                }
+                
+                log.info("지점 정보 조회 완료 - 조회된 지점 수: {}/{}", branchIdToNameMap.size(), allBranchIds.size());
+                
+                // branch-service 연결 실패 시 경고
+                if (branchIdToNameMap.isEmpty() && !allBranchIds.isEmpty()) {
+                    log.warn("⚠️ branch-service 연결 실패 또는 응답 없음. branch-service(8081)가 실행 중인지 확인하세요.");
+                }
+            } catch (Exception e) {
+                log.error("지점 정보 조회 실패 (Feign Client) - branchIds: {}, error: {}", allBranchIds, e.getMessage(), e);
+                log.warn("⚠️ branch-service 연결 실패. 지점명 대신 '지점 {id}' 형태로 표시됩니다.");
+            }
+        }
+
+        // 최종 결과 생성
+        final Map<Long, String> branchNameMap = branchIdToNameMap; // final 변수로 사용하기 위해
         List<ProductWithBranchesDto> result = products.stream()
                 .map(product -> {
                     // 해당 상품을 판매하는 모든 지점 정보 조회
@@ -291,9 +354,10 @@ public class ProductService {
                             .filter(bp -> bp.getStockQuantity() > 0)  // 재고 있는 지점만
                             .map(bp -> ProductWithBranchesDto.BranchInfoDto.builder()
                                     .branchId(bp.getBranchId())
-                                    .branchName("지점명")  // Branch 서비스에서 조회 필요
+                                    .branchProductId(bp.getId())  // 추가
+                                    .branchName(branchNameMap.getOrDefault(bp.getBranchId(), "지점 " + bp.getBranchId()))  // 실제 지점명 사용
                                     .stockQuantity(bp.getStockQuantity())
-                                    .price(bp.getPrice())  // 지점별 가격 추가
+                                    .price(bp.getPrice())
                                     .build())
                             .collect(Collectors.toList());
 
@@ -302,9 +366,9 @@ public class ProductService {
                             .productName(product.getName())
                             .description(product.getDescription())
                             .imageUrl(product.getImageUrl())
-                            .categoryName(product.getCategory().getName())
-                            .minPrice(product.getMinPrice())  // 최소 가격 추가
-                            .maxPrice(product.getMaxPrice())  // 최대 가격 추가
+                            .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                            .minPrice(product.getMinPrice())
+                            .maxPrice(product.getMaxPrice())
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
                             .build();
@@ -335,6 +399,50 @@ public class ProductService {
         
         List<Product> products = productsPage.getContent();
 
+        // 모든 상품의 지점 ID 수집
+        Set<Long> allBranchIds = new HashSet<>();
+        products.forEach(product -> {
+            if (product.getVisibility() == Visibility.ALL && product.isActive()) {
+                List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
+                branchProducts.stream()
+                        .filter(bp -> bp.getStockQuantity() > 0)
+                        .forEach(bp -> allBranchIds.add(bp.getBranchId()));
+            }
+        });
+
+        // BranchClient로 지점 정보 일괄 조회
+        Map<Long, String> branchIdToNameMap = new HashMap<>();
+        if (!allBranchIds.isEmpty()) {
+            try {
+                Map<String, Object> branchResponse = branchClient.getBranchesByIds(new ArrayList<>(allBranchIds));
+                // 응답 구조에 따라 파싱
+                Object data = branchResponse.get("data");
+                if (data instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> branches = (List<Map<String, Object>>) data;
+                    branches.forEach(branch -> {
+                        Long id = ((Number) branch.get("branchId")).longValue();
+                        String name = (String) branch.get("branchName");
+                        branchIdToNameMap.put(id, name);
+                    });
+                } else if (data instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> branchMap = (Map<String, Object>) data;
+                    branchMap.forEach((key, value) -> {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> branch = (Map<String, Object>) value;
+                        Long id = ((Number) branch.get("branchId")).longValue();
+                        String name = (String) branch.get("branchName");
+                        branchIdToNameMap.put(id, name);
+                    });
+                }
+            } catch (Exception e) {
+                log.warn("지점 정보 조회 실패: {}", e.getMessage());
+            }
+        }
+
+        // 최종 결과 생성
+        final Map<Long, String> branchNameMap = branchIdToNameMap;
         List<ProductWithBranchesDto> result = products.stream()
                 .filter(product -> product.getVisibility() == Visibility.ALL && product.isActive())
                 .map(product -> {
@@ -345,9 +453,10 @@ public class ProductService {
                             .filter(bp -> bp.getStockQuantity() > 0)  // 재고 있는 지점만
                             .map(bp -> ProductWithBranchesDto.BranchInfoDto.builder()
                                     .branchId(bp.getBranchId())
-                                    .branchName("지점명")  // Branch 서비스에서 조회 필요
+                                    .branchProductId(bp.getId())  // ✅ 추가
+                                    .branchName(branchNameMap.getOrDefault(bp.getBranchId(), "지점 " + bp.getBranchId()))  // ✅ 실제 지점명 사용
                                     .stockQuantity(bp.getStockQuantity())
-                                    .price(bp.getPrice())  // 지점별 가격 추가
+                                    .price(bp.getPrice())
                                     .build())
                             .collect(Collectors.toList());
 
@@ -356,9 +465,9 @@ public class ProductService {
                             .productName(product.getName())
                             .description(product.getDescription())
                             .imageUrl(product.getImageUrl())
-                            .categoryName(product.getCategory().getName())
-                            .minPrice(product.getMinPrice())  // 최소 가격 추가
-                            .maxPrice(product.getMaxPrice())  // 최대 가격 추가
+                            .categoryName(product.getCategory() != null ? product.getCategory().getName() : null)
+                            .minPrice(product.getMinPrice())
+                            .maxPrice(product.getMaxPrice())
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
                             .build();

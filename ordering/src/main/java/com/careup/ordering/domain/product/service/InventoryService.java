@@ -469,8 +469,15 @@ public class InventoryService {
             validateBranchAccess(auth, branchProduct.getBranchId());
         }
 
+        SseNotificationResDto dto = null;
+        if("INCREASE".equals(type)){
+        dto = SseNotificationResDto.stockIncreased(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
+        } else if("DECREASE".equals(type)){
+            dto = SseNotificationResDto.stockDecreased(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
+        }else{
+            dto = SseNotificationResDto.stockUpdated(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
+        }
 
-        SseNotificationResDto dto = SseNotificationResDto.stockUpdated(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
         notificationService.publishNotification(dto);
         // 분산 락 동시성 제어
         distributedLockService.executeInventoryLock(branchProductId, () -> {
