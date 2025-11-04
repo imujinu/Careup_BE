@@ -20,6 +20,7 @@ import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,7 +41,10 @@ public class OrderService {
     private final MemberRepository memberRepository;
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
-    private final NotificationService notificationService;
+
+    @Autowired(required = false)
+    private NotificationService notificationService;
+
     private final LoyalCustomerService loyalCustomerService;
     private final DistributedLockService distributedLockService;
     private final PaymentRepository paymentRepository;
@@ -66,7 +70,7 @@ public class OrderService {
         List<BranchProduct> reservedProducts = new ArrayList<>();
         List<Long> reservedQuantities = new ArrayList<>();
         List<Long> reservedPrices = new ArrayList<>();
-        
+
         // 먼저 모든 재고를 확인하고 감소 (락 안에서)
         try {
             for (OrderItemRequestDto itemDto : sortedItems) {
@@ -89,13 +93,13 @@ public class OrderService {
                                 if (currentStock == 0) {
                                     errorMessage = String.format("죄송합니다. '%s' 상품의 재고가 모두 소진되었습니다. 다른 상품을 선택해주세요.", productName);
                                 } else {
-                                    errorMessage = String.format("죄송합니다. '%s' 상품의 재고가 부족합니다. (현재 재고: %d개, 주문 수량: %d개)\n\n재고가 있는 수량으로 다시 주문해주세요.", 
+                                    errorMessage = String.format("죄송합니다. '%s' 상품의 재고가 부족합니다. (현재 재고: %d개, 주문 수량: %d개)\n\n재고가 있는 수량으로 다시 주문해주세요.",
                                             productName, currentStock, requestedQuantity);
                                 }
-                                
+
                                 throw new IllegalStateException(errorMessage);
                             }
-                            
+
                             // 재고 감소
                             branchProduct.decreaseStock(itemDto.getQuantity());
                             log.info("재고 감소 - branchProductId: {}, 감소량: {}, 남은 재고: {}",
@@ -114,7 +118,7 @@ public class OrderService {
                             reservedProducts.add(branchProduct);
                             reservedQuantities.add(itemDto.getQuantity());
                             reservedPrices.add(branchProduct.getPrice());
-                            
+
                             return null;
                         }
                 );
@@ -148,7 +152,7 @@ public class OrderService {
             BranchProduct branchProduct = reservedProducts.get(i);
             Long quantity = reservedQuantities.get(i);
             Long unitPrice = reservedPrices.get(i);
-            
+
             // OrderedItem 생성
             OrderedItem orderedItem = OrderedItem.builder()
                     .order(savedOrder)
@@ -157,7 +161,7 @@ public class OrderService {
                     .unitPrice(unitPrice)
                     .build();
             orderedItems.add(orderedItem);
-            
+
             // 재고 이력 생성
             InventoryFlowDetail flowDetail = InventoryFlowDetail.builder()
                     .branchProduct(branchProduct)
@@ -347,14 +351,14 @@ public class OrderService {
 
             // 결제 여부 확인
             Optional<Payment> paymentOpt = paymentRepository.findByOrderId(order.getId());
-            
+
             // 결제가 완료되지 않은 주문만 취소
-            if (paymentOpt.isEmpty() || 
+            if (paymentOpt.isEmpty() ||
                 paymentOpt.get().getPaymentStatus() != PaymentStatus.COMPLETED) {
-                
-                log.info("타임아웃 주문 취소 시작 - orderId: {}, 생성시간: {}", 
+
+                log.info("타임아웃 주문 취소 시작 - orderId: {}, 생성시간: {}",
                         order.getId(), order.getCreatedAt());
-                
+
                 order.cancel();
 
                 // 재고 복구
@@ -362,7 +366,7 @@ public class OrderService {
                 for (OrderedItem item : items) {
                     BranchProduct branchProduct = item.getBranchProduct();
                     branchProduct.increaseStock(item.getQuantity());
-                    
+
                     InventoryFlowDetail flowDetail = InventoryFlowDetail.builder()
                             .branchProduct(branchProduct)
                             .inQuantity(item.getQuantity())
@@ -370,13 +374,13 @@ public class OrderService {
                             .build();
                     inventoryFlowDetailRepository.save(flowDetail);
 
-                    log.info("타임아웃 주문 재고 복구 - branchProductId: {}, 복구량: {}", 
+                    log.info("타임아웃 주문 재고 복구 - branchProductId: {}, 복구량: {}",
                             branchProduct.getId(), item.getQuantity());
                 }
 
                 SseNotificationResDto dto = SseNotificationResDto.orderCanceled(order.getBranchId(), order.getId());
                 notificationService.publishNotification(dto);
-                
+
                 cancelledCount++;
                 log.info("타임아웃 주문 취소 완료 - orderId: {}", order.getId());
             }
@@ -411,7 +415,7 @@ public class OrderService {
         Optional<Payment> paymentOpt = paymentRepository.findByOrderId(order.getId());
         PaymentStatus paymentStatus = null;
         Boolean isPaymentCompleted = false;
-        
+
         if (paymentOpt.isPresent()) {
             Payment payment = paymentOpt.get();
             paymentStatus = payment.getPaymentStatus();

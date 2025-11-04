@@ -44,7 +44,7 @@ spring:
       max-file-size: 1000MB
       max-request-size: 1000MB
   kafka:
-    enabled: false
+    enabled: true
     bootstrap-servers: localhost:9092
     consumer:
       group-id: ordering-group
@@ -55,6 +55,8 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+  elasticsearch:
+    uris: http://localhost:9200
 
   mail:
     host: smtp.gmail.com
@@ -131,6 +133,11 @@ careup:
     customer:
       reset-base-url: "http://localhost:5173/customer/password/reset"  # 고객 FE 경로
 
+# 상품 이미지 설정
+app:
+  product-image-base-url: "https://careup-products.s3.ap-northeast-2.amazonaws.com/products"
+  default-product-image: "https://careup-products.s3.ap-northeast-2.amazonaws.com/products/default.jpg"
+
 # 브랜드(고객) — SHARK (EmailSender가 brand.* 참조)
 brand:
   name: SHARK
@@ -141,3 +148,4 @@ brand:
 logging:
   level:
     root: info
+    org.elasticsearch.client: TRACE
