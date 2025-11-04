@@ -18,6 +18,7 @@ import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +36,10 @@ public class OrderService {
     private final MemberRepository memberRepository;
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
-    private final NotificationService notificationService;
+
+    @Autowired(required = false)
+    private NotificationService notificationService;
+
     private final LoyalCustomerService loyalCustomerService;
 
     /**
@@ -124,7 +128,9 @@ public class OrderService {
 
 
         SseNotificationResDto dto = SseNotificationResDto.orderPlaced(savedOrder.getBranchId(), savedOrder.getId());
-        notificationService.publishNotification(dto);
+        if (notificationService != null) {
+            notificationService.publishNotification(dto);
+        }
 
         return convertToResponseDto(savedOrder, orderedItems);
     }
@@ -209,7 +215,9 @@ public class OrderService {
 
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
         SseNotificationResDto dto = SseNotificationResDto.orderApproved(order.getBranchId(), order.getId(), approvedBy);
-        notificationService.publishNotification(dto);
+        if (notificationService != null) {
+            notificationService.publishNotification(dto);
+        }
         return convertToResponseDto(order, items);
     }
 
@@ -241,7 +249,9 @@ public class OrderService {
         }
 
         SseNotificationResDto dto = SseNotificationResDto.orderRejected(order.getBranchId(), order.getId(), reason);
-        notificationService.publishNotification(dto);
+        if (notificationService != null) {
+            notificationService.publishNotification(dto);
+        }
 
         return convertToResponseDto(order, items);
     }
@@ -270,7 +280,9 @@ public class OrderService {
             inventoryFlowDetailRepository.save(flowDetail);
 
             SseNotificationResDto dto = SseNotificationResDto.orderCanceled(order.getBranchId(), order.getId());
-            notificationService.publishNotification(dto);
+            if (notificationService != null) {
+                notificationService.publishNotification(dto);
+            }
 
             log.info("재고 복구 - branchProductId: {}, 복구량: {}", 
                     branchProduct.getId(), item.getQuantity());
