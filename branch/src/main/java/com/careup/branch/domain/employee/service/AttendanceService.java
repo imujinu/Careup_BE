@@ -7,7 +7,13 @@ import com.careup.branch.domain.employee.config.AttendanceWindowProperties;
 import com.careup.branch.domain.employee.dto.request.AttendanceActionRequest;
 import com.careup.branch.domain.employee.dto.request.ScheduleEventUpdateDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleEventDetailDto;
-import com.careup.branch.domain.employee.entity.*;
+import com.careup.branch.domain.employee.entity.AttendanceStatus;
+import com.careup.branch.domain.employee.entity.AuthorityType;
+import com.careup.branch.domain.employee.entity.DispatchStatus;
+import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.entity.Schedule;
+import com.careup.branch.domain.employee.entity.ScheduleEvent;
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleEventRepository;
@@ -47,6 +53,7 @@ public class AttendanceService {
     private final BranchRepository branchRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
     private final EmployeeRepository employeeRepository;
+    private final ScheduleTimeService time;
 
     public ScheduleEventDetailDto detail(Long scheduleId) {
         var auth = authz.readAuth();
@@ -74,24 +81,27 @@ public class AttendanceService {
     @Transactional
     public ScheduleEventDetailDto breakStart(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
+        boolean explicit = req != null && req.getAt() != null;
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
-        return breakStartAt(scheduleId, lat, lng, acc, ts);
+        return breakStartAt(scheduleId, lat, lng, acc, ts, explicit);
     }
 
     @Transactional
     public ScheduleEventDetailDto breakEnd(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
+        boolean explicit = req != null && req.getAt() != null;
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
-        return breakEndAt(scheduleId, lat, lng, acc, ts);
+        return breakEndAt(scheduleId, lat, lng, acc, ts, explicit);
     }
 
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
     public ScheduleEventDetailDto clockOut(Long scheduleId, AttendanceActionRequest req) {
         LocalDateTime ts = resolveActionAt(req);
+        boolean explicit = req != null && req.getAt() != null;
         Double lat = req != null ? req.getLat() : null;
         Double lng = req != null ? req.getLng() : null;
         Integer acc = req != null ? req.getAccuracyMeters() : null;
@@ -99,7 +109,7 @@ public class AttendanceService {
         Employee employee = getEmployee();
         SseNotificationResDto dto = SseNotificationResDto.attendanceCheckOut(employee.getName(), branch.getId());
         sseAlarmService.publishNotification(dto);
-        return clockOutAt(scheduleId, lat, lng, acc, ts);
+        return clockOutAt(scheduleId, lat, lng, acc, ts, explicit);
     }
 
     @Transactional
@@ -130,12 +140,13 @@ public class AttendanceService {
     }
 
     @Transactional
-    public ScheduleEventDetailDto breakStartAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto breakStartAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt, boolean explicit) {
         var auth = authz.readAuth();
         Schedule s = scheduleRepository.findById(scheduleId).orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
         ensureNotLeaveCategory(s);
         ensureWithinRegisteredWindow(s, actionAt);
+        ensureSegmentRealtimeAllowed(s, Segment.BREAK_START, actionAt, explicit);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId).orElseThrow(() -> new IllegalStateException("출근 기록이 없습니다."));
         geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
         if (ev.getClockInAt() == null) throw new IllegalStateException("출근 기록이 먼저 필요합니다.");
@@ -149,12 +160,13 @@ public class AttendanceService {
     }
 
     @Transactional
-    public ScheduleEventDetailDto breakEndAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto breakEndAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt, boolean explicit) {
         var auth = authz.readAuth();
         Schedule s = scheduleRepository.findById(scheduleId).orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
         authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
         ensureNotLeaveCategory(s);
         ensureWithinRegisteredWindow(s, actionAt);
+        ensureSegmentRealtimeAllowed(s, Segment.BREAK_END, actionAt, explicit);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId).orElseThrow(() -> new IllegalStateException("휴게 시작 기록이 없습니다."));
         geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
         if (ev.getBreakStartAt() == null) throw new IllegalStateException("휴게 시작 기록이 먼저 필요합니다.");
@@ -167,15 +179,17 @@ public class AttendanceService {
     }
 
     @Transactional(noRollbackFor = MissedCheckoutLockException.class)
-    public ScheduleEventDetailDto clockOutAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt) {
+    public ScheduleEventDetailDto clockOutAt(Long scheduleId, Double lat, Double lng, Integer acc, LocalDateTime actionAt, boolean explicit) {
         try {
             var auth = authz.readAuth();
             Schedule s = scheduleRepository.findById(scheduleId).orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
             authz.ensurePermissionForWrite(auth, s.getBranch(), s.getEmployee(), s.getRegisteredDate());
             ensureNotLeaveCategory(s);
+
             ScheduleEvent ev = scheduleEventRepository.findByScheduleId(scheduleId).orElseThrow(() -> new IllegalStateException("출근 기록이 없습니다."));
             var regOut = s.getRegisteredClockOut();
             boolean isAdmin = auth.isHqAdmin() || auth.isBranchOrFranchiseAdmin();
+
             if (!isAdmin && regOut != null && actionAt.isAfter(regOut) && ev.getClockOutAt() == null) {
                 long diffMin = Duration.between(regOut, actionAt).toMinutes();
                 if (diffMin >= CHECKOUT_BLOCK_AFTER_MINUTES) {
@@ -183,11 +197,14 @@ public class AttendanceService {
                     ev.changeAttendanceStatus(statusResolver.resolve(s, ev, LocalDateTime.now(clock)));
                     scheduleEventRepository.save(ev);
                     ScheduleEventDetailDto latest = detail(scheduleId);
-                    throw new MissedCheckoutLockException("퇴근 예정 시각으로부터 3시간이 경과하여 퇴근 처리가 제한되었습니다.", latest);
+                    throw new MissedCheckoutLockException("퇴근 예정 시각으로부터 3시간이 경과하여 퇴근 처리가 제한되었습니다. 시각을 직접 지정하여 다시 시도해 주세요.", latest);
                 }
             }
-            geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
+
             ensureWithinRegisteredWindow(s, actionAt);
+            ensureSegmentRealtimeAllowed(s, Segment.CLOCK_OUT, actionAt, explicit);
+
+            geofenceValidator.validateIfRequired(s, lat, lng, acc, auth);
             if (ev.getClockInAt() == null) throw new IllegalStateException("출근 기록 없이 퇴근은 불가합니다.");
             if (ev.getClockOutAt() != null) throw new IllegalStateException("이미 퇴근 처리되었습니다.");
             ev.changeClockOut(actionAt);
@@ -331,5 +348,47 @@ public class AttendanceService {
     public Employee getEmployee() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return employeeRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("존재하지 않는 직원입니다."));
+    }
+
+    private enum Segment { BREAK_START, BREAK_END, CLOCK_OUT }
+
+    private void ensureSegmentRealtimeAllowed(Schedule s, Segment seg, LocalDateTime actionAt, boolean explicit) {
+        if (explicit) return;
+
+        LocalDateTime regIn = s.getRegisteredClockIn();
+        LocalDateTime regOut = time.normalizeOut(regIn, s.getRegisteredClockOut());
+        LocalDateTime planBrS = s.getRegisteredBreakStart();
+        LocalDateTime planBrE = time.normalizeOut(planBrS, s.getRegisteredBreakEnd());
+
+        int early = Math.max(windowProps.getEarlyMinutes(), 0);
+        int late  = Math.max(windowProps.getLateMinutes(), 0);
+
+        if (seg == Segment.BREAK_START) {
+            if (planBrS == null || planBrE == null) return;
+            LocalDateTime earlyBound = planBrS.minusMinutes(early);
+            LocalDateTime lateBound  = planBrE.plusMinutes(late);
+            if (actionAt.isBefore(earlyBound) || actionAt.isAfter(lateBound)) {
+                throw new IllegalStateException("휴게 시작 자동 입력 가능 시간을 벗어났습니다. 시각을 직접 지정해 주세요.");
+            }
+            return;
+        }
+
+        if (seg == Segment.BREAK_END) {
+            if (planBrS == null || planBrE == null) return;
+            LocalDateTime earlyBound = planBrS;
+            LocalDateTime lateBound  = planBrE.plusMinutes(late);
+            if (actionAt.isBefore(earlyBound) || actionAt.isAfter(lateBound)) {
+                throw new IllegalStateException("휴게 종료 자동 입력 가능 시간을 벗어났습니다. 시각을 직접 지정해 주세요.");
+            }
+            return;
+        }
+
+        if (seg == Segment.CLOCK_OUT) {
+            if (regOut == null) return;
+            LocalDateTime lateBound = regOut.plusMinutes(late);
+            if (actionAt.isAfter(lateBound)) {
+                throw new IllegalStateException("퇴근 자동 입력 가능 시간을 지났습니다. 시각을 직접 지정해 주세요.");
+            }
+        }
     }
 }

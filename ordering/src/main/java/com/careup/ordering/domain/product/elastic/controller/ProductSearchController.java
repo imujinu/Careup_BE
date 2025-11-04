@@ -36,7 +36,8 @@ public class ProductSearchController {
                 .size(size)
                 .build();
 
-        return ResponseEntity.ok(productSearchService.searchProducts(request));
+        Page<ProductSearchResponse> result = productSearchService.searchProducts(request);
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/autocomplete")
