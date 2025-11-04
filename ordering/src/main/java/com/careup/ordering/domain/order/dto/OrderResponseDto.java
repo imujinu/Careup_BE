@@ -2,10 +2,11 @@ package com.careup.ordering.domain.order.dto;
 
 import com.careup.ordering.domain.order.entity.OrderStatus;
 import com.careup.ordering.domain.order.entity.OrderType;
-import lombok.AllArgsConstructor;
+import com.careup.ordering.domain.payment.entity.PaymentStatus;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,4 +28,7 @@ public class OrderResponseDto {
     private String rejectedReason;
     private LocalDateTime createdAt;
     private List<OrderItemResponseDto> orderItems;
+    // 결제 정보 추가
+    private PaymentStatus paymentStatus;  // 결제 상태
+    private Boolean isPaymentCompleted; // 결제 완료 여부
 }

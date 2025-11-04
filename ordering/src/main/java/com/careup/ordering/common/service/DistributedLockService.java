@@ -52,9 +52,16 @@ public class DistributedLockService {
             
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("락 획득 중 오류가 발생했습니다.", e);
+            throw new RuntimeException("재고 처리 중입니다. 잠시 후 다시 시도해주세요.", e);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            // 재고 부족 등의 예외는 그대로 전파
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("락 처리 중 오류가 발생했습니다.", e);
+            // 원래 예외 메시지를 포함하여 전파
+            String errorMessage = e.getMessage() != null && !e.getMessage().isEmpty() 
+                    ? e.getMessage() 
+                    : "재고 처리 중 오류가 발생했습니다.";
+            throw new RuntimeException(errorMessage, e);
         }
     }
 
@@ -106,7 +113,16 @@ public class DistributedLockService {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException("락 획득 중 오류가 발생했습니다.", e);
+            throw new RuntimeException("재고 처리 중입니다. 잠시 후 다시 시도해주세요.", e);
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            // 재고 부족 등의 예외는 그대로 전파
+            try {
+                if (lock.isHeldByCurrentThread()) {
+                    lock.unlock();
+                    log.info("락 해제 완료(예외): {}", lockKey);
+                }
+            } catch (Exception ignore) {}
+            throw e;
         } catch (Exception e) {
             try {
                 if (lock.isHeldByCurrentThread()) {
@@ -114,7 +130,11 @@ public class DistributedLockService {
                     log.info("락 해제 완료(예외): {}", lockKey);
                 }
             } catch (Exception ignore) {}
-            throw new RuntimeException("락 처리 중 오류가 발생했습니다.", e);
+            // 원래 예외 메시지를 포함하여 전파
+            String errorMessage = e.getMessage() != null && !e.getMessage().isEmpty() 
+                    ? e.getMessage() 
+                    : "재고 처리 중 오류가 발생했습니다.";
+            throw new RuntimeException(errorMessage, e);
         }
     }
 
