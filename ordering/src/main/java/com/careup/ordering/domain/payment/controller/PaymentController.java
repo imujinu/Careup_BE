@@ -1,6 +1,7 @@
 package com.careup.ordering.domain.payment.controller;
 
 import com.careup.ordering.common.dto.ResponseDto;
+import com.careup.ordering.domain.order.service.OrderService;
 import com.careup.ordering.domain.payment.dto.PaymentConfirmRequest;
 import com.careup.ordering.domain.payment.entity.Payment;
 import com.careup.ordering.domain.payment.service.PaymentService;
@@ -10,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -20,6 +22,7 @@ import java.util.Map;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final OrderService orderService;
 
     /**
      * 결제 승인
@@ -68,18 +71,55 @@ public class PaymentController {
 
     /**
      * 결제 실패 페이지 (프론트엔드에서 처리하므로 필요시 사용)
+     * orderId가 제공되면 주문 취소 처리도 수행
      */
     @GetMapping("/fail")
     public ResponseEntity<ResponseDto<Map<String, String>>> fail(
             @RequestParam String code,
-            @RequestParam String message) {
+            @RequestParam String message,
+            @RequestParam(required = false) String orderId) {
         
-        log.error("결제 실패 - code: {}, message: {}", code, message);
+        log.error("결제 실패 - code: {}, message: {}, orderId: {}", code, message, orderId);
 
-        Map<String, String> failInfo = Map.of(
-                "code", code,
-                "message", message
-        );
+        // orderId가 제공되고 CAREUP_ORDER_X 형식인 경우 주문 취소 처리
+        if (orderId != null && !orderId.isEmpty()) {
+            try {
+                // CAREUP_ORDER_X 또는 CAREUP_ORDER_X_timestamp 형식에서 실제 주문 ID 추출
+                String numericOrderIdStr = null;
+                if (orderId.startsWith("CAREUP_ORDER_")) {
+                    String[] parts = orderId.replace("CAREUP_ORDER_", "").split("_");
+                    numericOrderIdStr = parts[0];
+                } else {
+                    numericOrderIdStr = orderId;
+                }
+
+                if (numericOrderIdStr != null) {
+                    Long numericOrderId = Long.parseLong(numericOrderIdStr);
+                    log.info("결제 실패로 인한 주문 취소 처리 시작 - orderId: {}", numericOrderId);
+                    
+                    try {
+                        orderService.cancelOrder(numericOrderId);
+                        log.info("주문 취소 완료 - orderId: {}", numericOrderId);
+                    } catch (IllegalStateException e) {
+                        log.warn("주문 취소 실패 (이미 승인됨 등) - orderId: {}, error: {}", numericOrderId, e.getMessage());
+                    } catch (IllegalArgumentException e) {
+                        log.warn("주문 취소 실패 (주문 없음) - orderId: {}, error: {}", numericOrderId, e.getMessage());
+                    }
+                }
+            } catch (NumberFormatException e) {
+                log.warn("주문 ID 파싱 실패 - orderId: {}", orderId);
+            } catch (Exception e) {
+                log.error("결제 실패 시 주문 취소 처리 중 오류 발생", e);
+                // 주문 취소 실패해도 응답은 정상 반환 (결제 실패는 이미 발생했으므로)
+            }
+        }
+
+        Map<String, String> failInfo = new HashMap<>();
+        failInfo.put("code", code);
+        failInfo.put("message", message);
+        if (orderId != null) {
+            failInfo.put("orderId", orderId);
+        }
 
         return new ResponseEntity<>(
                 ResponseDto.ok(failInfo, HttpStatus.OK), 
