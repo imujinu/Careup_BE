@@ -18,10 +18,6 @@ public class ProductSearchController {
 
     private final ProductSearchService productSearchService;
 
-    /**
-     * Elasticsearch 기반 상품 검색 API
-     * GET /products/es-search?keyword=노트북&categoryId=1&minPrice=10000&maxPrice=50000&page=0&size=10
-     */
     @GetMapping
     public ResponseEntity<Page<ProductSearchResponse>> searchProducts(
             @RequestParam(required = false) String keyword,
@@ -40,20 +36,11 @@ public class ProductSearchController {
                 .size(size)
                 .build();
 
-        Page<ProductSearchResponse> result = productSearchService.searchProducts(request);
-        return ResponseEntity.ok(result);
+        return ResponseEntity.ok(productSearchService.searchProducts(request));
     }
 
-    /**
-     * Elasticsearch 기반 자동완성 API
-     * GET /products/es-search/autocomplete?keyword=아메
-     */
     @GetMapping("/autocomplete")
-    public ResponseEntity<List<AutocompleteResponse>> autocomplete(
-            @RequestParam String keyword
-    ) {
-        List<AutocompleteResponse> result = productSearchService.autocomplete(keyword);
-        return ResponseEntity.ok(result);
+    public ResponseEntity<List<AutocompleteResponse>> autocomplete(@RequestParam String keyword) {
+        return ResponseEntity.ok(productSearchService.autocomplete(keyword));
     }
 }
-
