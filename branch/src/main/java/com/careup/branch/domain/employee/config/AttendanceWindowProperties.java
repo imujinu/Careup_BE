@@ -11,4 +11,5 @@ public class AttendanceWindowProperties {
     private boolean enforce = true;
     private int earlyMinutes = 60;
     private int lateMinutes = 120;
+    private int overtimeGraceMinutes = 30; // 초과근무 허용치(분)
 }

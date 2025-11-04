@@ -11,6 +11,10 @@ import com.careup.branch.domain.employee.service.ScheduleService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -19,12 +23,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Clock;
-import java.time.LocalDate;
-import java.time.YearMonth;
-import java.util.List;
-import java.util.Map;
-
 @RestController
 @RequestMapping("/schedule")
 @RequiredArgsConstructor
@@ -32,7 +30,6 @@ import java.util.Map;
 public class ScheduleController {
 
     private final ScheduleService scheduleService;
-    private final Clock clock;
 
     @PostMapping("/create")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
@@ -125,19 +122,14 @@ public class ScheduleController {
         );
     }
 
+    // 🔁 기간 기본값/검증은 서비스로 이관
     @GetMapping("/list")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> list(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        LocalDate today = LocalDate.now(clock);
-        LocalDate resolvedFrom = (from == null) ? today : from;
-        LocalDate resolvedTo   = (to == null) ? resolvedFrom : to;
-        if (resolvedFrom.isAfter(resolvedTo)) {
-            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
-        }
-        List<ScheduleListDto> result = scheduleService.listAll(resolvedFrom, resolvedTo);
+        List<ScheduleListDto> result = scheduleService.listAllWithDefaults(from, to);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
                         .result(result)
@@ -147,19 +139,14 @@ public class ScheduleController {
         );
     }
 
+    // 🔁 기간 기본값/검증은 서비스로 이관
     @GetMapping("/my-schedule")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> mySchedule(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        LocalDate today = LocalDate.now(clock);
-        LocalDate resolvedFrom = (from == null) ? today : from;
-        LocalDate resolvedTo   = (to == null) ? resolvedFrom : to;
-        if (resolvedFrom.isAfter(resolvedTo)) {
-            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
-        }
-        List<ScheduleListDto> result = scheduleService.listMine(resolvedFrom, resolvedTo);
+        List<ScheduleListDto> result = scheduleService.listMineWithDefaults(from, to);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
                         .result(result)
@@ -169,7 +156,8 @@ public class ScheduleController {
         );
     }
 
-    @GetMapping("/calendar")
+    // 기존 시그니처 유지
+    @GetMapping(value = "/calendar", params = {"employeeId","yearMonth"})
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> calendar(
             @RequestParam @NotNull Long employeeId,
@@ -185,6 +173,25 @@ public class ScheduleController {
         );
     }
 
+    // from/to 오버로드 → 검증을 서비스로 이관
+    @GetMapping(value = "/calendar", params = {"from","to"})
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    public ResponseEntity<CommonSuccessDto> calendarRangeFallback(
+            @RequestParam(required = false) Long employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+    ) {
+        List<ScheduleCalendarDto> result = scheduleService.calendarRangeFallback(employeeId, from, to);
+        return ResponseEntity.ok(
+                CommonSuccessDto.builder()
+                        .result(result)
+                        .status_code(HttpStatus.OK.value())
+                        .status_message("스케줄 캘린더 범위 조회 완료(호환 경로)")
+                        .build()
+        );
+    }
+
+    // from/to 검증을 서비스로 이관
     @GetMapping("/calendar-range")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     public ResponseEntity<CommonSuccessDto> calendarRange(
@@ -192,10 +199,7 @@ public class ScheduleController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        if (from.isAfter(to)) {
-            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
-        }
-        List<ScheduleCalendarDto> result = scheduleService.calendarRange(employeeIds, from, to);
+        List<ScheduleCalendarDto> result = scheduleService.calendarRangeValidated(employeeIds, from, to);
         return ResponseEntity.ok(
                 CommonSuccessDto.builder()
                         .result(result)

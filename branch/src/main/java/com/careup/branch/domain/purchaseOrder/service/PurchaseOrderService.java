@@ -92,7 +92,7 @@ public class PurchaseOrderService {
                 .toList();
 
         PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
-        
+
         // 상세 정보 저장
         orderDetails.forEach(detail -> detail.setPurchaseOrder(savedOrder));
         orderDetails.forEach(purchaseOrderDetailRepository::save);
@@ -100,7 +100,7 @@ public class PurchaseOrderService {
         // 6) 본사 재고 예약 (요청 시점 소프트 예약) - 실패 시 롤백
         reserveHqStocksOrThrow(savedOrder, orderDetails);
 
-    //[알림 - 발주 요청]
+        //[알림 - 발주 요청]
         Branch branch = branchRepository.findById(requestDto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
         List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
         SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "REQUESTED", HEAD_OFFICE_BRANCH_ID);
@@ -160,8 +160,8 @@ public class PurchaseOrderService {
 
 
 
-        // 본사 재고 예약 (자동 발주도 동일 정책)
-        reserveHqStocksOrThrow(savedOrder, savedDetails);
+            // 본사 재고 예약 (자동 발주도 동일 정책)
+            reserveHqStocksOrThrow(savedOrder, savedDetails);
 
             return convertToCompletedResponseDto(savedOrder, savedDetails);
 
@@ -206,7 +206,7 @@ public class PurchaseOrderService {
 
                 String originalMessage = e.getMessage() != null ? e.getMessage() : "재고 확보 실패";
                 String errorMessage = String.format("재고 확보 실패: productId=%d, 요청수량=%d, 최대가능수량=%d, 원인=%s",
-                    detail.getProductId(), detail.getQuantity(), availableQuantity, originalMessage);
+                        detail.getProductId(), detail.getQuantity(), availableQuantity, originalMessage);
                 throw new RuntimeException(errorMessage, e);
             }
         }
@@ -228,10 +228,10 @@ public class PurchaseOrderService {
                 req.purchaseOrderId = purchaseOrder.getId();
                 orderingInventoryClient.releaseReservation(req);
                 log.info("예약재고 해제 완료: orderId={}, productId={}, quantity={}",
-                    purchaseOrder.getId(), detail.getProductId(), detail.getQuantity());
+                        purchaseOrder.getId(), detail.getProductId(), detail.getQuantity());
             } catch (Exception e) {
                 log.error("예약재고 해제 실패: orderId={}, productId={}, msg={}",
-                    purchaseOrder.getId(), detail.getProductId(), e.getMessage());
+                        purchaseOrder.getId(), detail.getProductId(), e.getMessage());
                 // 예약 해제 실패는 경고만 하고 계속 진행 (발주 취소는 완료되어야 함)
             }
         }
@@ -259,10 +259,10 @@ public class PurchaseOrderService {
                 req.purchaseOrderId = purchaseOrder.getId();
                 orderingInventoryClient.releaseReservation(req);
                 log.info("부분 예약재고 해제 완료: orderId={}, productId={}, rejectedQuantity={}",
-                    purchaseOrder.getId(), detail.getProductId(), rejectedQuantity);
+                        purchaseOrder.getId(), detail.getProductId(), rejectedQuantity);
             } catch (Exception e) {
                 log.error("부분 예약재고 해제 실패: orderId={}, productId={}, msg={}",
-                    purchaseOrder.getId(), detail.getProductId(), e.getMessage());
+                        purchaseOrder.getId(), detail.getProductId(), e.getMessage());
             }
         }
     }

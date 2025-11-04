@@ -114,4 +114,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("status") OrderStatus status,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    // PENDING 상태이고 특정 시간 이전에 생성된 주문 조회 (타임아웃 주문 찾기용)
+    List<Order> findByOrderStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime createdAt);
 }

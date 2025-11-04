@@ -10,12 +10,11 @@ import com.careup.branch.domain.employee.dto.request.ScheduleUpdateDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleCalendarDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-
-import com.careup.branch.domain.employee.entity.*;
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
+import com.careup.branch.domain.employee.entity.LeaveType;
+import com.careup.branch.domain.employee.entity.Schedule;
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import com.careup.branch.domain.employee.entity.WorkType;
 import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
 import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
 import com.careup.branch.domain.employee.repository.ScheduleRepository;
@@ -24,6 +23,12 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -34,6 +39,18 @@ public class ScheduleService {
     private final ScheduleCommandService command;
     private final ScheduleQueryService query;
     private final ScheduleValidationService validator;
+
+    // 챗봇용 레포지토리 의존성 유지
+    private final ScheduleRepository scheduleRepository;
+    private final BranchRepository branchRepository;
+    private final WorkTypeRepository workTypeRepository;
+    private final LeaveTypeRepository leaveTypeRepository;
+    private final AttendanceTemplateRepository attendanceTemplateRepository;
+
+    // 기간 기본값 계산을 서비스로 옮기기 위해 Clock 주입
+    private final Clock clock;
+
+    /* ------------------------------- 기존 공개 메서드(불변) ------------------------------- */
 
     @Transactional
     public ScheduleDetailDto create(ScheduleCreateDto dto) {
@@ -70,6 +87,7 @@ public class ScheduleService {
     public Map<String, Object> massValidate(ScheduleMassCreateDto dto) {
         return validator.massValidate(dto);
     }
+
     public List<ScheduleListDto> listAll(LocalDate from, LocalDate to) {
         var auth = authz.readAuth();
         return query.listAll(auth, from, to);
@@ -114,34 +132,125 @@ public class ScheduleService {
         command.deleteMany(auth, scheduleIds);
     }
 
+    /**
+     * 챗봇용 커스텀 업데이트 메서드
+     */
+    @Transactional
+    public void updateSchedule(Long scheduleId, ScheduleUpdateDto dto) {
+        Schedule schedule = scheduleRepository.findById(scheduleId)
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 스케줄입니다."));
+        Branch branch = branchRepository.findById(dto.getBranchId())
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 지점입니다."));
 
-        private final ScheduleRepository scheduleRepository;
-        private final BranchRepository branchRepository;
-        private final WorkTypeRepository workTypeRepository;
-        private final LeaveTypeRepository leaveTypeRepository;
-        private final AttendanceTemplateRepository attendanceTemplateRepository;
-    public void updateSchedule(Long scheduleId, ScheduleUpdateDto dto){
-        Schedule schedule = scheduleRepository.findById(scheduleId).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 스케줄입니다."));
-        Branch branch = branchRepository.findById(dto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
-        ScheduleTypeCategory category= schedule.getCategory();
+        ScheduleTypeCategory category = schedule.getCategory();
+
         WorkType workType = null;
-        if(dto.getWorkTypeId()!=null){
-        workType = workTypeRepository.findById(dto.getWorkTypeId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
+        if (dto.getWorkTypeId() != null) {
+            workType = workTypeRepository.findById(dto.getWorkTypeId())
+                    .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
         }
+
         LeaveType leaveType = null;
-        if(dto.getLeaveTypeId() !=null){
-            leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
+        if (dto.getLeaveTypeId() != null) {
+            leaveType = leaveTypeRepository.findById(dto.getLeaveTypeId())
+                    .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
         }
 
         AttendanceTemplate at = null;
-
-        if(dto.getAttendanceTemplateId()!=null){
-            at = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
-
+        if (dto.getAttendanceTemplateId() != null) {
+            at = attendanceTemplateRepository.findById(dto.getAttendanceTemplateId())
+                    .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 근무타입 입니다."));
         }
+
         LocalDate date = dto.getRegisteredDate();
-        LocalDateTime in = dto.getRegisteredClockIn();
-        LocalDateTime out = dto.getRegisteredClockOut();
-        schedule.changeSchedule(branch, category,workType,leaveType,at,date,LocalDateTime.of(date,at.getDefaultClockIn()), LocalDateTime.of(date,at.getDefaultClockOut()), LocalDateTime.of(date,at.getDefaultBreakStart()), LocalDateTime.of(date,at.getDefaultBreakEnd()));
+
+        // DTO 값 우선 적용, 누락 시 템플릿 기본값으로 보완 (at==null 안전 처리)
+        LocalDateTime in         = dto.getRegisteredClockIn();
+        LocalDateTime out        = dto.getRegisteredClockOut();
+        LocalDateTime breakStart = dto.getRegisteredBreakStart();
+        LocalDateTime breakEnd   = dto.getRegisteredBreakEnd();
+
+        if (at != null) {
+            if (in == null && at.getDefaultClockIn() != null) {
+                in = LocalDateTime.of(date, at.getDefaultClockIn());
+            }
+            if (out == null && at.getDefaultClockOut() != null) {
+                out = LocalDateTime.of(date, at.getDefaultClockOut());
+            }
+            if (breakStart == null && at.getDefaultBreakStart() != null) {
+                breakStart = LocalDateTime.of(date, at.getDefaultBreakStart());
+            }
+            if (breakEnd == null && at.getDefaultBreakEnd() != null) {
+                breakEnd = LocalDateTime.of(date, at.getDefaultBreakEnd());
+            }
+        }
+
+        // 기존 시그니처 및 파라미터 순서 유지
+        schedule.changeSchedule(
+                branch,
+                category,
+                workType,
+                leaveType,
+                at,
+                date,
+                in,
+                out,
+                breakStart,
+                breakEnd
+        );
+    }
+
+    /* ------------------------------- 컨트롤러 로직 이관(신규) ------------------------------- */
+
+    private record DateRange(LocalDate from, LocalDate to) {}
+
+    private DateRange normalizeRangeOrThrow(LocalDate from, LocalDate to) {
+        LocalDate today = LocalDate.now(clock);
+        LocalDate resolvedFrom = (from == null) ? today : from;
+        LocalDate resolvedTo   = (to == null) ? resolvedFrom : to;
+        if (resolvedFrom.isAfter(resolvedTo)) {
+            // 공통 예외 핸들러와 연동되는 표준 예외 사용
+            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
+        }
+        return new DateRange(resolvedFrom, resolvedTo);
+    }
+
+    /**
+     * 컨트롤러의 /schedule/list 에서 수행하던 기본값/검증 로직을 이관
+     * - today 기본값
+     * - from/to 역전 검증
+     */
+    public List<ScheduleListDto> listAllWithDefaults(LocalDate from, LocalDate to) {
+        DateRange r = normalizeRangeOrThrow(from, to);
+        return listAll(r.from, r.to);
+    }
+
+    /**
+     * 컨트롤러의 /schedule/my-schedule 에서 수행하던 기본값/검증 로직을 이관
+     */
+    public List<ScheduleListDto> listMineWithDefaults(LocalDate from, LocalDate to) {
+        DateRange r = normalizeRangeOrThrow(from, to);
+        return listMine(r.from, r.to);
+    }
+
+    /**
+     * 컨트롤러의 /schedule/calendar (from/to) 및 /schedule/calendar-range 에서의 기간 검증을 서비스로 이관
+     */
+    public List<ScheduleCalendarDto> calendarRangeValidated(List<Long> employeeIds, LocalDate from, LocalDate to) {
+        if (from == null || to == null) {
+            throw new IllegalArgumentException("조회 기간(from/to)은 필수입니다.");
+        }
+        if (from.isAfter(to)) {
+            throw new IllegalArgumentException("조회 시작일은 종료일보다 이후일 수 없습니다.");
+        }
+        return calendarRange(employeeIds, from, to);
+    }
+
+    /**
+     * 단일 employeeId + from/to 호환용(컨트롤러의 Fallback 오버로드에서 호출)
+     */
+    public List<ScheduleCalendarDto> calendarRangeFallback(Long employeeId, LocalDate from, LocalDate to) {
+        List<Long> ids = (employeeId != null) ? List.of(employeeId) : null;
+        return calendarRangeValidated(ids, from, to);
     }
 }

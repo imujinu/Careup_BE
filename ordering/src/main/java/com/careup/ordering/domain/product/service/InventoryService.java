@@ -16,6 +16,7 @@ import com.careup.ordering.domain.product.repository.InventoryFlowDetailReposito
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
@@ -44,13 +45,18 @@ public class InventoryService {
     
     // redis와 kafka 추가
     private final RedisTemplate<String, Object> redisTemplate;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final DistributedLockService distributedLockService;
     
+    @Autowired(required = false)
+    private KafkaTemplate<String, Object> kafkaTemplate;
+
     private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
     private static final String EMPLOYEE_BRANCH_CACHE_PREFIX = "employee:branch:";
     private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
-    private final NotificationService notificationService;
+
+    @Autowired(required = false)
+    private NotificationService notificationService;
+
     private final BranchClient branchClient;
 
     // 권한분리
@@ -510,7 +516,7 @@ public class InventoryService {
         
         BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
                 .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
-        
+
         if ("INCREASE".equals(type)) {
             branchProduct.increaseStock(quantity);
         } else if ("DECREASE".equals(type)) {
@@ -732,8 +738,10 @@ public class InventoryService {
             eventData.put("reason", reason);
             eventData.put("currentStock", branchProduct.getStockQuantity());
             
-            kafkaTemplate.send(INVENTORY_CHANGE_TOPIC, eventData);
-            log.info("재고 변경 이벤트 발송: branchId={}, productId={}, type={}, quantity={}", 
+            if (kafkaTemplate != null) {
+                kafkaTemplate.send(INVENTORY_CHANGE_TOPIC, eventData);
+            }
+            log.info("재고 변경 이벤트 발송: branchId={}, productId={}, type={}, quantity={}",
                 branchProduct.getBranchId(), branchProduct.getProduct().getId(), type, quantity);
         } catch (Exception e) {
             log.error("재고 변경 이벤트 발송 실패: branchProductId={}", branchProduct.getId(), e);

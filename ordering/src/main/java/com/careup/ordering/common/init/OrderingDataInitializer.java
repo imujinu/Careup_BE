@@ -20,6 +20,8 @@ import com.careup.ordering.domain.product.repository.AttributeValueRepository;
 import com.careup.ordering.domain.product.repository.CategoryAttributeRepository;
 import com.careup.ordering.domain.product.repository.ProductAttributeValueRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +44,12 @@ public class OrderingDataInitializer implements CommandLineRunner {
     private final AttributeValueRepository attributeValueRepository;
     private final CategoryAttributeRepository categoryAttributeRepository;
     private final ProductAttributeValueRepository productAttributeValueRepository;
+
+    @Value("${app.product-image-base-url:}")
+    private String productImageBaseUrl;
+
+    @Autowired(required = false)
+    private com.careup.ordering.domain.product.event.ProductEventProducer productEventProducer;
 
     @Override
     @Transactional
@@ -321,9 +329,17 @@ public class OrderingDataInitializer implements CommandLineRunner {
     }
 
     private void createProduct(Category category, String name, String description,
-                               Long supplyPrice, Long minPrice, Long maxPrice, String imageUrl) {
+                               Long supplyPrice, Long minPrice, Long maxPrice, String imageName) {
         if (productRepository.existsByName(name)) {
             return;
+        }
+
+        // 이미지 URL 구성: Base URL이 설정되어 있으면 전체 URL 생성, 아니면 상대 경로 유지
+        String imageUrl = imageName;
+        if (imageName != null && !imageName.startsWith("http") &&
+            productImageBaseUrl != null && !productImageBaseUrl.isEmpty()) {
+            // S3 Base URL이 있으면 전체 URL 생성
+            imageUrl = productImageBaseUrl + "/" + imageName.replaceFirst("^/images/", "");
         }
 
         Product product = Product.builder()
@@ -337,7 +353,25 @@ public class OrderingDataInitializer implements CommandLineRunner {
                 .visibility(Visibility.ALL)
                 .build();
 
-        productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+
+        // Kafka 이벤트 발행 (Elasticsearch 동기화)
+        if (productEventProducer != null) {
+            com.careup.ordering.domain.product.event.ProductEvent event =
+                com.careup.ordering.domain.product.event.ProductEvent.builder()
+                    .eventType(com.careup.ordering.domain.product.event.ProductEvent.EventType.CREATED)
+                    .productId(savedProduct.getId())
+                    .name(savedProduct.getName())
+                    .description(savedProduct.getDescription())
+                    .categoryName(savedProduct.getCategory().getName())
+                    .categoryId(savedProduct.getCategory().getId())
+                    .price(savedProduct.getMinPrice())
+                    .imageUrl(savedProduct.getImageUrl())  // S3 URL 또는 상대 경로
+                    .status(savedProduct.getStatus().name())
+                    .visibility(savedProduct.getVisibility().name())
+                    .build();
+            productEventProducer.sendProductEvent(event);
+        }
     }
 
     private void createBranchInventory() {
