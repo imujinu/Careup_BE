@@ -10,22 +10,27 @@ public class AttendanceBadgeResolver {
 
     public String toBadgeText(Schedule s, AttendanceStatus status) {
         if (status == null) {
-            return plannedOrLeaveName(s);
+            return plannedFallback(s);
         }
         switch (status) {
-            case PLANNED:
-                return plannedOrLeaveName(s);
-            case LEAVE:
-                return s.getLeaveType() != null ? s.getLeaveType().getName() : "Leave";
-            default:
-                return status.name(); // LATE, CLOCKED_IN, ON_BREAK, EARLY_LEAVE, CLOCKED_OUT, OVERTIME, MISSED_CHECKOUT, ABSENT
+            case PLANNED:         return "예정";
+            case LEAVE:           return s.getLeaveType() != null ? s.getLeaveType().getName() : "휴가";
+            case LATE:            return "지각";
+            case CLOCKED_IN:      return "근무중";
+            case ON_BREAK:        return "휴게중";
+            case EARLY_LEAVE:     return "조퇴";
+            case CLOCKED_OUT:     return "근무완료";
+            case OVERTIME:        return "초과근무";
+            case MISSED_CHECKOUT: return "퇴근누락";
+            case ABSENT:          return "결근";
+            default:              return status.name();
         }
     }
 
-    private String plannedOrLeaveName(Schedule s) {
+    private String plannedFallback(Schedule s) {
         if (s.getCategory() == ScheduleTypeCategory.LEAVE) {
-            return s.getLeaveType() != null ? s.getLeaveType().getName() : "Leave";
+            return s.getLeaveType() != null ? s.getLeaveType().getName() : "휴가";
         }
-        return s.getWorkType() != null ? s.getWorkType().getName() : "Work";
+        return "예정";
     }
 }

@@ -41,7 +41,6 @@ public class PurchaseOrderController {
         List<PurchaseOrderListResponseDto> purchaseOrders = purchaseOrderService.getPurchaseOrders(branchId);
         return ResponseEntity.ok(purchaseOrders);
     }
-    
 
      // 발주 상세 조회
     @GetMapping("/{purchaseOrderId}")

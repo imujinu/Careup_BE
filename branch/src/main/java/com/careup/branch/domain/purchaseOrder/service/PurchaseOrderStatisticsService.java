@@ -350,8 +350,8 @@ public class PurchaseOrderStatisticsService {
             }
 
             // 2. JWT Claims에서 사용자 정보 추출
-            Claims claims = (Claims) auth.getDetails();
-            if (claims == null) {
+            Object details = auth.getDetails();
+            if (!(details instanceof Claims claims)) {
                 throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
             }
 
@@ -504,8 +504,8 @@ public class PurchaseOrderStatisticsService {
                 throw new SecurityException("인증되지 않은 사용자입니다.");
             }
 
-            Claims claims = (Claims) auth.getDetails();
-            if (claims == null) {
+            Object details = auth.getDetails();
+            if (!(details instanceof Claims claims)) {
                 throw new SecurityException("JWT 토큰 정보를 찾을 수 없습니다.");
             }
 

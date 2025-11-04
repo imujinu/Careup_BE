@@ -104,10 +104,11 @@ security:
       - "/health"
 
 attendance:
-  geofence:
-    enabled: true
-    radiusSlackMeters: 30
-    maxAccuracyMeters: 100
+  window:
+    enforce: true
+    early-minutes: 60
+    late-minutes: 120
+    overtime-grace-minutes: 30
 
 careup:
   mail:

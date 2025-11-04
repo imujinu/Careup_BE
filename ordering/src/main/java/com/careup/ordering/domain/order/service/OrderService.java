@@ -199,7 +199,7 @@ public class OrderService {
 
         order.approve(approvedBy);
 
-        // ✨ 단골 고객 정보 자동 업데이트
+        // 단골 고객 정보 자동 업데이트
         try {
             loyalCustomerService.updateLoyalCustomerByOrder(
                     order.getMember().getId(),

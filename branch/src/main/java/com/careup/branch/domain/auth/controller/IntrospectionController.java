@@ -53,6 +53,7 @@ public class IntrospectionController {
                     .role(role)
                     .employeeId(employeeId)
                     .branchId(branchId)
+                    .branchId(branchId)
                     .branchName(branchName)
                     .iat(iatSec)
                     .exp(expSec)

@@ -405,7 +405,10 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public BranchProduct getBranchProduct(Long branchId, Long productId, Authentication auth) {
         if (auth != null) {
-            validateBranchAccess(auth, branchId);
+            // 본사 상품 조회는 권한 체크 제외 (가맹점이 본사 상품/재고를 확인 및 예약하기 위해)
+            if (branchId != 1L) {
+                validateBranchAccess(auth, branchId);
+            }
         }
         
         return branchProductRepository.findByBranchIdAndProductId(branchId, productId)
@@ -472,11 +475,16 @@ public class InventoryService {
             validateBranchAccess(auth, branchProduct.getBranchId());
         }
 
-
-        SseNotificationResDto dto = SseNotificationResDto.stockUpdated(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
-        if (notificationService != null) {
-            notificationService.publishNotification(dto);
+        SseNotificationResDto dto = null;
+        if("INCREASE".equals(type)){
+        dto = SseNotificationResDto.stockIncreased(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
+        } else if("DECREASE".equals(type)){
+            dto = SseNotificationResDto.stockDecreased(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
+        }else{
+            dto = SseNotificationResDto.stockUpdated(branchProduct.getBranchId(), branchProduct.getProduct().getName(), quantity);
         }
+
+        notificationService.publishNotification(dto);
         // 분산 락 동시성 제어
         distributedLockService.executeInventoryLock(branchProductId, () -> {
             return performStockAdjustment(branchProductId, quantity, type, reason);
@@ -488,9 +496,7 @@ public class InventoryService {
         
         BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
                 .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
-        
-        Long oldStock = branchProduct.getStockQuantity();
-        
+
         if ("INCREASE".equals(type)) {
             branchProduct.increaseStock(quantity);
         } else if ("DECREASE".equals(type)) {
@@ -683,7 +689,7 @@ public class InventoryService {
     private void updateInventoryCache(BranchProduct branchProduct) {
         try {
             String cacheKey = INVENTORY_CACHE_PREFIX + branchProduct.getBranchId() + ":product:" + branchProduct.getProduct().getId();
-            log.info("🔥 Redis 캐시 키: {}", cacheKey);
+            log.info("Redis 캐시 키: {}", cacheKey);
             
             Map<String, Object> cacheData = new HashMap<>();
             cacheData.put("branchProductId", branchProduct.getId());
@@ -720,5 +726,51 @@ public class InventoryService {
         } catch (Exception e) {
             log.error("재고 변경 이벤트 발송 실패: branchProductId={}", branchProduct.getId(), e);
         }
+    }
+
+    // 예약 재고 기능
+
+    public void reserveStock(Long branchProductId, Long quantity, String reason) {
+        distributedLockService.executeInventoryLockUntilCommit(branchProductId, () -> {
+            BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
+                    .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+
+            branchProduct.increaseReserved(quantity);
+            branchProductRepository.save(branchProduct);
+
+            publishInventoryChangeEvent(branchProduct, quantity, "RESERVE", reason);
+            return null;
+        });
+    }
+
+    public void releaseReservation(Long branchProductId, Long quantity, String reason) {
+        distributedLockService.executeInventoryLockUntilCommit(branchProductId, () -> {
+            BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
+                    .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+
+            branchProduct.decreaseReserved(quantity);
+            branchProductRepository.save(branchProduct);
+
+            publishInventoryChangeEvent(branchProduct, quantity, "RESERVATION_RELEASE", reason);
+            return null;
+        });
+    }
+
+    public void commitReservation(Long branchProductId, Long quantity, String reason) {
+        distributedLockService.executeInventoryLockUntilCommit(branchProductId, () -> {
+            BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
+                    .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
+
+            // 예약 차감 후 실재고 차감
+            branchProduct.decreaseReserved(quantity);
+            if (branchProduct.getStockQuantity() < quantity) {
+                throw new IllegalArgumentException("재고가 부족합니다.");
+            }
+            branchProduct.decreaseStock(quantity);
+            branchProductRepository.save(branchProduct);
+
+            publishInventoryChangeEvent(branchProduct, quantity, "RESERVATION_COMMIT", reason);
+            return null;
+        });
     }
 }

@@ -32,10 +32,9 @@ public class SseAlarmService {
     private final SseEmitterRegistry sseEmitterRegistry;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final NotificationRepository notificationRepository;
     private final BranchRepository branchRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
-
+    private final NotificationService notificationService;
     public void publishNotification(SseNotificationResDto dto) {
 
         try {
@@ -58,10 +57,12 @@ public class SseAlarmService {
             if ("ATTENDANCE".equals(dto.getEventName())){
                 Employee owner = getOwner(dto.getBranchId());
                 SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(owner.getEmail());
+                Notification notification = new Notification().toEntity(dto, owner.getEmail());
+                notificationService.saveNotification(notification);
                 if (sseEmitter != null) {
                     try {
                         sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
-                        Notification notification = new Notification().toEntity(dto,owner.getEmail());
+
                         System.out.println("알림 +==========" + notification);
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -69,22 +70,22 @@ public class SseAlarmService {
                 }
 
             }else{
-
                 for(DispatchStatus ds : dispatchStatus){
-
             SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(ds.getEmployee().getEmail());
+            Notification notification = new Notification().toEntity(dto, ds.getEmployee().getEmail());
+            notificationService.saveNotification(notification);
             if (sseEmitter != null) {
                 try {
                     sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
-                    Notification notification = new Notification().toEntity(dto,ds.getEmployee().getEmail());
                     System.out.println("알림 +==========" + notification);
-                    notificationRepository.save(notification);
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
             }
                 }
             }
+
             System.out.println("메시지가 저장되지 않고 종료됩니다!");
         } catch (IOException e) {
             log.error("❌ Kafka listener error: {}", e.getMessage(), e);

@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ScheduleEventDetailDto {
     private Long scheduleId;
+    private Long eventId;
     private Long employeeId;
     private String employeeName;
     private LocalDate eventDate;
@@ -30,6 +31,7 @@ public class ScheduleEventDetailDto {
     public static ScheduleEventDetailDto of(Schedule s, ScheduleEvent e, AttendanceStatus status) {
         return ScheduleEventDetailDto.builder()
                 .scheduleId(s.getId())
+                .eventId(e != null ? e.getId() : null)
                 .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
                 .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
                 .eventDate(e != null ? e.getEventDate() : null)

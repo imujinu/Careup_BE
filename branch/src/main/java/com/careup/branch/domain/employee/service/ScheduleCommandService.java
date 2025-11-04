@@ -85,7 +85,6 @@ public class ScheduleCommandService {
         Branch branch = branchRepository.findById(dto.getBranchId())
                 .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
 
-        // 파생 카테고리 결정
         boolean isWork = dto.getWorkTypeId() != null;
         boolean isLeave = dto.getLeaveTypeId() != null;
         if (isWork == isLeave) {
@@ -148,7 +147,7 @@ public class ScheduleCommandService {
                 Schedule.builder()
                         .branch(branch)
                         .employee(employee)
-                        .category(category)     // 파생 카테고리 강제
+                        .category(category)
                         .workType(workType)
                         .leaveType(leaveType)
                         .attendanceTemplate(template)
@@ -285,7 +284,7 @@ public class ScheduleCommandService {
             for (Schedule ex : existedForEmp) {
                 ScheduleTimeService.Interval exIv = toInterval(
                         ex.getRegisteredDate(),
-                        ex.getCategory() == ScheduleTypeCategory.LEAVE, // isLeave
+                        ex.getCategory() == ScheduleTypeCategory.LEAVE,
                         ex.getRegisteredClockIn(),
                         ex.getRegisteredClockOut()
                 );
@@ -336,7 +335,6 @@ public class ScheduleCommandService {
     public ScheduleDetailDto update(ScheduleAuthService.Auth auth, Long scheduleId, ScheduleUpdateDto dto) {
         Schedule target = scheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new EntityNotFoundException("스케줄을 찾을 수 없습니다."));
-        ensureUpdatable(scheduleId);
 
         Employee employee = target.getEmployee();
         Branch branch = branchRepository.findById(dto.getBranchId())
@@ -398,7 +396,8 @@ public class ScheduleCommandService {
             }
         }
 
-        validator.validateNoConflictOnSave(employee, date, branch.getId(), isLeave, in, out, target.getId());
+        // [CHANGED] 업데이트 시에는 겹침/중복 검증을 수행하지 않습니다(요청사항: 수정 자유 허용).
+        // validator.validateNoConflictOnSave(employee, date, branch.getId(), isLeave, in, out, target.getId());
 
         target.change(branch, category, workType, leaveType, template, date, in, bs, be, out);
         ScheduleEvent ev = scheduleEventRepository.findByScheduleId(target.getId()).orElse(null);
@@ -430,11 +429,6 @@ public class ScheduleCommandService {
         long evCount = scheduleEventRepository.countByScheduleIdIn(scheduleIds);
         if (evCount > 0) throw new IllegalStateException("일부 스케줄에 근태 이벤트가 존재합니다. 이벤트 삭제 후 다시 시도하세요.");
         scheduleRepository.deleteAllByIdInBatch(scheduleIds);
-    }
-
-    private void ensureUpdatable(Long scheduleId) {
-        boolean hasEvent = scheduleEventRepository.findByScheduleId(scheduleId).isPresent();
-        if (hasEvent) throw new IllegalStateException("이미 근태 이벤트가 존재합니다. 이벤트 삭제 후 수정하세요.");
     }
 
     private ScheduleTimeService.Interval toInterval(LocalDate baseDate, boolean isLeave, LocalDateTime in, LocalDateTime out) {

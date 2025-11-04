@@ -94,7 +94,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             var res = branchIntrospectionClient.introspect(token);
             if (res != null && res.active() && res.employeeId() != null && res.role() != null) {
                 var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + res.role()));
-                var auth = new UsernamePasswordAuthenticationToken(res.employeeId(), null, authorities);
+                var auth = new UsernamePasswordAuthenticationToken(res.employeeId(), token, authorities);
                 auth.setDetails(Map.of(
                         "realm", "EMP",
                         "employeeId", res.employeeId(),

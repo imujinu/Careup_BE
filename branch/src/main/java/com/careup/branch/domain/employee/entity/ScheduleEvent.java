@@ -19,7 +19,6 @@ public class ScheduleEvent extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // 낙관적 락(중복 클릭/경합 방지)
     @Version
     private Long version;
 
@@ -63,7 +62,7 @@ public class ScheduleEvent extends BaseTimeEntity {
     @Column(name = "total_break_minutes", nullable = false)
     private int totalBreakMinutes;
 
-    @Column(name = "attendance_status", nullable = true)
+    @Column(name = "attendance_status")
     private AttendanceStatus attendanceStatus;
 
     public void changeEventDate(LocalDate v) { this.eventDate = v; }
@@ -75,16 +74,10 @@ public class ScheduleEvent extends BaseTimeEntity {
     public void clearMissedCheckout() { this.missedCheckout = false; }
     public void changeTotalWorkMinutes(int v) { this.totalWorkMinutes = Math.max(v, 0); }
     public void changeTotalBreakMinutes(int v) { this.totalBreakMinutes = Math.max(v, 0); }
+    public void setClockInLatLon(BigDecimal lat, BigDecimal lon) { this.clockInLat = lat; this.clockInLon = lon; }
+    public void setClockOutLatLon(BigDecimal lat, BigDecimal lon) { this.clockOutLat = lat; this.clockOutLon = lon; }
 
-    // ★ 위치 좌표 세터
-    public void setClockInLatLon(BigDecimal lat, BigDecimal lon) {
-        this.clockInLat = lat;
-        this.clockInLon = lon;
-    }
-    public void setClockOutLatLon(BigDecimal lat, BigDecimal lon) {
-        this.clockOutLat = lat;
-        this.clockOutLon = lon;
-    }
+    public void changeAttendanceStatus(AttendanceStatus v) { this.attendanceStatus = v; }
 
     public ScheduleEvent(Schedule schedule,
                          LocalDate eventDate,
