@@ -22,9 +22,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // 주문 상태별 조회
     List<Order> findByOrderStatus(OrderStatus status);
 
-    // 타임아웃된 주문 조회 (특정 시간 이전에 생성된 PENDING 주문)
-    List<Order> findByOrderStatusAndCreatedAtBefore(OrderStatus orderStatus, LocalDateTime createdAt);
-
     // 기간별 주문 조회
     List<Order> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
