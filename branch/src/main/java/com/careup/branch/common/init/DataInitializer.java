@@ -9,23 +9,26 @@ import com.careup.branch.domain.employee.dto.request.DispatchAssignmentDto;
 import com.careup.branch.domain.employee.dto.request.EmployeeCreateDto;
 import com.careup.branch.domain.employee.dto.request.JobGradeCreateDto;
 import com.careup.branch.domain.employee.dto.request.JobGradeUpdateDto;
-import com.careup.branch.domain.employee.dto.request.ScheduleCreateDto;
-import com.careup.branch.domain.employee.dto.request.ScheduleMassBlockDto;
-import com.careup.branch.domain.employee.dto.request.ScheduleMassCreateDto;
-import com.careup.branch.domain.employee.dto.request.ScheduleMassItemDto;
 import com.careup.branch.domain.employee.dto.request.WorkTypeUpsertDto;
 import com.careup.branch.domain.employee.dto.request.LeaveTypeUpsertDto;
 import com.careup.branch.domain.employee.dto.response.JobGradeListDto;
-import com.careup.branch.domain.employee.dto.response.ScheduleDetailDto;
 import com.careup.branch.domain.employee.dto.response.WorkTypeDetailDto;
 import com.careup.branch.domain.employee.dto.response.LeaveTypeDetailDto;
-import com.careup.branch.domain.employee.entity.*;
-import com.careup.branch.domain.employee.repository.*;
-import com.careup.branch.domain.employee.service.AttendanceService;
+import com.careup.branch.domain.employee.entity.AttendanceTemplate;
+import com.careup.branch.domain.employee.entity.AuthorityType;
+import com.careup.branch.domain.employee.entity.Employee;
+import com.careup.branch.domain.employee.entity.EmploymentStatus;
+import com.careup.branch.domain.employee.entity.EmploymentType;
+import com.careup.branch.domain.employee.entity.Gender;
+import com.careup.branch.domain.employee.entity.Relationship;
+import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
+import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.employee.repository.JobGradeRepository;
+import com.careup.branch.domain.employee.repository.WorkTypeRepository;
+import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
 import com.careup.branch.domain.employee.service.EmployeeService;
 import com.careup.branch.domain.employee.service.JobGradeService;
 import com.careup.branch.domain.employee.service.LeaveTypeService;
-import com.careup.branch.domain.employee.service.ScheduleService;
 import com.careup.branch.domain.employee.service.WorkTypeService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -38,9 +41,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 
@@ -55,15 +56,11 @@ public class DataInitializer implements CommandLineRunner {
     private final EmployeeRepository employeeRepository;
     private final JobGradeService jobGradeService;
     private final JobGradeRepository jobGradeRepository;
-    private final ScheduleService scheduleService;
     private final WorkTypeService workTypeService;
     private final LeaveTypeService leaveTypeService;
     private final WorkTypeRepository workTypeRepository;
     private final LeaveTypeRepository leaveTypeRepository;
     private final AttendanceTemplateRepository attendanceTemplateRepository;
-    private final AttendanceService attendanceService;
-    private final ScheduleRepository scheduleRepository;
-    private final ScheduleEventRepository scheduleEventRepository;
 
     private static final String DEFAULT_PROFILE_URL =
             "https://beyond-16-care-up.s3.ap-northeast-2.amazonaws.com/image/employee/profile/default/default_user.png";
@@ -93,7 +90,6 @@ public class DataInitializer implements CommandLineRunner {
     );
 
     private String nextEmployeeNumber() {
-        // 예: S2025071, S2025072, ...
         return "S2025" + String.format("%03d", staffSeqCounter++);
     }
 
@@ -108,8 +104,8 @@ public class DataInitializer implements CommandLineRunner {
      * 비고(remark)는 반드시 한국어 지점명(remarkPrefixKor)을 사용하여 "{지점명} 추가 직원"으로 기록.
      */
     private void addFiveStaff(Long branchId,
-                              String branchKey,          // 이메일 로컬파트용 영문 키(dongjak, boramae 등)
-                              String remarkPrefixKor,    // 비고에 들어갈 한국어 지점명(동작점, 보라매점 등)
+                              String branchKey,
+                              String remarkPrefixKor,
                               String address,
                               String addressDetail,
                               String zipcode,
@@ -122,11 +118,11 @@ public class DataInitializer implements CommandLineRunner {
 
         for (int i = 0; i < 5; i++) {
             String empNo = nextEmployeeNumber();
-            int currentSeq = staffSeqCounter - 1; // 방금 발급한 번호의 seq
+            int currentSeq = staffSeqCounter - 1;
             String name = nextName();
             Gender gender = (currentSeq % 2 == 0) ? Gender.MALE : Gender.FEMALE;
 
-            String email = branchKey + ".staff" + empNo.substring(6) + "@careup.com"; // 예: dongjak.staff071@...
+            String email = branchKey + ".staff" + empNo.substring(6) + "@careup.com";
             String mobile = String.format("010-%04d-%04d", 7000 + (currentSeq % 1000), 1000 + (currentSeq % 9000));
             String emergencyTel = String.format("010-%04d-%04d", 9000 + (currentSeq % 1000), 2000 + (currentSeq % 8000));
             String emergencyName = nextName();
@@ -153,7 +149,7 @@ public class DataInitializer implements CommandLineRunner {
                     dob,
                     hireDate,
                     DEFAULT_PROFILE_URL,
-                    remarkPrefixKor + " 추가 직원",  // ✅ 비고를 한국어 지점명으로 기록
+                    remarkPrefixKor + " 추가 직원",
                     List.of(DispatchAssignmentDto.builder()
                             .branchId(branchId)
                             .assignedFrom(hireDate)
@@ -1127,33 +1123,42 @@ public class DataInitializer implements CommandLineRunner {
             // ===== 모든 지점에 일반 직원 5명씩 자동 생성 (비고 한글화 적용) =====
             Long baristaGradeId = gradeIds.get("바리스타");
 
-            addFiveStaff(hqId,         "hq",          "본점",            "서울특별시 중구 을지로 100", "본관 15층", "04550", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(dongjakId,    "dongjak",     "동작점",          "서울특별시 동작구 상도로 22", "302호",   "06970", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(boramaeId,    "boramae",     "보라매점",        "서울특별시 동작구 보라매로 30", "상가동 1층", "07060", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(samsongId,    "samsong",     "고양삼송점",      "경기도 고양시 덕양구 삼송로 21", "101호", "10500", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(euljiroId,    "euljiro",     "을지로점",        "서울특별시 중구 을지로 160", "301호",    "04549", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(sindaebangId, "sindaebang",  "신대방삼거리점",  "서울특별시 동작구 보라매로 122", "2층",  "07024", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(gupabalId,    "gupabal",     "구파발점",        "서울특별시 은평구 진관2로 31", "2층",    "03381", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(magokId,      "magok",       "마곡나루점",      "서울특별시 강서구 공항대로 200", "1201호","07551", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(seongsuId,    "seongsu",     "성수점",          "서울특별시 성동구 성수이로 20", "301호",  "04795", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(jamsilId,     "jamsil",      "잠실점",          "서울특별시 송파구 올림픽로 250", "1201호","05555", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(pangyoId,     "pangyo",      "판교점",          "경기도 성남시 분당구 대왕판교로 660", "501호","13487", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(seomyeonId,   "seomyeon",    "부산서면점",      "부산광역시 부산진구 중앙대로 700", "1101호", "47261", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(gwanggyoId,   "gwanggyo",    "광교점",          "경기도 수원시 영통구 센트럴타운로 31", "901호","16506", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(dongseongnoId,"dongseongno", "대구동성로점",    "대구광역시 중구 국채보상로 585", "901호", "41919", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(hqId,         "hq",          "본점",
+                    "서울특별시 중구 을지로 100", "본관 15층", "04550", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(dongjakId,    "dongjak",     "동작점",
+                    "서울특별시 동작구 상도로 22", "302호", "06970", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(boramaeId,    "boramae",     "보라매점",
+                    "서울특별시 동작구 보라매로 30", "상가동 1층", "07060", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(samsongId,    "samsong",     "고양삼송점",
+                    "경기도 고양시 덕양구 삼송로 21", "101호", "10500", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(euljiroId,    "euljiro",     "을지로점",
+                    "서울특별시 중구 을지로 160", "301호", "04549", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(sindaebangId, "sindaebang",  "신대방삼거리점",
+                    "서울특별시 동작구 보라매로 122", "2층", "07024", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(gupabalId,    "gupabal",     "구파발점",
+                    "서울특별시 은평구 진관2로 31", "2층", "03381", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(magokId,      "magok",       "마곡나루점",
+                    "서울특별시 강서구 공항대로 200", "1201호", "07551", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(seongsuId,    "seongsu",     "성수점",
+                    "서울특별시 성동구 성수이로 20", "301호", "04795", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(jamsilId,     "jamsil",      "잠실점",
+                    "서울특별시 송파구 올림픽로 250", "1201호", "05555", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(pangyoId,     "pangyo",      "판교점",
+                    "경기도 성남시 분당구 대왕판교로 660", "501호", "13487", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(seomyeonId,   "seomyeon",    "부산서면점",
+                    "부산광역시 부산진구 중앙대로 700", "1101호", "47261", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(gwanggyoId,   "gwanggyo",    "광교점",
+                    "경기도 수원시 영통구 센트럴타운로 31", "901호", "16506", LocalDate.of(2024,10,1), baristaGradeId);
+            addFiveStaff(dongseongnoId,"dongseongno", "대구동성로점",
+                    "대구광역시 중구 국채보상로 585", "901호", "41919", LocalDate.of(2024,10,1), baristaGradeId);
             // ===== 끝 =====
 
-            Map<String, Long> workTypeIds = ensureWorkTypes(List.of("일반근무", "야간근무", "재택근무", "외근"));
-            Map<String, Long> leaveTypeIds = ensureLeaveTypes(List.of("연차", "무급휴가", "특별휴가"));
+            // 사전코드(근무종류/휴가종류)만 보강
+            ensureWorkTypes(List.of("일반근무", "야간근무", "재택근무", "외근"));
+            ensureLeaveTypes(List.of("연차", "무급휴가", "특별휴가"));
 
-            Map<String, Long> templateIds = ensureAttendanceTemplates(List.of(
-                    tmpl("주간", LocalTime.of(9, 0),  LocalTime.of(12,30), LocalTime.of(13,30), LocalTime.of(18, 0)),
-                    tmpl("석간", LocalTime.of(14, 0), LocalTime.of(18, 0),  LocalTime.of(19, 0),  LocalTime.of(22, 0)),
-                    tmpl("야간", LocalTime.of(22, 0), LocalTime.of(2, 0),   LocalTime.of(3, 0),   LocalTime.of(6, 0))
-            ));
-
-            seedSchedules(hqId, dongjakId, boramaeId, workTypeIds, leaveTypeIds, templateIds);
-            seedAttendanceRecordsFixed();
+            // 근태 템플릿 보강
+            ensureAttendanceTemplates();
         });
     }
 
@@ -1335,320 +1340,33 @@ public class DataInitializer implements CommandLineRunner {
         return result;
     }
 
-    private static AttendanceTemplateSeed tmpl(String name, LocalTime in, LocalTime bs, LocalTime be, LocalTime out) {
-        return new AttendanceTemplateSeed(name, in, bs, be, out);
-    }
-    private record AttendanceTemplateSeed(String name, LocalTime in, LocalTime bs, LocalTime be, LocalTime out) {}
+    private void ensureAttendanceTemplates() {
+        var all = attendanceTemplateRepository.findAll();
 
-    private Map<String, Long> ensureAttendanceTemplates(List<AttendanceTemplateSeed> templates) {
-        Map<String, Long> result = new LinkedHashMap<>();
-        List<AttendanceTemplate> all = attendanceTemplateRepository.findAll();
-
-        for (AttendanceTemplateSeed t : templates) {
-            var existing = all.stream().filter(x -> x.getName().equals(t.name())).findFirst();
-            Long id = existing.map(AttendanceTemplate::getId).orElseGet(() -> {
-                AttendanceTemplate saved = attendanceTemplateRepository.save(
-                        AttendanceTemplate.builder()
-                                .name(t.name())
-                                .defaultClockIn(t.in()).defaultBreakStart(t.bs())
-                                .defaultBreakEnd(t.be()).defaultClockOut(t.out())
-                                .build()
-                );
-                return saved.getId();
-            });
-            result.put(t.name(), id);
-        }
-        return result;
-    }
-
-    private boolean hasSchedule(Long employeeId, LocalDate date) {
-        return scheduleRepository.findByEmployeeIdAndRegisteredDate(employeeId, date).isPresent();
-    }
-
-    private void seedSchedules(Long hqId, Long dongjakId, Long boramaeId,
-                               Map<String, Long> workTypeIds, Map<String, Long> leaveTypeIds, Map<String, Long> templateIds) {
-
-        LocalDate D0 = LocalDate.of(2025, 1, 13);
-        LocalDate Dm1 = D0.minusDays(1);
-        LocalDate Dp1 = D0.plusDays(1);
-        LocalDate Dp2 = D0.plusDays(2);
-        LocalDate Dp3 = D0.plusDays(3);
-        LocalDate Dp4 = D0.plusDays(4);
-        LocalDate Dp5 = D0.plusDays(5);
-        LocalDate Dp6 = D0.plusDays(6);
-        LocalDate Dp7 = D0.plusDays(7);
-        LocalDate Dp8 = D0.plusDays(8);
-        LocalDate Dp9 = D0.plusDays(9);
-        LocalDate Dp10 = D0.plusDays(10);
-        LocalDate Dp11 = D0.plusDays(11);
-        LocalDate Dp12 = D0.plusDays(12);
-
-        Long empHQ  = employeeRepository.findByEmployeeNumber("H2025001").orElseThrow().getId();
-        Long empDJ  = employeeRepository.findByEmployeeNumber("S2025004").orElseThrow().getId();
-        Long empBR  = employeeRepository.findByEmployeeNumber("S2025005").orElseThrow().getId();
-        Long empHQ2 = employeeRepository.findByEmployeeNumber("H2025006").orElseThrow().getId();
-        Long empDJ2 = employeeRepository.findByEmployeeNumber("S2025007").orElseThrow().getId();
-        Long empBR2 = employeeRepository.findByEmployeeNumber("S2025008").orElseThrow().getId();
-
-        Long wtWork  = Objects.requireNonNull(workTypeIds.get("일반근무"));
-        Long wtNight = Objects.requireNonNull(workTypeIds.get("야간근무"));
-        Long wtWFH   = Objects.requireNonNull(workTypeIds.get("재택근무"));
-        Long wtField = Objects.requireNonNull(workTypeIds.get("외근"));
-
-        Long ltAnnual  = Objects.requireNonNull(leaveTypeIds.get("연차"));
-        Long ltUnpaid  = Objects.requireNonNull(leaveTypeIds.get("무급휴가"));
-        Long ltSpecial = Objects.requireNonNull(leaveTypeIds.get("특별휴가"));
-
-        Long tplDay   = Objects.requireNonNull(templateIds.get("주간"));
-        Long tplEve   = Objects.requireNonNull(templateIds.get("석간"));
-        Long tplNight = Objects.requireNonNull(templateIds.get("야간"));
-
-        if (!hasSchedule(empHQ, D0)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ)
-                    .workTypeId(wtWork).attendanceTemplateId(tplDay).branchId(hqId)
-                    .registeredDate(D0)
-                    .registeredClockIn(LocalDateTime.of(D0, LocalTime.of(9, 0)))
-                    .registeredBreakStart(LocalDateTime.of(D0, LocalTime.of(12, 30)))
-                    .registeredBreakEnd(LocalDateTime.of(D0, LocalTime.of(13, 30)))
-                    .registeredClockOut(LocalDateTime.of(D0, LocalTime.of(18, 0)))
-                    .build());
+        boolean hasNormal = all.stream().anyMatch(t -> "일반 근무".equals(t.getName()));
+        if (!hasNormal) {
+            attendanceTemplateRepository.save(
+                    AttendanceTemplate.builder()
+                            .name("일반 근무")
+                            .defaultClockIn(LocalTime.of(9, 0))
+                            .defaultBreakStart(LocalTime.of(12, 0))
+                            .defaultBreakEnd(LocalTime.of(13, 0))
+                            .defaultClockOut(LocalTime.of(18, 0))
+                            .build()
+            );
         }
 
-        if (!hasSchedule(empDJ, Dm1)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ)
-                    .workTypeId(wtNight).attendanceTemplateId(tplNight).branchId(dongjakId)
-                    .registeredDate(Dm1)
-                    .registeredClockIn(LocalDateTime.of(Dm1, LocalTime.of(22, 0)))
-                    .registeredBreakStart(LocalDateTime.of(D0, LocalTime.of(2, 0)))
-                    .registeredBreakEnd(LocalDateTime.of(D0, LocalTime.of(3, 0)))
-                    .registeredClockOut(LocalDateTime.of(D0, LocalTime.of(6, 0)))
-                    .build());
+        boolean hasNight = all.stream().anyMatch(t -> "야간 근무".equals(t.getName()));
+        if (!hasNight) {
+            attendanceTemplateRepository.save(
+                    AttendanceTemplate.builder()
+                            .name("야간 근무")
+                            .defaultClockIn(LocalTime.of(21, 0))
+                            .defaultBreakStart(LocalTime.of(0, 0))  // 익일 00:00
+                            .defaultBreakEnd(LocalTime.of(1, 0))    // 익일 01:00
+                            .defaultClockOut(LocalTime.of(6, 0))    // 익일 06:00
+                            .build()
+            );
         }
-
-        if (!hasSchedule(empBR, Dp1)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empBR)
-                    .leaveTypeId(ltAnnual).branchId(boramaeId)
-                    .registeredDate(Dp1)
-                    .build());
-        }
-
-        var blockDates = List.of(Dp2, Dp3);
-        if (blockDates.stream().anyMatch(d -> !hasSchedule(empDJ, d))) {
-            scheduleService.massCreate(ScheduleMassCreateDto.builder()
-                    .blocks(List.of(
-                            ScheduleMassBlockDto.builder()
-                                    .branchId(dongjakId)
-                                    .workTypeId(wtWork)
-                                    .attendanceTemplateId(tplEve)
-                                    .employeeIds(List.of(empDJ))
-                                    .dates(blockDates.stream().filter(d -> !hasSchedule(empDJ, d)).toList())
-                                    .registeredClockInTime(LocalTime.of(14, 0))
-                                    .registeredBreakStartTime(LocalTime.of(18, 0))
-                                    .registeredBreakEndTime(LocalTime.of(19, 0))
-                                    .registeredClockOutTime(LocalTime.of(22, 0))
-                                    .build()
-                    ))
-                    .build());
-        }
-
-        var items = new ArrayList<ScheduleMassItemDto>();
-        if (!hasSchedule(empDJ, Dp4)) {
-            items.add(ScheduleMassItemDto.builder()
-                    .employeeId(empDJ).branchId(dongjakId)
-                    .workTypeId(wtNight)
-                    .attendanceTemplateId(tplNight).date(Dp4)
-                    .registeredClockInTime(LocalTime.of(22, 0))
-                    .registeredBreakStartTime(LocalTime.of(2, 0))
-                    .registeredBreakEndTime(LocalTime.of(3, 0))
-                    .registeredClockOutTime(LocalTime.of(6, 0))
-                    .build());
-        }
-        if (!hasSchedule(empDJ, Dp5)) {
-            items.add(ScheduleMassItemDto.builder()
-                    .employeeId(empDJ).branchId(dongjakId)
-                    .workTypeId(wtNight)
-                    .attendanceTemplateId(tplNight).date(Dp5)
-                    .registeredClockInTime(LocalTime.of(22, 0))
-                    .registeredBreakStartTime(LocalTime.of(2, 0))
-                    .registeredBreakEndTime(LocalTime.of(3, 0))
-                    .registeredClockOutTime(LocalTime.of(6, 0))
-                    .build());
-        }
-        if (!items.isEmpty()) {
-            scheduleService.massCreate(ScheduleMassCreateDto.builder().items(items).build());
-        }
-
-        if (!hasSchedule(empHQ2, Dp1)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ2)
-                    .workTypeId(wtWork).attendanceTemplateId(tplDay).branchId(hqId)
-                    .registeredDate(Dp1)
-                    .registeredClockIn(LocalDateTime.of(Dp1, LocalTime.of(9, 0)))
-                    .registeredBreakStart(LocalDateTime.of(Dp1, LocalTime.of(12, 30)))
-                    .registeredBreakEnd(LocalDateTime.of(Dp1, LocalTime.of(13, 30)))
-                    .registeredClockOut(LocalDateTime.of(Dp1, LocalTime.of(18, 0)))
-                    .build());
-        }
-
-        if (!hasSchedule(empDJ2, Dp1)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ2)
-                    .workTypeId(wtWork).attendanceTemplateId(tplEve).branchId(dongjakId)
-                    .registeredDate(Dp1)
-                    .registeredClockIn(LocalDateTime.of(Dp1, LocalTime.of(14, 0)))
-                    .registeredBreakStart(LocalDateTime.of(Dp1, LocalTime.of(18, 0)))
-                    .registeredBreakEnd(LocalDateTime.of(Dp1, LocalTime.of(19, 0)))
-                    .registeredClockOut(LocalDateTime.of(Dp1, LocalTime.of(22, 0)))
-                    .build());
-        }
-
-        if (!hasSchedule(empBR2, D0)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empBR2)
-                    .workTypeId(wtNight).attendanceTemplateId(tplNight).branchId(boramaeId)
-                    .registeredDate(D0)
-                    .registeredClockIn(LocalDateTime.of(D0, LocalTime.of(22, 0)))
-                    .registeredBreakStart(LocalDateTime.of(Dp1, LocalTime.of(2, 0)))
-                    .registeredBreakEnd(LocalDateTime.of(Dp1, LocalTime.of(3, 0)))
-                    .registeredClockOut(LocalDateTime.of(Dp1, LocalTime.of(6, 0)))
-                    .build());
-        }
-
-        if (!hasSchedule(empHQ2, Dp2)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ2)
-                    .workTypeId(wtWFH).attendanceTemplateId(tplDay).branchId(hqId)
-                    .registeredDate(Dp2)
-                    .registeredClockIn(LocalDateTime.of(Dp2, LocalTime.of(9, 30)))
-                    .registeredBreakStart(LocalDateTime.of(Dp2, LocalTime.of(12, 0)))
-                    .registeredBreakEnd(LocalDateTime.of(Dp2, LocalTime.of(13, 0)))
-                    .registeredClockOut(LocalDateTime.of(Dp2, LocalTime.of(18, 30)))
-                    .build());
-        }
-
-        if (!hasSchedule(empDJ2, D0)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ2)
-                    .workTypeId(wtWFH).attendanceTemplateId(tplDay).branchId(dongjakId)
-                    .registeredDate(D0)
-                    .registeredClockIn(LocalDateTime.of(D0, LocalTime.of(10, 0)))
-                    .registeredBreakStart(LocalDateTime.of(D0, LocalTime.of(13, 0)))
-                    .registeredBreakEnd(LocalDateTime.of(D0, LocalTime.of(14, 0)))
-                    .registeredClockOut(LocalDateTime.of(D0, LocalTime.of(19, 0)))
-                    .build());
-        }
-
-        if (!hasSchedule(empHQ, Dp3)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empHQ)
-                    .workTypeId(wtField).attendanceTemplateId(tplDay).branchId(hqId)
-                    .registeredDate(Dp3)
-                    .registeredClockIn(LocalDateTime.of(Dp3, LocalTime.of(10, 0)))
-                    .registeredBreakStart(LocalDateTime.of(Dp3, LocalTime.of(12, 30)))
-                    .registeredBreakEnd(LocalDateTime.of(Dp3, LocalTime.of(13, 30)))
-                    .registeredClockOut(LocalDateTime.of(Dp3, LocalTime.of(17, 0)))
-                    .build());
-        }
-
-        if (!hasSchedule(empBR, Dp6)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empBR)
-                    .leaveTypeId(ltUnpaid).branchId(boramaeId)
-                    .registeredDate(Dp6)
-                    .build());
-        }
-
-        if (!hasSchedule(empDJ, Dp7)) {
-            scheduleService.create(ScheduleCreateDto.builder()
-                    .employeeId(empDJ)
-                    .leaveTypeId(ltSpecial).branchId(dongjakId)
-                    .registeredDate(Dp7)
-                    .build());
-        }
-
-        var wfhDates = List.of(Dp8, Dp9, Dp10);
-        if (wfhDates.stream().anyMatch(d -> !hasSchedule(empHQ2, d))) {
-            scheduleService.massCreate(ScheduleMassCreateDto.builder()
-                    .blocks(List.of(
-                            ScheduleMassBlockDto.builder()
-                                    .branchId(hqId)
-                                    .workTypeId(wtWFH)
-                                    .attendanceTemplateId(tplDay)
-                                    .employeeIds(List.of(empHQ2))
-                                    .dates(wfhDates.stream().filter(d -> !hasSchedule(empHQ2, d)).toList())
-                                    .registeredClockInTime(LocalTime.of(9, 0))
-                                    .registeredBreakStartTime(LocalTime.of(12, 30))
-                                    .registeredBreakEndTime(LocalTime.of(13, 30))
-                                    .registeredClockOutTime(LocalTime.of(18, 0))
-                                    .build()
-                    ))
-                    .build());
-        }
-
-        var dj2Items = new ArrayList<ScheduleMassItemDto>();
-        if (!hasSchedule(empDJ2, Dp11)) {
-            dj2Items.add(ScheduleMassItemDto.builder()
-                    .employeeId(empDJ2).branchId(dongjakId)
-                    .workTypeId(wtField)
-                    .attendanceTemplateId(tplDay).date(Dp11)
-                    .registeredClockInTime(LocalTime.of(11, 0))
-                    .registeredBreakStartTime(LocalTime.of(14, 0))
-                    .registeredBreakEndTime(LocalTime.of(15, 0))
-                    .registeredClockOutTime(LocalTime.of(17, 0))
-                    .build());
-        }
-        if (!hasSchedule(empDJ2, Dp12)) {
-            dj2Items.add(ScheduleMassItemDto.builder()
-                    .employeeId(empDJ2).branchId(dongjakId)
-                    .workTypeId(wtField)
-                    .attendanceTemplateId(tplDay).date(Dp12)
-                    .registeredClockInTime(LocalTime.of(13, 0))
-                    .registeredBreakStartTime(LocalTime.of(17, 0))
-                    .registeredBreakEndTime(LocalTime.of(18, 0))
-                    .registeredClockOutTime(LocalTime.of(20, 0))
-                    .build());
-        }
-        if (!dj2Items.isEmpty()) {
-            scheduleService.massCreate(ScheduleMassCreateDto.builder().items(dj2Items).build());
-        }
-    }
-
-    private void seedAttendanceRecordsFixed() {
-        LocalDate D0 = LocalDate.of(2025, 1, 13);
-        LocalDate Dm1 = D0.minusDays(1);
-
-        var optHQ  = employeeRepository.findByEmployeeNumber("H2025001");
-        var optDJ  = employeeRepository.findByEmployeeNumber("S2025004");
-        var optDJ2 = employeeRepository.findByEmployeeNumber("S2025007");
-
-        optHQ.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), D0)).ifPresent(s -> {
-            double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5665);
-            double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9780);
-            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(9, 2)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(12, 31)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 29)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(18, 3)));
-        });
-
-        optDJ.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), Dm1)).ifPresent(s -> {
-            double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5124);
-            double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9399);
-            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(Dm1, LocalTime.of(22, 1)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(2, 5)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(3, 4)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0,  LocalTime.of(6, 2)));
-        });
-
-        optDJ2.flatMap(e -> scheduleRepository.findByEmployeeIdAndRegisteredDate(e.getId(), D0)).ifPresent(s -> {
-            double lat = Optional.ofNullable(s.getBranch().getLatitude()).orElse(37.5124);
-            double lng = Optional.ofNullable(s.getBranch().getLongitude()).orElse(126.9399);
-            attendanceService.clockInAt (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(10, 0)));
-            attendanceService.breakStartAt(s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 0)));
-            attendanceService.breakEndAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(13, 59)));
-            attendanceService.clockOutAt  (s.getId(), lat, lng, null, LocalDateTime.of(D0, LocalTime.of(19, 0)));
-        });
     }
 }
