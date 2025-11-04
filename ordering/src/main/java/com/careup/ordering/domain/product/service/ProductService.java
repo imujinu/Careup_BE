@@ -13,6 +13,7 @@ import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.Visibility;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
 import com.careup.ordering.domain.recomendation.service.QdrantService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class ProductService {
     private final BranchProductRepository branchProductRepository;
     private final BranchClient branchClient;
     private final QdrantService qdrantService;
+    private final CoPurchaseService coPurchaseService;
 
     /**
      * 상품 등록 (이미지 포함)
@@ -94,7 +96,7 @@ public class ProductService {
                 product.getAttributes().add(attribute);
             });
         }
-
+        // 상품 유사도 저장
         Product savedProduct = productRepository.save(product);
         qdrantService.saveProduct(savedProduct);
         return ProductResponseDto.from(savedProduct);

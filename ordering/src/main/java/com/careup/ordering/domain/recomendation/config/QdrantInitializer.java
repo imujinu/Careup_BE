@@ -21,7 +21,7 @@ public class QdrantInitializer {
 
         Map<String, Object> body = Map.of(
                 "vectors", Map.of(
-                        "size", 8,
+                        "size", 28,
                         "distance", "Cosine"
                 )
         );

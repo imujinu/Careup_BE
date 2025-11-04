@@ -74,7 +74,7 @@ dependencies {
 
 	// kafka 의존성 추가
 	implementation 'org.springframework.kafka:spring-kafka'
-
+	implementation 'org.apache.kafka:kafka-streams'
 	// Spring Cloud OpenFeign 의존성 추가
 	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 

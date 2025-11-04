@@ -20,29 +20,29 @@ public class VectorEncoder {
     public float[] encode(Map<String, String> features, Product product) {
         List<Float> vector = new ArrayList<>();
 
-        List<String> categories = categoryRepository.findAll().stream().map(Category::getName).collect(Collectors.toList());
-        List<ProductAttribute> productAttributes = productAttributeRepository.findAllByProductId(product.getId());
+        // [ 카테고리, 컬러, 분류, 계절, 성별 ] 순서
 
-        // 예: category 원핫 인코딩
-        if (product.getCategory() != null && product.getCategory().getName() != null) {
-            vector.addAll(oneHot(product.getCategory().getName(), categories));
-        } else {
-            // 카테고리 없는 상품은 0으로 채워서 차원 유지
-            vector.addAll(Collections.nCopies(categories.size(), 0f));
-        }
-        Map<String, List<String>> map = new HashMap<>();
+        String category = features.getOrDefault("category", "기타");
+        vector.addAll(oneHot(category, List.of("상의", "하의", "아우터", "신발", "악세서리", "기타")));
 
-        for (ProductAttribute pa : productAttributes) {
-            map.computeIfAbsent(pa.getAttributeName(), k -> new ArrayList<>())
-                    .add(pa.getAttributeValue());
-        }
-        for(String str : map.keySet()){
-            vector.addAll(oneHot(str, map.get(str)));
-        }
-        // 가격 정규화
+        String color = features.getOrDefault("color", "기타");
+        vector.addAll(oneHot(color, List.of("white", "black", "gray", "blue", "red", "green", "기타")));
+
+        String useType = features.getOrDefault("useType", "일상");
+        vector.addAll(oneHot(useType, List.of("러닝", "헬스", "축구", "요가", "등산", "일상")));
+
+        String season = features.getOrDefault("season", "사계절");
+        vector.addAll(oneHot(season, List.of("봄", "여름", "가을", "겨울", "사계절")));
+
+        String gender = features.getOrDefault("gender", "공용");
+        vector.addAll(oneHot(gender, List.of("남성", "여성", "공용")));
+
+        // 6️⃣ Price normalization
         if (features.containsKey("price")) {
             float price = Float.parseFloat(features.get("price"));
-            vector.add(normalize(price, product.getMinPrice(), product.getMaxPrice()));
+            vector.add(normalize(price, 10000, 300000)); // 예: 1만~30만 원 사이
+        } else {
+            vector.add(0f);
         }
 
         return toFloatArray(vector);

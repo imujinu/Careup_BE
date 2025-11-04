@@ -16,6 +16,7 @@ import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
+import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class OrderService {
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
     private final NotificationService notificationService;
     private final LoyalCustomerService loyalCustomerService;
+    private final CoPurchaseService coPurchaseService;
 
     /**
      * 주문 생성
@@ -119,12 +121,18 @@ public class OrderService {
                 })
                 .collect(Collectors.toList());
 
-        orderedItemRepository.saveAll(orderedItems);
         log.info("주문 상품 생성 완료 - 총 {}개", orderedItems.size());
 
 
+        List<OrderedItem> savedItems = orderedItemRepository.saveAll(orderedItems);
+
+        //주문 알림
         SseNotificationResDto dto = SseNotificationResDto.orderPlaced(savedOrder.getBranchId(), savedOrder.getId());
         notificationService.publishNotification(dto);
+
+        // 함께 구매된 횟수 카운팅
+        List<Long> updateItems = savedItems.stream().map(OrderedItem::getId).toList();
+        coPurchaseService.updateCoPurchaseByOrder(updateItems);
 
         return convertToResponseDto(savedOrder, orderedItems);
     }
