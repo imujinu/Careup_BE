@@ -30,6 +30,9 @@ public class Category {
     @OneToMany(mappedBy = "category",cascade = CascadeType.ALL)
     private List<Product> products = new ArrayList<>();
 
+    @OneToMany(mappedBy = "category", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<CategoryAttribute> categoryAttributes = new ArrayList<>();
+
     @Builder
     private Category(String name, String description){
         this.name= name;

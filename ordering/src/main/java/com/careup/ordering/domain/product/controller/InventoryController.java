@@ -94,7 +94,8 @@ public class InventoryController {
                 request.getSerialNumber(),
                 request.getStockQuantity(),
                 request.getSafetyStock(),
-                request.getPrice()
+                request.getPrice(),
+                request.getAttributeValueId()  // 사이즈별 재고 관리를 위한 속성 값 ID
         );
         return ResponseEntity.ok(convertToBranchProductResponse(branchProduct));
     }

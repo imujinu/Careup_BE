@@ -41,4 +41,30 @@ public interface BranchProductRepository extends JpaRepository<BranchProduct, Lo
      * 특정 상품을 판매하는 모든 지점별 상품 조회
      */
     List<BranchProduct> findByProduct(Product product);
+
+    /**
+     * 지점별 상품 + 속성 값 조회 (사이즈별 재고)
+     */
+    @Query("SELECT bp FROM BranchProduct bp JOIN FETCH bp.product " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE bp.branchId = :branchId AND bp.product.id = :productId")
+    List<BranchProduct> findByBranchIdAndProductIdWithAttribute(@Param("branchId") Long branchId, 
+                                                                  @Param("productId") Long productId);
+
+    /**
+     * 특정 상품의 특정 사이즈 재고 조회
+     */
+    @Query("SELECT bp FROM BranchProduct bp WHERE bp.branchId = :branchId " +
+           "AND bp.product.id = :productId AND bp.attributeValue.id = :attributeValueId")
+    Optional<BranchProduct> findByBranchIdAndProductIdAndAttributeValueId(
+            @Param("branchId") Long branchId,
+            @Param("productId") Long productId,
+            @Param("attributeValueId") Long attributeValueId);
+
+    /**
+     * 특정 상품의 특정 사이즈 재고 존재 여부 확인
+     */
+    boolean existsByBranchIdAndProductIdAndAttributeValueId(
+            Long branchId, Long productId, Long attributeValueId);
 }
