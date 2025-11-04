@@ -8,19 +8,23 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
+import org.springframework.data.elasticsearch.annotations.Mapping;
 import org.springframework.data.elasticsearch.annotations.Setting;
 
-@Document(indexName = "products")
+@Document(indexName = "products", createIndex = true)
 @Setting(settingPath = "elastic/product-index-settings.json")
+@Mapping(mappingPath = "elastic/product-index-mappings.json")
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class ProductDocument {
 
+    // Elasticsearch _id 로 사용 */
     @Id
     private String id;
 
+    // 비즈니스 PK(상품 PK)는 별도 필드로 저장 */
     @Field(type = FieldType.Long)
     private Long productId;
 
@@ -48,4 +52,3 @@ public class ProductDocument {
     @Field(type = FieldType.Keyword)
     private String visibility;
 }
-
