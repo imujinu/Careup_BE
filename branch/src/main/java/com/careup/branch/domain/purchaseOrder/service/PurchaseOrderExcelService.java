@@ -24,7 +24,10 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -82,7 +85,7 @@ public class PurchaseOrderExcelService {
             mergeCellsForSameOrder(sheet, orders);
 
             // 열 너비 자동 조정
-            for (int i = 0; i < 11; i++) {
+            for (int i = 0; i < 15; i++) {
                 sheet.autoSizeColumn(i);
                 sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1024);
             }
@@ -157,7 +160,7 @@ public class PurchaseOrderExcelService {
                 }
             }
 
-            for (int i = 0; i < 11; i++) {
+            for (int i = 0; i < 15; i++) {
                 sheet.autoSizeColumn(i);
                 sheet.setColumnWidth(i, sheet.getColumnWidth(i) + 1024);
             }
@@ -212,7 +215,8 @@ public class PurchaseOrderExcelService {
         Row headerRow = sheet.createRow(0);
         String[] headers = {
                 "발주번호", "지점명", "상태", "총금액(원)", "생성일시", "수정일시",
-                "상품명", "상품수량", "승인수량", "단가(원)", "소계(원)"
+                "상품명", "옵션1", "옵션명1", "옵션2", "옵션명2",
+                "상품수량", "승인수량", "단가(원)", "소계(원)"
         };
 
         for (int i = 0; i < headers.length; i++) {
@@ -241,13 +245,52 @@ public class PurchaseOrderExcelService {
         // 상세 정보 (있는 경우)
         if (detail != null) {
             createCell(row, 6, getProductName(detail.getProductId()), dataStyle);  // 상품명
-            createCell(row, 7, detail.getQuantity(), numberStyle);  // 상품수량
-            createCell(row, 8, detail.getApprovedQuantity(), numberStyle);  // 승인수량
-            createCell(row, 9, detail.getUnitPrice(), numberStyle);  // 단가
-            createCell(row, 10, detail.getSubtotalPrice(), numberStyle);  // 소계
+            
+            // 속성 정보 조회 및 표시
+            List<OrderingInventoryClient.ProductAttributeValueResponseDto> attributes = getProductAttributes(detail.getProductId());
+            String option1 = "-";
+            String optionName1 = "-";
+            String option2 = "-";
+            String optionName2 = "-";
+            
+            if (attributes != null && !attributes.isEmpty()) {
+                // 속성 타입별로 그룹화
+                Map<Long, OrderingInventoryClient.ProductAttributeValueResponseDto> attributeMap = new HashMap<>();
+                for (OrderingInventoryClient.ProductAttributeValueResponseDto pav : attributes) {
+                    Long typeId = pav.attributeTypeId;
+                    if (typeId != null && !attributeMap.containsKey(typeId)) {
+                        attributeMap.put(typeId, pav);
+                    }
+                }
+                
+                // 최대 2개까지만 사용
+                List<OrderingInventoryClient.ProductAttributeValueResponseDto> sortedAttributes = 
+                        new ArrayList<>(attributeMap.values());
+                
+                if (sortedAttributes.size() > 0) {
+                    OrderingInventoryClient.ProductAttributeValueResponseDto attr1 = sortedAttributes.get(0);
+                    option1 = attr1.attributeTypeName != null ? attr1.attributeTypeName : "-";
+                    optionName1 = attr1.displayName != null ? attr1.displayName : "-";
+                }
+                
+                if (sortedAttributes.size() > 1) {
+                    OrderingInventoryClient.ProductAttributeValueResponseDto attr2 = sortedAttributes.get(1);
+                    option2 = attr2.attributeTypeName != null ? attr2.attributeTypeName : "-";
+                    optionName2 = attr2.displayName != null ? attr2.displayName : "-";
+                }
+            }
+            
+            createCell(row, 7, option1, dataStyle);  // 옵션1
+            createCell(row, 8, optionName1, dataStyle);  // 옵션명1
+            createCell(row, 9, option2, dataStyle);  // 옵션2
+            createCell(row, 10, optionName2, dataStyle);  // 옵션명2
+            createCell(row, 11, detail.getQuantity(), numberStyle);  // 상품수량
+            createCell(row, 12, detail.getApprovedQuantity(), numberStyle);  // 승인수량
+            createCell(row, 13, detail.getUnitPrice(), numberStyle);  // 단가
+            createCell(row, 14, detail.getSubtotalPrice(), numberStyle);  // 소계
         } else {
             // 상세 정보가 없는 경우 빈 셀
-            for (int i = 6; i <= 10; i++) {
+            for (int i = 6; i <= 14; i++) {
                 createCell(row, i, "-", dataStyle);
             }
         }
@@ -403,6 +446,26 @@ public class PurchaseOrderExcelService {
             log.warn("상품명 조회 실패 - error: {}", e.getMessage());
         }
         return "상품 " + productId;
+    }
+
+    /**
+     * 상품 속성 정보 조회
+     */
+    private List<OrderingInventoryClient.ProductAttributeValueResponseDto> getProductAttributes(Long productId) {
+        if (productId == null) {
+            return new ArrayList<>();
+        }
+
+        try {
+            OrderingInventoryClient.ResponseDto<List<OrderingInventoryClient.ProductAttributeValueResponseDto>> resp =
+                    orderingInventoryClient.getProductAttributeValues(productId);
+            if (resp != null && resp.data != null) {
+                return resp.data;
+            }
+        } catch (Exception e) {
+            log.warn("상품 속성 정보 조회 실패 - productId: {}, error: {}", productId, e.getMessage());
+        }
+        return new ArrayList<>();
     }
 
     /**

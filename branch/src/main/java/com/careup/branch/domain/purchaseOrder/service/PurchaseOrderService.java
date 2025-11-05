@@ -29,6 +29,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
@@ -84,7 +88,7 @@ public class PurchaseOrderService {
                             .productId(detail.getProductId())
                             .productName(productName)
                             .quantity(detail.getQuantity())
-                            .approvedQuantity(detail.getQuantity())
+                            .approvedQuantity(0) // 대기중 상태이므로 승인 수량은 0
                             .unitPrice(detail.getSupplyPrice())
                             .subtotalPrice((long) detail.getQuantity() * detail.getSupplyPrice())
                             .build();
@@ -638,14 +642,20 @@ public class PurchaseOrderService {
                 .createdAt(purchaseOrder.getCreatedAt())
                 .updatedAt(purchaseOrder.getUpdatedAt())
                 .orderDetails(orderDetails.stream()
-                        .map(this::convertToDetailResponseDto)
+                        .map(detail -> convertToDetailResponseDto(detail, purchaseOrder.getOrderStatus()))
                         .collect(Collectors.toList()))
                 .build();
     }
 
-    private PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto convertToDetailResponseDto(PurchaseOrderDetail detail) {
+    private PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto convertToDetailResponseDto(PurchaseOrderDetail detail, OrderStatus orderStatus) {
         String productName = getProductName(detail.getProductId());
         String categoryName = getCategoryName(detail.getProductId());
+        
+        // 속성 정보 조회
+        List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes = getProductAttributes(detail.getProductId());
+
+        // 대기중 상태이면 승인 수량은 0으로 표시
+        int approvedQuantity = (orderStatus == OrderStatus.PENDING) ? 0 : detail.getApprovedQuantity();
 
         return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
                 .purchaseOrderDetailId(detail.getId())
@@ -653,10 +663,47 @@ public class PurchaseOrderService {
                 .productName(productName)
                 .categoryName(categoryName)
                 .quantity(detail.getQuantity())
-                .approvedQuantity(detail.getApprovedQuantity())
+                .approvedQuantity(approvedQuantity)
                 .unitPrice(detail.getUnitPrice())
                 .subtotalPrice(detail.getSubtotalPrice())
+                .attributes(attributes)
                 .build();
+    }
+
+    private List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> getProductAttributes(Long productId) {
+        try {
+            ResponseDto<List<OrderingInventoryClient.ProductAttributeValueResponseDto>> resp = 
+                    orderingInventoryClient.getProductAttributeValues(productId);
+            
+            if (resp == null || resp.data == null || resp.data.isEmpty()) {
+                return new ArrayList<>();
+            }
+            
+            // 속성 타입별로 그룹화
+            Map<Long, PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributeMap = new HashMap<>();
+            
+            for (OrderingInventoryClient.ProductAttributeValueResponseDto pav : resp.data) {
+                Long typeId = pav.attributeTypeId;
+                if (typeId == null) continue;
+
+                if (!attributeMap.containsKey(typeId)) {
+                    attributeMap.put(typeId, PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo.builder()
+                            .attributeTypeId(pav.attributeTypeId)
+                            .attributeTypeName(pav.attributeTypeName)
+                            .attributeValueId(pav.attributeValueId)
+                            .attributeValueName(pav.displayName)
+                            .build());
+                }
+            }
+            
+            // 최대 2개까지만 반환
+            return attributeMap.values().stream()
+                    .limit(2)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            // 속성 조회 실패 시 빈 리스트 반환
+            return new ArrayList<>();
+        }
     }
 
     // 언랩 + null 가드 추가
@@ -711,14 +758,19 @@ public class PurchaseOrderService {
         List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto> approvedDetailDtos = approvedDetails.stream()
                 .map(detail -> {
                     String productName = getProductName(detail.getProductId());
+                    String categoryName = getCategoryName(detail.getProductId());
+                    List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes = 
+                            getProductAttributes(detail.getProductId());
                     return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
                             .purchaseOrderDetailId(detail.getId())
                             .productId(detail.getProductId())
                             .productName(productName)
+                            .categoryName(categoryName)
                             .quantity(detail.getApprovedQuantity())
                             .approvedQuantity(detail.getApprovedQuantity())
                             .unitPrice(detail.getUnitPrice())
                             .subtotalPrice(detail.getApprovedQuantity() * detail.getUnitPrice())
+                            .attributes(attributes)
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -814,10 +866,15 @@ public class PurchaseOrderService {
                 .filter(detail -> detail.getApprovedQuantity() > 0)
                 .map(detail -> {
                     String productName = getProductName(detail.getProductId());
+                    String categoryName = getCategoryName(detail.getProductId());
+                    List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes = 
+                            getProductAttributes(detail.getProductId());
                     return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
                             .purchaseOrderDetailId(detail.getId())
                             .productId(detail.getProductId())
                             .productName(productName)
+                            .categoryName(categoryName)
+                            .attributes(attributes)
                             .quantity(detail.getApprovedQuantity())
                             .approvedQuantity(detail.getApprovedQuantity())
                             .unitPrice(detail.getUnitPrice())
