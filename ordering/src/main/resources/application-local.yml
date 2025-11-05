@@ -51,7 +51,7 @@ spring:
       max-request-size: 1000MB
   kafka:
     enabled: true
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9093
     consumer:
       group-id: ordering-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer

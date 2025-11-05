@@ -1,16 +1,13 @@
 package com.careup.ordering.domain.recomendation.service;
 
-import com.careup.ordering.domain.product.entity.Category;
-import com.careup.ordering.domain.product.entity.Product;
-import com.careup.ordering.domain.product.entity.ProductAttribute;
-import com.careup.ordering.domain.product.repository.CategoryRepository;
-import com.careup.ordering.domain.product.repository.ProductAttributeRepository;
-import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.careup.ordering.domain.product.entity.*;
+import com.careup.ordering.domain.product.repository.*;
 import com.careup.ordering.domain.recomendation.config.QdrantClientWrapper;
 import com.careup.ordering.domain.recomendation.config.VectorEncoder;
 import com.careup.ordering.domain.recomendation.dto.ProductWithSimilarity;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.grpc.Points;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -33,11 +30,10 @@ import java.util.stream.Collectors;
 @Transactional
 @Slf4j
 public class QdrantService {
-    private final ProductAttributeRepository productAttributeRepository;
+    private final ProductRepository productRepository;
     private final QdrantClientWrapper qdrantClientWrapper;
     private final VectorEncoder vectorEncoder;
-    private final ProductRepository productRepository;
-
+    private final AttributeValueRepository attributeValueRepository;
     @Transactional
     public void saveProduct(Product product) {
         long price = (product.getMaxPrice() + product.getMinPrice()) / 2;
@@ -45,9 +41,9 @@ public class QdrantService {
         features.put("category", product.getCategory().getName());
         features.put("price", String.valueOf(price));
 
-        List<ProductAttribute> list = productAttributeRepository.findAllByProductId(product.getId());
-        for (ProductAttribute pa : list) {
-            features.put(pa.getAttributeName(), pa.getAttributeValue());
+        List<ProductAttributeValue> list = product.getProductAttributeValues();
+        for (ProductAttributeValue pa : list) {
+            extracted(pa, features);
         }
 
         float[] vector = vectorEncoder.encode(features, product);
@@ -69,8 +65,10 @@ public class QdrantService {
         long price = (product.getMaxPrice() + product.getMinPrice()) / 2;
         features.put("price", String.valueOf(price));
 
-        productAttributeRepository.findAllByProductId(product.getId())
-                .forEach(pa -> features.put(pa.getAttributeName(), pa.getAttributeValue()));
+        product.getProductAttributeValues()
+                .forEach(pa -> {
+                    extracted(pa, features);
+                });
 
         float[] queryVector = vectorEncoder.encode(features, product);
 
@@ -95,7 +93,11 @@ public class QdrantService {
         return list;
     }
 
-
+    private void extracted(ProductAttributeValue pa, Map<String, String> features) {
+        AttributeValue av = attributeValueRepository.findById(pa.getAttributeValue().getId()).orElseThrow(()-> new EntityNotFoundException("존재 하지 않는 상품 속성입니다."));
+        AttributeType at = av.getAttributeType();
+        features.put(at.getName(), av.getValue());
+    }
 
 
 }
