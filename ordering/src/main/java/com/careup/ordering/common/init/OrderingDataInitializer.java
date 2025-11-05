@@ -142,7 +142,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
         // 색상 속성 값
         AttributeValue white = AttributeValue.builder()
                 .attributeType(colorType)
-                .value("white")
                 .displayName("화이트")
                 .displayOrder(1)
                 .isActive(true)
@@ -151,7 +150,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
 
         AttributeValue black = AttributeValue.builder()
                 .attributeType(colorType)
-                .value("black")
                 .displayName("블랙")
                 .displayOrder(2)
                 .isActive(true)
@@ -160,7 +158,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
 
         AttributeValue brown = AttributeValue.builder()
                 .attributeType(colorType)
-                .value("brown")
                 .displayName("브라운")
                 .displayOrder(3)
                 .isActive(true)
@@ -170,7 +167,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
         // 사이즈 속성 값
         AttributeValue small = AttributeValue.builder()
                 .attributeType(sizeType)
-                .value("small")
                 .displayName("S")
                 .displayOrder(1)
                 .isActive(true)
@@ -179,7 +175,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
 
         AttributeValue medium = AttributeValue.builder()
                 .attributeType(sizeType)
-                .value("medium")
                 .displayName("M")
                 .displayOrder(2)
                 .isActive(true)
@@ -188,7 +183,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
 
         AttributeValue large = AttributeValue.builder()
                 .attributeType(sizeType)
-                .value("large")
                 .displayName("L")
                 .displayOrder(3)
                 .isActive(true)
@@ -198,7 +192,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
         // 온도 속성 값
         AttributeValue hot = AttributeValue.builder()
                 .attributeType(temperatureType)
-                .value("hot")
                 .displayName("핫")
                 .displayOrder(1)
                 .isActive(true)
@@ -207,7 +200,6 @@ public class OrderingDataInitializer implements CommandLineRunner {
 
         AttributeValue ice = AttributeValue.builder()
                 .attributeType(temperatureType)
-                .value("ice")
                 .displayName("아이스")
                 .displayOrder(2)
                 .isActive(true)
@@ -512,9 +504,9 @@ public class OrderingDataInitializer implements CommandLineRunner {
         // 속성 타입 및 값 조회
         AttributeType temperatureType = attributeTypeRepository.findByName("온도")
                 .orElseThrow(() -> new RuntimeException("온도 속성 타입을 찾을 수 없습니다."));
-        AttributeValue hot = attributeValueRepository.findByAttributeTypeAndValue(temperatureType, "hot")
+        AttributeValue hot = attributeValueRepository.findByAttributeTypeAndDisplayName(temperatureType, "핫")
                 .orElseThrow(() -> new RuntimeException("핫 속성 값을 찾을 수 없습니다."));
-        AttributeValue ice = attributeValueRepository.findByAttributeTypeAndValue(temperatureType, "ice")
+        AttributeValue ice = attributeValueRepository.findByAttributeTypeAndDisplayName(temperatureType, "아이스")
                 .orElseThrow(() -> new RuntimeException("아이스 속성 값을 찾을 수 없습니다."));
 
         // 음료 카테고리의 상품들에 온도 속성 값 추가

@@ -31,9 +31,9 @@ public class AttributeValueService {
         AttributeType attributeType = attributeTypeRepository.findById(request.getAttributeTypeId())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 속성 타입입니다: " + request.getAttributeTypeId()));
         
-        // 중복 확인
-        if (attributeValueRepository.existsByAttributeTypeAndValue(attributeType, request.getValue())) {
-            throw new IllegalArgumentException("이미 존재하는 속성 값입니다: " + request.getValue());
+        // 중복 확인 (displayName 기준)
+        if (attributeValueRepository.existsByAttributeTypeAndDisplayName(attributeType, request.getDisplayName())) {
+            throw new IllegalArgumentException("이미 존재하는 속성 값입니다: " + request.getDisplayName());
         }
         
         AttributeValue attributeValue = request.toEntity(attributeType);
@@ -62,15 +62,20 @@ public class AttributeValueService {
         
         List<AttributeValue> attributeValues = request.getValues().stream()
                 .map(item -> {
-                    // 중복 확인
-                    if (attributeValueRepository.existsByAttributeTypeAndValue(attributeType, item.getValue())) {
-                        throw new IllegalArgumentException("이미 존재하는 속성 값입니다: " + item.getValue());
+                    String displayName = item.getDisplayName();
+                    
+                    if (displayName == null || displayName.trim().isEmpty()) {
+                        throw new IllegalArgumentException("속성 값 이름은 필수입니다.");
+                    }
+                    
+                    // 중복 확인 (displayName 기준)
+                    if (attributeValueRepository.existsByAttributeTypeAndDisplayName(attributeType, displayName)) {
+                        throw new IllegalArgumentException("이미 존재하는 속성 값입니다: " + displayName);
                     }
                     
                     return AttributeValue.builder()
                             .attributeType(attributeType)
-                            .value(item.getValue())
-                            .displayName(item.getDisplayName() != null ? item.getDisplayName() : item.getValue())
+                            .displayName(displayName)
                             .displayOrder(item.getDisplayOrder() != null ? item.getDisplayOrder() : 0)
                             .isActive(true)
                             .build();
@@ -92,15 +97,14 @@ public class AttributeValueService {
         AttributeValue attributeValue = attributeValueRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 속성 값입니다: " + id));
         
-        // 값 변경 시 중복 확인
-        if (request.getValue() != null && !request.getValue().equals(attributeValue.getValue())) {
-            if (attributeValueRepository.existsByAttributeTypeAndValue(attributeValue.getAttributeType(), request.getValue())) {
-                throw new IllegalArgumentException("이미 존재하는 속성 값입니다: " + request.getValue());
+        // 표시명 변경 시 중복 확인
+        if (request.getDisplayName() != null && !request.getDisplayName().equals(attributeValue.getDisplayName())) {
+            if (attributeValueRepository.existsByAttributeTypeAndDisplayName(attributeValue.getAttributeType(), request.getDisplayName())) {
+                throw new IllegalArgumentException("이미 존재하는 속성 값입니다: " + request.getDisplayName());
             }
         }
         
         attributeValue.updateInfo(
-                request.getValue(),
                 request.getDisplayName(),
                 request.getDisplayOrder(),
                 request.getIsActive()
