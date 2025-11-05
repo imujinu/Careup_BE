@@ -14,4 +14,5 @@ public class BranchProductRequestDto {
     private Long stockQuantity;
     private Long safetyStock;
     private Long price;
+    private Long attributeValueId; // 사이즈별 재고 관리를 위한 속성 값 ID (선택사항)
 }

@@ -20,11 +20,11 @@ import org.springframework.data.elasticsearch.annotations.Setting;
 @Builder
 public class ProductDocument {
 
-    // Elasticsearch _id 로 사용 */
+    // Elasticsearch _id 로 사용 /
     @Id
     private String id;
 
-    // 비즈니스 PK(상품 PK)는 별도 필드로 저장 */
+    // 비즈니스 PK(상품 PK)는 별도 필드로 저장/
     @Field(type = FieldType.Long)
     private Long productId;
 

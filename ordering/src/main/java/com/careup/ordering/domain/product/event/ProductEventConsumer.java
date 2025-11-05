@@ -1,8 +1,8 @@
 package com.careup.ordering.domain.product.event;
 
 // Elasticsearch 관련 import 주석처리
-//import com.careup.ordering.domain.product.elastic.document.ProductDocument;
-//import com.careup.ordering.domain.product.elastic.repository.ProductSearchRepository;
+import com.careup.ordering.domain.product.elastic.document.ProductDocument;
+import com.careup.ordering.domain.product.elastic.repository.ProductSearchRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -15,8 +15,7 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "spring.kafka.enabled", havingValue = "true")
 public class ProductEventConsumer {
 
-    // Elasticsearch 관련 리포지토리 주석처리
-    //private final ProductSearchRepository productSearchRepository;
+    private final ProductSearchRepository productSearchRepository;
 
     @KafkaListener(topics = "product-events", groupId = "ordering-group")
     public void handleProductEvent(ProductEvent event) {
@@ -26,7 +25,6 @@ public class ProductEventConsumer {
             switch (event.getEventType()) {
                 case CREATED, UPDATED -> {
                     // Elasticsearch 관련 코드 주석처리
-                    /*
                     ProductDocument document = ProductDocument.builder()
                             .id(String.valueOf(event.getProductId()))
                             .productId(event.getProductId())
@@ -41,14 +39,12 @@ public class ProductEventConsumer {
                             .build();
                     productSearchRepository.save(document);
                     log.info("Product document saved to Elasticsearch: {}", event.getProductId());
-                    */
                 }
                 case DELETED -> {
+
                     // Elasticsearch 관련 코드 주석처리
-                    /*
                     productSearchRepository.deleteById(String.valueOf(event.getProductId()));
                     log.info("Product document deleted from Elasticsearch: {}", event.getProductId());
-                    */
                 }
             }
         } catch (Exception e) {

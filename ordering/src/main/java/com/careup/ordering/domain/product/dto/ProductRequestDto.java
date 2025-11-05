@@ -18,6 +18,4 @@ public class ProductRequestDto {
     private Long maxPrice;
     private String imageUrl;
     private String visibility;
-    // 상품 속성
-    private List<ProductAttributeRequestDto> attributes;
 }

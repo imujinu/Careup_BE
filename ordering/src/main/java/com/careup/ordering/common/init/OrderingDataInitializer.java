@@ -8,18 +8,28 @@ import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Visibility;
+import com.careup.ordering.domain.product.entity.AttributeType;
+import com.careup.ordering.domain.product.entity.AttributeValue;
+import com.careup.ordering.domain.product.entity.CategoryAttribute;
+import com.careup.ordering.domain.product.entity.ProductAttributeValue;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
+import com.careup.ordering.domain.product.repository.AttributeTypeRepository;
+import com.careup.ordering.domain.product.repository.AttributeValueRepository;
+import com.careup.ordering.domain.product.repository.CategoryAttributeRepository;
+import com.careup.ordering.domain.product.repository.ProductAttributeValueRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -30,6 +40,10 @@ public class OrderingDataInitializer implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final BranchProductRepository branchProductRepository;
     private final CategoryRepository categoryRepository;
+    private final AttributeTypeRepository attributeTypeRepository;
+    private final AttributeValueRepository attributeValueRepository;
+    private final CategoryAttributeRepository categoryAttributeRepository;
+    private final ProductAttributeValueRepository productAttributeValueRepository;
 
     @Value("${app.product-image-base-url:}")
     private String productImageBaseUrl;
@@ -82,8 +96,125 @@ public class OrderingDataInitializer implements CommandLineRunner {
                 "3층 카페존"
         );
 
+        // 속성 타입 및 값 생성
+        createAttributeTypesAndValues();
+        
         // 카테고리 및 상품/재고 생성
         createCategoriesAndProducts();
+    }
+
+    /**
+     * 속성 타입 및 값 초기 데이터 생성
+     */
+    private void createAttributeTypesAndValues() {
+        // 이미 데이터가 있으면 생성 스킵
+        if (attributeTypeRepository.count() > 0) {
+            System.out.println("속성 타입이 이미 존재합니다. 초기 데이터 생성을 건너뜁니다.");
+            return;
+        }
+
+        // 1. 속성 타입 생성
+        AttributeType colorType = AttributeType.builder()
+                .name("색상")
+                .description("상품의 색상")
+                .isRequired(true)
+                .displayOrder(1)
+                .build();
+        attributeTypeRepository.save(colorType);
+
+        AttributeType sizeType = AttributeType.builder()
+                .name("사이즈")
+                .description("상품의 크기")
+                .isRequired(false)
+                .displayOrder(2)
+                .build();
+        attributeTypeRepository.save(sizeType);
+
+        AttributeType temperatureType = AttributeType.builder()
+                .name("온도")
+                .description("음료 온도")
+                .isRequired(false)
+                .displayOrder(3)
+                .build();
+        attributeTypeRepository.save(temperatureType);
+
+        // 2. 속성 값 생성
+        // 색상 속성 값
+        AttributeValue white = AttributeValue.builder()
+                .attributeType(colorType)
+                .value("white")
+                .displayName("화이트")
+                .displayOrder(1)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(white);
+
+        AttributeValue black = AttributeValue.builder()
+                .attributeType(colorType)
+                .value("black")
+                .displayName("블랙")
+                .displayOrder(2)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(black);
+
+        AttributeValue brown = AttributeValue.builder()
+                .attributeType(colorType)
+                .value("brown")
+                .displayName("브라운")
+                .displayOrder(3)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(brown);
+
+        // 사이즈 속성 값
+        AttributeValue small = AttributeValue.builder()
+                .attributeType(sizeType)
+                .value("small")
+                .displayName("S")
+                .displayOrder(1)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(small);
+
+        AttributeValue medium = AttributeValue.builder()
+                .attributeType(sizeType)
+                .value("medium")
+                .displayName("M")
+                .displayOrder(2)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(medium);
+
+        AttributeValue large = AttributeValue.builder()
+                .attributeType(sizeType)
+                .value("large")
+                .displayName("L")
+                .displayOrder(3)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(large);
+
+        // 온도 속성 값
+        AttributeValue hot = AttributeValue.builder()
+                .attributeType(temperatureType)
+                .value("hot")
+                .displayName("핫")
+                .displayOrder(1)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(hot);
+
+        AttributeValue ice = AttributeValue.builder()
+                .attributeType(temperatureType)
+                .value("ice")
+                .displayName("아이스")
+                .displayOrder(2)
+                .isActive(true)
+                .build();
+        attributeValueRepository.save(ice);
+
+        System.out.println("속성 타입 및 값 생성 완료");
     }
 
     private void createCategoriesAndProducts() {
@@ -131,6 +262,9 @@ public class OrderingDataInitializer implements CommandLineRunner {
         categoryRepository.save(snackCategory);
 
         System.out.println("카테고리 생성 완료");
+
+        // 카테고리에 속성 타입 연결
+        connectAttributesToCategories();
 
         // 2. 상품 생성 (음료)
         createProduct(beverageCategory, "아메리카노", "고소한 원두향이 가득한 아메리카노", 2500L, 3500L, 4500L, "/images/americano.jpg");
@@ -185,6 +319,9 @@ public class OrderingDataInitializer implements CommandLineRunner {
         createProduct(snackCategory, "초코바", "달콤한 초코바", 1500L, 2000L, 3000L, "/images/choco_bar.jpg");
 
         System.out.println("상품 생성 완료: 총 " + productRepository.count() + "개");
+
+        // 상품에 속성 값 연결
+        connectAttributeValuesToProducts();
 
         // 8. 지점별 재고 생성 (branchId 1~5 가정)
         createBranchInventory();
@@ -311,6 +448,107 @@ public class OrderingDataInitializer implements CommandLineRunner {
         memberRepository.save(m);
     }
 
+
+    /**
+     * 카테고리에 속성 타입 연결
+     */
+    private void connectAttributesToCategories() {
+        // 속성 타입 조회
+        AttributeType colorType = attributeTypeRepository.findByName("색상")
+                .orElseThrow(() -> new RuntimeException("색상 속성 타입을 찾을 수 없습니다."));
+        AttributeType sizeType = attributeTypeRepository.findByName("사이즈")
+                .orElseThrow(() -> new RuntimeException("사이즈 속성 타입을 찾을 수 없습니다."));
+        AttributeType temperatureType = attributeTypeRepository.findByName("온도")
+                .orElseThrow(() -> new RuntimeException("온도 속성 타입을 찾을 수 없습니다."));
+
+        // 카테고리 조회
+        Category beverageCategory = categoryRepository.findByName("음료");
+        if (beverageCategory == null) {
+            throw new RuntimeException("음료 카테고리를 찾을 수 없습니다.");
+        }
+        Category dessertCategory = categoryRepository.findByName("디저트");
+        if (dessertCategory == null) {
+            throw new RuntimeException("디저트 카테고리를 찾을 수 없습니다.");
+        }
+        Category bakeryCategory = categoryRepository.findByName("베이커리");
+        if (bakeryCategory == null) {
+            throw new RuntimeException("베이커리 카테고리를 찾을 수 없습니다.");
+        }
+
+        // 음료 카테고리에 온도 속성 추가
+        CategoryAttribute beverageTemperature = CategoryAttribute.builder()
+                .category(beverageCategory)
+                .attributeType(temperatureType)
+                .isRequired(false)
+                .displayOrder(1)
+                .build();
+        categoryAttributeRepository.save(beverageTemperature);
+
+        // 디저트 카테고리에 색상 속성 추가
+        CategoryAttribute dessertColor = CategoryAttribute.builder()
+                .category(dessertCategory)
+                .attributeType(colorType)
+                .isRequired(false)
+                .displayOrder(1)
+                .build();
+        categoryAttributeRepository.save(dessertColor);
+
+        // 베이커리 카테고리에 사이즈 속성 추가
+        CategoryAttribute bakerySize = CategoryAttribute.builder()
+                .category(bakeryCategory)
+                .attributeType(sizeType)
+                .isRequired(false)
+                .displayOrder(1)
+                .build();
+        categoryAttributeRepository.save(bakerySize);
+
+        System.out.println("카테고리-속성 연결 완료");
+    }
+
+    /**
+     * 상품에 속성 값 연결
+     */
+    private void connectAttributeValuesToProducts() {
+        // 속성 타입 및 값 조회
+        AttributeType temperatureType = attributeTypeRepository.findByName("온도")
+                .orElseThrow(() -> new RuntimeException("온도 속성 타입을 찾을 수 없습니다."));
+        AttributeValue hot = attributeValueRepository.findByAttributeTypeAndValue(temperatureType, "hot")
+                .orElseThrow(() -> new RuntimeException("핫 속성 값을 찾을 수 없습니다."));
+        AttributeValue ice = attributeValueRepository.findByAttributeTypeAndValue(temperatureType, "ice")
+                .orElseThrow(() -> new RuntimeException("아이스 속성 값을 찾을 수 없습니다."));
+
+        // 음료 카테고리의 상품들에 온도 속성 값 추가
+        Category beverageCategory = categoryRepository.findByName("음료");
+        if (beverageCategory == null) {
+            throw new RuntimeException("음료 카테고리를 찾을 수 없습니다.");
+        }
+        
+        List<Product> beverageProducts = productRepository.findByCategoryId(beverageCategory.getId(), Pageable.unpaged()).getContent();
+        
+        // 일부 음료에 핫 속성, 일부에 아이스 속성 추가
+        for (int i = 0; i < beverageProducts.size(); i++) {
+            Product product = beverageProducts.get(i);
+            
+            // 첫 번째 상품은 핫만, 나머지는 아이스만 추가 (예시)
+            if (i == 0) {
+                ProductAttributeValue pav = ProductAttributeValue.builder()
+                        .product(product)
+                        .attributeValue(hot)
+                        .customValue(null)
+                        .build();
+                productAttributeValueRepository.save(pav);
+            } else {
+                ProductAttributeValue pav = ProductAttributeValue.builder()
+                        .product(product)
+                        .attributeValue(ice)
+                        .customValue(null)
+                        .build();
+                productAttributeValueRepository.save(pav);
+            }
+        }
+
+        System.out.println("상품-속성 값 연결 완료");
+    }
 
     private void createDummyProductsAndInventory() {
         // 이 메서드는 더 이상 사용하지 않습니다. createCategoriesAndProducts()로 통합되었습니다.
