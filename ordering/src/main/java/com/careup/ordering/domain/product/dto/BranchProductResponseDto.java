@@ -26,6 +26,10 @@ public class BranchProductResponseDto {
     private String productDescription;
     private String categoryName;
     private Long categoryId;
+    // 사이즈 정보 (속성 값)
+    private Long attributeValueId;
+    private String attributeValueName;    // 예: "S", "M", "L"
+    private String attributeTypeName;     // 예: "사이즈", "색상"
     private Boolean hasPromotion;          // 프로모션 적용 여부
     private Long promotionId;              // 프로모션 ID
     private BigDecimal discountRate;       // 할인율 (%)
@@ -52,6 +56,14 @@ public class BranchProductResponseDto {
                     branchProduct.getProduct().getCategory().getName() : null)
                 .categoryId(branchProduct.getProduct().getCategory() != null ?
                     branchProduct.getProduct().getCategory().getId() : null)
+                // 사이즈 정보
+                .attributeValueId(branchProduct.getAttributeValue() != null ?
+                    branchProduct.getAttributeValue().getId() : null)
+                .attributeValueName(branchProduct.getAttributeValue() != null ?
+                    branchProduct.getAttributeValue().getDisplayName() : null)
+                .attributeTypeName(branchProduct.getAttributeValue() != null &&
+                    branchProduct.getAttributeValue().getAttributeType() != null ?
+                    branchProduct.getAttributeValue().getAttributeType().getName() : null)
                 // 프로모션 정보 기본값
                 .hasPromotion(false)
                 .promotionId(null)
@@ -79,6 +91,18 @@ public class BranchProductResponseDto {
                 .price(branchProduct.getPrice())
                 .productName(branchProduct.getProduct().getName())
                 .productDescription(branchProduct.getProduct().getDescription())
+                .categoryName(branchProduct.getProduct().getCategory() != null ?
+                    branchProduct.getProduct().getCategory().getName() : null)
+                .categoryId(branchProduct.getProduct().getCategory() != null ?
+                    branchProduct.getProduct().getCategory().getId() : null)
+                // 사이즈 정보
+                .attributeValueId(branchProduct.getAttributeValue() != null ?
+                    branchProduct.getAttributeValue().getId() : null)
+                .attributeValueName(branchProduct.getAttributeValue() != null ?
+                    branchProduct.getAttributeValue().getDisplayName() : null)
+                .attributeTypeName(branchProduct.getAttributeValue() != null &&
+                    branchProduct.getAttributeValue().getAttributeType() != null ?
+                    branchProduct.getAttributeValue().getAttributeType().getName() : null)
                 // 프로모션 정보
                 .hasPromotion(promotionPrice.isHasPromotion()) // 수정: getHasPromotion() → isHasPromotion()
                 .promotionId(promotionPrice.getPromotionId())
