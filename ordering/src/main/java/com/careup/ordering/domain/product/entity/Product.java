@@ -56,8 +56,8 @@ public class Product extends BaseTimeEntity {
     @Column(name = "visibility", nullable = false)
     private Visibility visibility;
 
-    @OneToMany(mappedBy = "product",cascade = CascadeType.ALL)
-    private List<ProductAttribute> attributes = new ArrayList<>();
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductAttributeValue> productAttributeValues = new ArrayList<>();
 
     @Builder
     public Product(Category category, String name, String description,

@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -12,6 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PurchaseOrderEventDto {
     
     private Long purchaseOrderId;
@@ -29,16 +31,20 @@ public class PurchaseOrderEventDto {
         REJECTED,
         PARTIAL,
         SHIPPED,
-        COMPLETED
+        COMPLETED,
+        CANCELLED
     }
     
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PurchaseOrderDetailEventDto {
         private Long purchaseOrderDetailId;
         private Long productId;
+        private String productName; // branch에서 전송되는 필드, 무시됨
+        private String categoryName; // branch에서 전송되는 필드, 무시됨
         private int quantity;
         private int approvedQuantity;
         private long unitPrice;

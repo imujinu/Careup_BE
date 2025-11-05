@@ -1,5 +1,6 @@
 package com.careup.ordering.common.config;
 
+import com.careup.ordering.domain.product.dto.PurchaseOrderEventDto;
 import com.careup.ordering.domain.product.event.ProductEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -80,7 +81,7 @@ public class KafkaConfig {
         config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
-        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.careup.ordering");
+        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.careup.ordering,com.careup.branch.domain.purchaseOrder.dto");
         config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProductEvent.class.getName());
         return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(),
                 new JsonDeserializer<>(ProductEvent.class));
@@ -91,6 +92,30 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, ProductEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
+        return factory;
+    }
+
+    // PurchaseOrder Consumer Configuration
+    @Bean
+    public ConsumerFactory<String, PurchaseOrderEventDto> purchaseOrderConsumerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.careup.ordering,com.careup.branch.domain.purchaseOrder.dto");
+        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, PurchaseOrderEventDto.class.getName());
+        // 타입 헤더를 무시하고 항상 PurchaseOrderEventDto로 역직렬화
+        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(),
+                new JsonDeserializer<>(PurchaseOrderEventDto.class, false));
+    }
+
+    @Bean("purchaseOrderKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, PurchaseOrderEventDto> purchaseOrderKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, PurchaseOrderEventDto> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(purchaseOrderConsumerFactory());
         return factory;
     }
 }

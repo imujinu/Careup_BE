@@ -83,18 +83,6 @@ public class ProductService {
                 .visibility(visibilityEnum)
                 .build();
 
-        // 속성이 있으면 함께 저장
-        if (request.getAttributes() != null && !request.getAttributes().isEmpty()) {
-            request.getAttributes().forEach(attrDto -> {
-                ProductAttribute attribute = ProductAttribute.builder()
-                        .product(product)
-                        .attributeName(attrDto.getAttributeName())
-                        .attributeValue(attrDto.getAttributeValue())
-                        .build();
-                product.getAttributes().add(attribute);
-            });
-        }
-
         Product savedProduct = productRepository.save(product);
         return ProductResponseDto.from(savedProduct);
     }
@@ -171,20 +159,6 @@ public class ProductService {
                 request.getMaxPrice(),
                 newImageUrl != null ? newImageUrl : request.getImageUrl()
         );
-
-        // 속성 업데이트
-        if (request.getAttributes() != null) {
-            product.getAttributes().clear();
-
-            request.getAttributes().forEach(attrDto -> {
-                ProductAttribute attribute = ProductAttribute.builder()
-                        .product(product)
-                        .attributeName(attrDto.getAttributeName())
-                        .attributeValue(attrDto.getAttributeValue())
-                        .build();
-                product.getAttributes().add(attribute);
-            });
-        }
 
         Product updatedProduct = productRepository.save(product);
         return ProductResponseDto.from(updatedProduct);
