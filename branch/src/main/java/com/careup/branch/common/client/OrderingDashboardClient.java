@@ -11,10 +11,10 @@ import java.util.Map;
 
 /**
  * Ordering 서비스의 대시보드 관련 API를 호출하는 FeignClient
+ * Eureka를 통해 ordering-service와 직접 통신
  */
 @FeignClient(
-        name = "ordering-dashboard-service",
-        url = "${feign.ordering.url:http://localhost:8080}",
+        name = "ordering-service",
         configuration = FeignConfig.class
 )
 public interface OrderingDashboardClient {

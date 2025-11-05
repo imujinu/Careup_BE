@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "branch-service", url = "${feign.branch.url:http://localhost:8081}")
+@FeignClient(name = "branch-service")
 public interface BranchClient {
 
     /**
