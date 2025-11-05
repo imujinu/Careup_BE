@@ -17,5 +17,9 @@ public class InventoryFlowResponseDto {
     private Long outQuantity;
     private String remark;
     private String createdAt;
+    // 사이즈 정보 (속성 값)
+    private Long attributeValueId;
+    private String attributeValueName;    // 예: "S", "M", "L"
+    private String attributeTypeName;     // 예: "사이즈", "색상"
 }
 

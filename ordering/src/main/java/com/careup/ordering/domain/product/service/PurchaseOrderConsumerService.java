@@ -16,7 +16,7 @@ public class PurchaseOrderConsumerService {
     private final BranchProductRepository branchProductRepository;
 
     // 발주 승인 이벤트 수신 및 재고 차감
-    @KafkaListener(topics = "purchase-order-approved", groupId = "ordering-group")
+    @KafkaListener(topics = "purchase-order-approved", groupId = "ordering-group", containerFactory = "purchaseOrderKafkaListenerContainerFactory")
     public void handlePurchaseOrderApproved(PurchaseOrderEventDto event) {
         
         try {
@@ -44,7 +44,7 @@ public class PurchaseOrderConsumerService {
    }
 
    // 발주 입고 완료 이벤트 수신 및 가맹점 재고 증가 처리
-   @KafkaListener(topics = "purchase-order-completed", groupId = "ordering-group")
+   @KafkaListener(topics = "purchase-order-completed", groupId = "ordering-group", containerFactory = "purchaseOrderKafkaListenerContainerFactory")
    public void handlePurchaseOrderCompleted(PurchaseOrderEventDto event) {
        try {
            // 가맹점 재고 증가

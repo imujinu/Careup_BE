@@ -1,6 +1,7 @@
 package com.careup.ordering.domain.product.dto;
 
 import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.dto.ProductAttributeValueDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,8 +26,8 @@ public class ProductResponseDto {
     private String imageUrl;
     private String status;
     private String visibility;
-    // 상품 속성
-    private List<ProductAttributeResponseDto> attributes;
+    // 상품 속성 값 (새로운 구조)
+    private List<ProductAttributeValueDto.Response> attributeValues;
 
     /**
      * Entity → DTO 변환 정적 메서드
@@ -57,10 +58,10 @@ public class ProductResponseDto {
                 .imageUrl(product.getImageUrl())
                 .status(product.getStatus().toString())
                 .visibility(product.getVisibility().toString())
-                // 속성도 함께 변환
-                .attributes(product.getAttributes() != null ? 
-                        product.getAttributes().stream()
-                                .map(ProductAttributeResponseDto::from)
+                // 속성 값도 함께 변환 (새로운 구조)
+                .attributeValues(product.getProductAttributeValues() != null ? 
+                        product.getProductAttributeValues().stream()
+                                .map(ProductAttributeValueDto.Response::from)
                                 .collect(Collectors.toList()) : 
                         List.of())
                 .build();
