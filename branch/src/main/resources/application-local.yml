@@ -37,9 +37,15 @@ spring:
       max-file-size: 1000MB
       max-request-size: 1000MB
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9093
+    streams:
+      application-id: branch-service     # Streams 애플리케이션 ID
+      replication-factor: 1
+      state-dir: /tmp/kafka-streams
     consumer:
       group-id: test-topic-group-01
+      auto-offset-reset: earliest
+
   mail:
     host: smtp.gmail.com
     port: 587
