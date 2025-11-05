@@ -124,6 +124,9 @@ public interface OrderingInventoryClient {
         public Long price;
         public String productName;
         public String productDescription;
+        public Long attributeValueId;
+        public String attributeValueName;
+        public String attributeTypeName;
     }
 
     // 안전재고 설정

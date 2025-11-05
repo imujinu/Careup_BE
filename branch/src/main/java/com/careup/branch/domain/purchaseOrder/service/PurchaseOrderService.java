@@ -102,7 +102,7 @@ public class PurchaseOrderService {
         orderDetails.forEach(purchaseOrderDetailRepository::save);
 
         // 6) 본사 재고 예약 (요청 시점 소프트 예약) - 실패 시 롤백
-        reserveHqStocksOrThrow(savedOrder, orderDetails);
+        reserveHqStocksOrThrow(savedOrder, orderDetails, requestDto);
 
         //[알림 - 발주 요청]
         Branch branch = branchRepository.findById(requestDto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
@@ -165,7 +165,7 @@ public class PurchaseOrderService {
 
 
             // 본사 재고 예약 (자동 발주도 동일 정책)
-            reserveHqStocksOrThrow(savedOrder, savedDetails);
+            reserveHqStocksOrThrow(savedOrder, savedDetails, requestDto);
 
             return convertToCompletedResponseDto(savedOrder, savedDetails);
 
@@ -174,11 +174,46 @@ public class PurchaseOrderService {
         }
     }
 
-    private void reserveHqStocksOrThrow(PurchaseOrder savedOrder, List<PurchaseOrderDetail> orderDetails) {
+    private void reserveHqStocksOrThrow(PurchaseOrder savedOrder, List<PurchaseOrderDetail> orderDetails, PurchaseOrderRequestDto requestDto) {
         Long hqBranchId = 1L;
+        
+        // 요청 DTO에서 attributeValueId 가져오기 (자동발주용)
+        Map<Long, Long> productIdToAttributeValueId = new HashMap<>();
+        if (requestDto != null && requestDto.getOrderDetails() != null) {
+            for (PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto detailDto : requestDto.getOrderDetails()) {
+                if (detailDto.getAttributeValueId() != null) {
+                    productIdToAttributeValueId.put(detailDto.getProductId(), detailDto.getAttributeValueId());
+                }
+            }
+        }
+        
         for (PurchaseOrderDetail detail : orderDetails) {
             try {
-                OrderingInventoryClient.BranchProductResponseDto hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
+                OrderingInventoryClient.BranchProductResponseDto hqBp = null;
+                
+                // attributeValueId가 있으면 해당 속성 조합으로 찾기
+                Long attributeValueId = productIdToAttributeValueId.get(detail.getProductId());
+                if (attributeValueId != null) {
+                    // 본사의 모든 BranchProduct 중에서 동일한 attributeValueId를 가진 것 찾기
+                    List<OrderingInventoryClient.BranchProductResponseDto> hqProducts = 
+                        orderingInventoryClient.getBranchProducts(hqBranchId);
+                    hqBp = hqProducts.stream()
+                        .filter(bp -> bp.productId != null && bp.productId.equals(detail.getProductId()) 
+                                && bp.attributeValueId != null && bp.attributeValueId.equals(attributeValueId))
+                        .findFirst()
+                        .orElse(null);
+                    
+                    if (hqBp == null) {
+                        log.warn("본사 재고를 찾을 수 없습니다 (attributeValueId로 검색): productId={}, attributeValueId={}", 
+                            detail.getProductId(), attributeValueId);
+                    }
+                }
+                
+                // attributeValueId로 찾지 못했거나 없는 경우, 기존 방식으로 찾기
+                if (hqBp == null) {
+                    hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
+                }
+                
                 if (hqBp == null || hqBp.branchProductId == null) {
                     throw new IllegalStateException("본사 재고를 찾을 수 없습니다. productId=" + detail.getProductId());
                 }
