@@ -31,8 +31,8 @@ public class MemberQueryController {
         );
     }
 
-    // 상품 조회수 업데이트
-    @PatchMapping("/product/{productId}")
+    // 최근 조회 상품 업데이트
+    @PostMapping("/product/{productId}")
     public ResponseEntity<?> viewProduct(@PathVariable Long productId, @RequestParam Long memberId) {
         memberQueryService.viewProduct(productId, memberId);
         return new ResponseEntity<>(new CommonSuccessDto("최근 조회 상품 업데이트 성공", HttpStatus.OK.value(), "최근 조회 상품 업데이트 성공"), HttpStatus.OK);

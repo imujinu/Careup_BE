@@ -36,7 +36,7 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show_sql: true
   servlet:
     multipart:
@@ -55,6 +55,12 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    streams:
+      application-id: ordering-service     # Streams 애플리케이션 ID
+      replication-factor: 1
+      state-dir: /tmp/kafka-streams
+      properties:
+        auto.offset.reset: earliest
   ai:
     openai:
       embedding:

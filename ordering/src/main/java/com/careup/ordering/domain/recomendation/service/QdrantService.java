@@ -80,10 +80,10 @@ public class QdrantService {
         // 3️⃣ payload에서 product_id, score 추출
         List<ProductWithSimilarity> list = results.stream()
                 .map(result -> {
-                    Map<String, Object> payload = (Map<String, Object>) result.get("payload");
-                    if (payload == null) return null;
+                    Object idObj = result.get("id");
+                    if (idObj == null) return null;
 
-                    Long id = ((Number) payload.get("product_id")).longValue();
+                    Long id = ((Number) idObj).longValue();
                     Double score = (Double) result.get("score");
 
                     return productRepository.findById(id)
@@ -92,7 +92,6 @@ public class QdrantService {
                 })
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
-
         return list;
     }
 

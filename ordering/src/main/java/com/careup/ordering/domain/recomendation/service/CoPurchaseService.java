@@ -4,11 +4,16 @@ import com.careup.ordering.domain.member.service.MemberQueryService;
 import com.careup.ordering.domain.order.dto.response.ProductViewCountResDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.careup.ordering.domain.recomendation.dto.ProductCoPurchaseResDto;
 import com.careup.ordering.domain.recomendation.dto.ProductWithScore;
 import com.careup.ordering.domain.recomendation.dto.ProductWithSimilarity;
+import com.careup.ordering.domain.recomendation.dto.ProductsResDto;
 import com.careup.ordering.domain.recomendation.entity.ProductCoPurchase;
 import com.careup.ordering.domain.recomendation.repository.ProductCoPurchaseRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StoreQueryParameters;
 import org.apache.kafka.streams.kstream.Windowed;
@@ -22,13 +27,17 @@ import org.springframework.kafka.config.StreamsBuilderFactoryBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class CoPurchaseService {
 
     private final ProductCoPurchaseRepository coPurchaseRepository;
@@ -36,6 +45,7 @@ public class CoPurchaseService {
     @Autowired
     private final StreamsBuilderFactoryBean factoryBean;
     private final QdrantService qdrantService;
+    private final ProductRepository productRepository;
 
     public void updateCoPurchaseByOrder(List<Long> productIds) {
         if (productIds == null || productIds.size() < 2) return;
@@ -79,13 +89,12 @@ public class CoPurchaseService {
 
 
 
-    public Page<ProductResponseDto> getCoPurchaseList(Long memberId, Pageable pageable) {
+    public ProductCoPurchaseResDto getCoPurchaseList(Long memberId, Pageable pageable) {
         ProductViewCountResDto dto = memberQueryService.getProductId(memberId);
         Long productId = dto.getProductId();
-
+        Product lastViewProduct = productRepository.findById(productId).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 상품입니다."));
         List<ProductWithSimilarity> similarProducts = qdrantService.searchSimilarProducts(productId, 50);
         List<Map.Entry<String, Long>> purchasedProducts = getCoPurchasedProducts(productId);
-
         Map<Long, Long> coPurchaseMap = purchasedProducts.stream()
                 .collect(Collectors.toMap(
                         e -> Long.valueOf(e.getKey()),
@@ -111,12 +120,21 @@ public class CoPurchaseService {
 
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), scored.size());
-        List<ProductResponseDto> pageContent = scored.subList(start, end).stream()
-                .map(ProductWithScore::getProduct)
-                .map(ProductResponseDto::from)
+        List<ProductCoPurchaseResDto.CoPurchaseDto> pageContent = scored.subList(start, end).stream()
+                .map(pws -> {
+                    Product product = pws.getProduct();
+                    Long coPurchaseCount = coPurchaseMap.getOrDefault(product.getId(), 0L);
+                    return ProductCoPurchaseResDto.CoPurchaseDto.makeDto(product, coPurchaseCount);
+                })
                 .collect(Collectors.toList());
 
-        return new PageImpl<>(pageContent, pageable, scored.size());
+        Page<ProductCoPurchaseResDto.CoPurchaseDto> page = new PageImpl<>(pageContent, pageable, scored.size());
+
+        return ProductCoPurchaseResDto.builder()
+                .products(page)
+                .hasRecentView(dto.isHasRecentView())
+                .lastViewProductName(lastViewProduct.getName())
+                .build();
     }
 
 
@@ -126,22 +144,23 @@ public class CoPurchaseService {
         if (streams == null) throw new IllegalStateException("Kafka Streams is not ready yet");
 
 
+
         ReadOnlyWindowStore<String, Long> store =
                 streams.store(StoreQueryParameters.fromNameAndType(
                         "co_purchase_count",
                         QueryableStoreTypes.windowStore()
                 ));
-
-        Instant from = Instant.now().minusSeconds(30 * 24 * 60 * 60);
-        Instant to = Instant.now();
-
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+        Instant now = ZonedDateTime.now(zone).toInstant();
+        Instant from = now.minus(Duration.ofDays(30));
+        Instant to = now;
         Map<String, Long> coPurchaseMap = new HashMap<>();
-
         // 전체 스토어 순회
         store.fetchAll(from, to).forEachRemaining(record -> {
             Windowed<String> windowedKey = record.key;
             String pairKey = windowedKey.key(); // 예: "1-2"
             Long count = record.value;
+
 
             String[] parts = pairKey.split("-");
             if (parts.length != 2) return;
@@ -157,6 +176,9 @@ public class CoPurchaseService {
             }
         });
 
+
+
+
         // 구매 횟수 높은 순으로 정렬
         return coPurchaseMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
@@ -165,5 +187,7 @@ public class CoPurchaseService {
     }
 
 
-
+    public List<ProductsResDto> getProducts(Pageable pageable) {
+        return productRepository.findAll().stream().map(p -> ProductsResDto.makeDto(p)).collect(Collectors.toList());
+    }
 }
