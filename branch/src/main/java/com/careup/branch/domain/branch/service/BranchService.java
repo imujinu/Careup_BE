@@ -3,6 +3,7 @@ package com.careup.branch.domain.branch.service;
 import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.domain.branch.dto.branch.*;
 import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.entity.BranchStatus;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.entity.AuthorityType;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
@@ -86,14 +87,15 @@ public class BranchService {
         return BranchDto.fromEntity(findBranch, ownerInfo);
     }
 
-    // 지점 목록 조회 (페이징)
+    // 지점 목록 조회 (페이징, 검색, 필터)
     @Transactional(readOnly = true)
-    public BranchListResDto getBranchList(Pageable pageable) {
-        Page<Branch> findBranches = branchRepository.findAll(pageable);
+    public BranchListResDto getBranchList(String keyword, BranchStatus status, Pageable pageable) {
+        Page<Branch> findBranches = branchRepository.searchBranches(keyword, status, pageable);
 
         // Entity를 DTO로 변환
         Page<BranchDto> branchDtoPage = findBranches.map(BranchDto::fromEntity);
 
+        log.info("지점 목록 조회 - 검색어: {}, 상태: {}", keyword, status);
         log.info("지점 목록 조회 - 페이지: {}", pageable.getPageNumber() + 1);
         log.info("지점 목록 조회 - 총 페이지: {}", branchDtoPage.getTotalPages());
         log.info("지점 목록 조회 - 총 데이터 갯수: {}", branchDtoPage.getTotalElements());
