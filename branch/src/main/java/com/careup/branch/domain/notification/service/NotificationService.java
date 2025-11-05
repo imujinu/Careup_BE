@@ -70,8 +70,48 @@ public class NotificationService {
         log.info("[CAREUP][INFO] - NotificationService/getNotificationList - 전체 알림 읽음 처리 성공");
     }
 
+    /**
+     * 특정 이메일 리스트에게 알림 발송 및 저장
+     */
+    public void sendNotificationToEmails(List<String> receiverEmails, SseNotificationResDto notificationDto) {
+        for (String email : receiverEmails) {
+            Notification notification = Notification.builder()
+                    .receiverEmail(email)
+                    .senderName(notificationDto.getSenderName())
+                    .eventName(notificationDto.getEventName())
+                    .title(notificationDto.getTitle())
+                    .body(notificationDto.getBody())
+                    .type(notificationDto.getType())
+                    .action(notificationDto.getAction())
+                    .branchId(notificationDto.getBranchId())
+                    .isRead(false)
+                    .isDeleted(false)
+                    .build();
 
+            notificationRepository.save(notification);
+            log.info("[CAREUP][INFO] - NotificationService/sendNotificationToEmails - 알림 저장 완료: {}", email);
+        }
+    }
 
+    /**
+     * 단일 이메일에게 알림 발송 및 저장
+     */
+    public void sendNotificationToEmail(String receiverEmail, SseNotificationResDto notificationDto) {
+        Notification notification = Notification.builder()
+                .receiverEmail(receiverEmail)
+                .senderName(notificationDto.getSenderName())
+                .eventName(notificationDto.getEventName())
+                .title(notificationDto.getTitle())
+                .body(notificationDto.getBody())
+                .type(notificationDto.getType())
+                .action(notificationDto.getAction())
+                .branchId(notificationDto.getBranchId())
+                .isRead(false)
+                .isDeleted(false)
+                .build();
 
+        notificationRepository.save(notification);
+        log.info("[CAREUP][INFO] - NotificationService/sendNotificationToEmail - 알림 저장 완료: {}", receiverEmail);
+    }
 
 }

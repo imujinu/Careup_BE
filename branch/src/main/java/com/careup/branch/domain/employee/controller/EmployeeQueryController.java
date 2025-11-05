@@ -45,8 +45,14 @@ public class EmployeeQueryController {
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
     public ResponseEntity<CommonSuccessDto> listByBranch(
             @PathVariable Long branchId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String employmentStatus,
+            @RequestParam(required = false) String gender,
+            @RequestParam(required = false) String employmentType,
+            @RequestParam(required = false) String authorityType,
             @PageableDefault(size = 20, sort = "employmentStatus,asc") Pageable pageable) {
-        Page<EmployeeDetailDto> page = employeeQueryService.listByBranch(branchId, pageable);
+        Page<EmployeeDetailDto> page = employeeQueryService.listByBranch(
+                branchId, search, employmentStatus, gender, employmentType, authorityType, pageable);
         EmployeeListDto result = EmployeeListDto.fromPage(page);
         log.info(result.toString());
 
