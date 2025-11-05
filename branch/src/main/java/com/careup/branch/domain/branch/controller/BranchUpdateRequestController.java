@@ -107,10 +107,10 @@ public class BranchUpdateRequestController {
     @PostMapping("/{requestId}/approve")
     public ResponseEntity<?> approveRequest(@PathVariable Long requestId) {
         try {
-            branchUpdateRequestService.approveRequest(requestId);
+            BranchUpdateRequestDto updatedRequest = branchUpdateRequestService.approveRequest(requestId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
-                            .result(requestId)
+                            .result(updatedRequest)
                             .status_code(HttpStatus.OK.value())
                             .status_message("지점 수정 요청이 승인되었습니다.")
                             .build()
@@ -139,10 +139,10 @@ public class BranchUpdateRequestController {
     @PostMapping("/{requestId}/reject")
     public ResponseEntity<?> rejectRequest(@PathVariable Long requestId) {
         try {
-            branchUpdateRequestService.rejectRequest(requestId);
+            BranchUpdateRequestDto updatedRequest = branchUpdateRequestService.rejectRequest(requestId);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
-                            .result(requestId)
+                            .result(updatedRequest)
                             .status_code(HttpStatus.OK.value())
                             .status_message("지점 수정 요청이 거부되었습니다.")
                             .build()

@@ -4,6 +4,7 @@ import com.careup.branch.common.dto.CommonErrorDto;
 import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.dto.branch.*;
 import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.entity.BranchStatus;
 import com.careup.branch.domain.branch.service.BranchService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -58,13 +59,15 @@ public class BranchController {
         }
     }
 
-    // 지점 목록 조회 API (페이징)
+    // 지점 목록 조회 API (페이징, 검색, 필터)
     @PreAuthorize("hasRole('HQ_ADMIN')")
     @GetMapping
     public ResponseEntity<?> getList(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) BranchStatus status,
             @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         try {
-            BranchListResDto branchList = branchService.getBranchList(pageable);
+            BranchListResDto branchList = branchService.getBranchList(keyword, status, pageable);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(branchList)

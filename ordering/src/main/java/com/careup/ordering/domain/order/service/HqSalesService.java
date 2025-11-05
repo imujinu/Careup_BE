@@ -203,19 +203,22 @@ public class HqSalesService {
         Long totalAllSales = orderRepository.calculateTotalSalesAllBranches(
                 OrderStatus.CONFIRMED, startDateTime, endDateTime);
 
+        // 지점명 조회
+        String branchName = getBranchNameSafe(branchId);
+
         // 기간별 상세 데이터
         List<BranchSalesDetailDto> salesData;
         String periodType = request.getPeriodType() != null ? request.getPeriodType() : "DAY";
 
         switch (periodType.toUpperCase()) {
             case "WEEK":
-                salesData = calculateBranchWeeklySales(branchId, branchOrders);
+                salesData = calculateBranchWeeklySales(branchId, branchName, branchOrders);
                 break;
             case "MONTH":
-                salesData = calculateBranchMonthlySales(branchId, branchOrders);
+                salesData = calculateBranchMonthlySales(branchId, branchName, branchOrders);
                 break;
             default:
-                salesData = calculateBranchDailySales(branchId, branchOrders);
+                salesData = calculateBranchDailySales(branchId, branchName, branchOrders);
         }
 
         // 전체 통계
@@ -231,7 +234,7 @@ public class HqSalesService {
 
         return BranchSalesDetailResponseDto.builder()
                 .branchId(branchId)
-                .branchName("Branch-" + branchId) // 실제로는 Branch 서비스에서 조회
+                .branchName(branchName)
                 .periodType(periodType)
                 .totalSales(totalSales)
                 .totalOrders(totalOrders)
@@ -244,7 +247,7 @@ public class HqSalesService {
     /**
      * 일별 지점 매출 상세
      */
-    private List<BranchSalesDetailDto> calculateBranchDailySales(Long branchId, List<Order> orders) {
+    private List<BranchSalesDetailDto> calculateBranchDailySales(Long branchId, String branchName, List<Order> orders) {
         Map<LocalDate, List<Order>> dailyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order -> order.getCreatedAt().toLocalDate()));
 
@@ -255,7 +258,7 @@ public class HqSalesService {
 
                     return BranchSalesDetailDto.builder()
                             .branchId(branchId)
-                            .branchName("Branch-" + branchId)
+                            .branchName(branchName)
                             .date(entry.getKey())
                             .period("DAY")
                             .totalSales(totalSales)
@@ -270,7 +273,7 @@ public class HqSalesService {
     /**
      * 주별 지점 매출 상세
      */
-    private List<BranchSalesDetailDto> calculateBranchWeeklySales(Long branchId, List<Order> orders) {
+    private List<BranchSalesDetailDto> calculateBranchWeeklySales(Long branchId, String branchName, List<Order> orders) {
         Map<String, List<Order>> weeklyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order -> {
                     LocalDate date = order.getCreatedAt().toLocalDate();
@@ -289,7 +292,7 @@ public class HqSalesService {
 
                     return BranchSalesDetailDto.builder()
                             .branchId(branchId)
-                            .branchName("Branch-" + branchId)
+                            .branchName(branchName)
                             .date(firstDate)
                             .period("WEEK")
                             .totalSales(totalSales)
@@ -304,7 +307,7 @@ public class HqSalesService {
     /**
      * 월별 지점 매출 상세
      */
-    private List<BranchSalesDetailDto> calculateBranchMonthlySales(Long branchId, List<Order> orders) {
+    private List<BranchSalesDetailDto> calculateBranchMonthlySales(Long branchId, String branchName, List<Order> orders) {
         Map<String, List<Order>> monthlyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order ->
                         order.getCreatedAt().getYear() + "-" +
@@ -321,7 +324,7 @@ public class HqSalesService {
 
                     return BranchSalesDetailDto.builder()
                             .branchId(branchId)
-                            .branchName("Branch-" + branchId)
+                            .branchName(branchName)
                             .date(firstDate)
                             .period("MONTH")
                             .totalSales(totalSales)
@@ -346,6 +349,9 @@ public class HqSalesService {
             throw new IllegalArgumentException("비교할 지점을 선택해주세요.");
         }
 
+        // 지점명 조회
+        Map<Long, String> branchNamesMap = getBranchNamesMap(branchIds);
+
         // 지점별 매출 비교 데이터 조회
         List<Object[]> comparisonStats = orderRepository.findBranchSalesComparison(
                 branchIds, OrderStatus.CONFIRMED, startDateTime, endDateTime);
@@ -357,7 +363,6 @@ public class HqSalesService {
 
         // 비교 데이터 생성
         List<BranchSalesDetailDto> comparisonData = new ArrayList<>();
-        Map<Long, String> branchNames = new HashMap<>();
 
         int ranking = 1;
         for (Object[] stat : comparisonStats) {
@@ -365,8 +370,7 @@ public class HqSalesService {
             Long sales = ((Number) stat[1]).longValue();
             Long orders = ((Number) stat[2]).longValue();
 
-            String branchName = "Branch-" + branchId; // 실제로는 Branch 서비스에서 조회
-            branchNames.put(branchId, branchName);
+            String branchName = branchNamesMap.getOrDefault(branchId, "Branch-" + branchId);
 
             Double marketShare = totalSales > 0 ? (sales.doubleValue() / totalSales) * 100 : 0.0;
 
@@ -389,7 +393,7 @@ public class HqSalesService {
                 .periodType(request.getPeriodType() != null ? request.getPeriodType() : "DAY")
                 .branchIds(branchIds)
                 .totalSales(totalSales)
-                .branchNames(branchNames)
+                .branchNames(branchNamesMap)
                 .comparisonData(comparisonData)
                 .build();
     }
@@ -408,26 +412,11 @@ public class HqSalesService {
     }
 
     /**
-     * Branch 서비스에서 Branch 이름 조회 (단일)
+     * Branch 서비스에서 Branch 이름 조회 (단일) - 안전한 버전
      */
-    private String getBranchName(Long branchId) {
-        try {
-            List<Long> branchIds = Collections.singletonList(branchId);
-            Map<String, Object> response = branchClient.getBranchesByIds(branchIds);
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> resultMap = (Map<String, Object>) response.get("result");
-
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> branchesData = (List<Map<String, Object>>) resultMap;
-
-            if (!branchesData.isEmpty()) {
-                return (String) branchesData.get(0).get("name");
-            }
-        } catch (Exception e) {
-            log.error("Branch 이름 조회 실패: {}", e.getMessage());
-        }
-        return "Branch-" + branchId;
+    private String getBranchNameSafe(Long branchId) {
+        Map<Long, String> namesMap = getBranchNamesMap(Collections.singletonList(branchId));
+        return namesMap.getOrDefault(branchId, "Branch-" + branchId);
     }
 
     /**
@@ -435,21 +424,28 @@ public class HqSalesService {
      */
     private Map<Long, String> getBranchNamesMap(List<Long> branchIds) {
         try {
+            log.info("Branch 이름 조회 시작 - Branch IDs: {}", branchIds);
             Map<String, Object> response = branchClient.getBranchesByIds(branchIds);
+            log.info("Branch 서비스 응답: {}", response);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> resultMap = (Map<String, Object>) response.get("result");
+            List<Map<String, Object>> branchesData = (List<Map<String, Object>>) response.get("result");
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> branchesData = (List<Map<String, Object>>) resultMap;
+            if (branchesData == null || branchesData.isEmpty()) {
+                log.warn("Branch 데이터가 비어있습니다. 응답: {}", response);
+                return new HashMap<>();
+            }
 
-            return branchesData.stream()
+            Map<Long, String> branchNamesMap = branchesData.stream()
                     .collect(Collectors.toMap(
                             data -> ((Number) data.get("id")).longValue(),
                             data -> (String) data.get("name")
                     ));
+
+            log.info("Branch 이름 매핑 완료: {}", branchNamesMap);
+            return branchNamesMap;
         } catch (Exception e) {
-            log.error("Branch 이름 조회 실패: {}", e.getMessage());
+            log.error("Branch 이름 조회 실패: {}", e.getMessage(), e);
             return new HashMap<>();
         }
     }
