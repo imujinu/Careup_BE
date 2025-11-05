@@ -1,21 +1,16 @@
 package com.careup.ordering.domain.recomendation.config;
 
-import com.careup.ordering.domain.product.entity.Category;
 import com.careup.ordering.domain.product.entity.Product;
-import com.careup.ordering.domain.product.entity.ProductAttribute;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
-import com.careup.ordering.domain.product.repository.ProductAttributeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 public class VectorEncoder {
     private final CategoryRepository categoryRepository;
-    private final ProductAttributeRepository productAttributeRepository;
 
     public float[] encode(Map<String, String> features, Product product) {
         List<Float> vector = new ArrayList<>();

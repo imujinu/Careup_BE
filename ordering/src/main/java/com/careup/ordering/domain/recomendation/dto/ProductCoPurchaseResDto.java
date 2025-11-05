@@ -1,6 +1,6 @@
 package com.careup.ordering.domain.recomendation.dto;
 
-import com.careup.ordering.domain.product.dto.ProductAttributeResponseDto;
+import com.careup.ordering.domain.product.dto.ProductAttributeValueDto;
 import com.careup.ordering.domain.product.entity.Product;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,7 +33,7 @@ public class ProductCoPurchaseResDto {
         private Long price;
         private Long coPurchaseCount;
         private Long viewCount;
-        private List<ProductAttributeResponseDto> attributes;
+        private List<ProductAttributeValueDto.Response> attributeValues;
 
 
         public static CoPurchaseDto makeDto(Product product, Long coPurchaseCount){
@@ -57,9 +57,9 @@ public class ProductCoPurchaseResDto {
                     .price(product.getMaxPrice())
                     .coPurchaseCount(coPurchaseCount)
                     .viewCount(product.getViewCount())
-                    .attributes(product.getAttributes() != null ?
-                            product.getAttributes().stream()
-                                    .map(ProductAttributeResponseDto::from)
+                    .attributeValues(product.getProductAttributeValues() != null ?
+                            product.getProductAttributeValues().stream()
+                                    .map(ProductAttributeValueDto.Response::from)
                                     .collect(Collectors.toList()) :
                             List.of())
                     .build();
