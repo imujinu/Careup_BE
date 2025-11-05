@@ -29,6 +29,11 @@ public class BranchProduct {
     @Column(name = "branch_id", nullable = false)
     private Long branchId;
 
+    // 사이즈별 재고 관리를 위한 속성 값 (선택사항)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attribute_value_id", nullable = true)
+    private AttributeValue attributeValue; // 사이즈, 색상 등
+
     @Column(name = "serial_number",nullable = false, length = 100)
     private String serialNumber;
 
@@ -52,14 +57,15 @@ public class BranchProduct {
 
     @Builder
     private BranchProduct(Product product, Long branchId, String serialNumber,
-                          Long stockQuantity,Long safetystock,Long price){
+                          Long stockQuantity, Long safetystock, Long price, AttributeValue attributeValue){
         this.product = product;
         this.branchId = branchId;
         this.serialNumber = serialNumber;
-        this.stockQuantity =stockQuantity;
+        this.stockQuantity = stockQuantity;
         this.safetystock = safetystock;
-        this.price =price;
+        this.price = price;
         this.reservedQuantity = 0L;
+        this.attributeValue = attributeValue;
     }
 
     public void decreaseStock(Long quantity) {

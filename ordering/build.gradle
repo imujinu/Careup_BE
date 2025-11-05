@@ -78,6 +78,9 @@ dependencies {
 	// Spring Cloud OpenFeign 의존성 추가
 	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
+	// Elasticsearch 의존성 추가
+	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
+
     // OAuth2 Client 의존성 추가
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 

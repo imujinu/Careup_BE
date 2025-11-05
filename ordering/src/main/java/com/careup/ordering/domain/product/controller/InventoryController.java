@@ -94,7 +94,8 @@ public class InventoryController {
                 request.getSerialNumber(),
                 request.getStockQuantity(),
                 request.getSafetyStock(),
-                request.getPrice()
+                request.getPrice(),
+                request.getAttributeValueId()  // 사이즈별 재고 관리를 위한 속성 값 ID
         );
         return ResponseEntity.ok(convertToBranchProductResponse(branchProduct));
     }
@@ -261,16 +262,22 @@ public class InventoryController {
     }
 
     private InventoryFlowResponseDto convertToInventoryFlowResponse(InventoryFlowDetail flow) {
+        BranchProduct branchProduct = flow.getBranchProduct();
         return new InventoryFlowResponseDto(
                 flow.getId(),
-                flow.getBranchProduct().getId(),
-                flow.getBranchProduct().getProduct().getId(),
-                flow.getBranchProduct().getProduct().getName(),
-                flow.getBranchProduct().getBranchId(),
+                branchProduct.getId(),
+                branchProduct.getProduct().getId(),
+                branchProduct.getProduct().getName(),
+                branchProduct.getBranchId(),
                 flow.getInQuantity(),
                 flow.getOutQuantity(),
                 flow.getRemark(),
-                flow.getCreateAt().toString()
+                flow.getCreateAt().toString(),
+                // 사이즈 정보
+                branchProduct.getAttributeValue() != null ? branchProduct.getAttributeValue().getId() : null,
+                branchProduct.getAttributeValue() != null ? branchProduct.getAttributeValue().getDisplayName() : null,
+                branchProduct.getAttributeValue() != null && branchProduct.getAttributeValue().getAttributeType() != null 
+                    ? branchProduct.getAttributeValue().getAttributeType().getName() : null
         );
     }
 }

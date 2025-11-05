@@ -176,6 +176,8 @@ public class ScheduleQueryService {
                 if (!leaveDate.isBefore(monthStart) && !leaveDate.isAfter(monthEnd)) {
                     AttendanceStatus st = AttendanceStatus.LEAVE;
                     String badge = badgeResolver.toBadgeText(s, st);
+                    LocalDateTime dayStart = LocalDateTime.of(leaveDate, LocalTime.MIN);
+                    LocalDateTime dayEnd = LocalDateTime.of(leaveDate.plusDays(1), LocalTime.MIDNIGHT);
                     result.add(ScheduleCalendarDto.builder()
                             .id(s.getId())
                             .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
@@ -184,8 +186,8 @@ public class ScheduleQueryService {
                             .branchName(s.getBranch() != null ? s.getBranch().getName() : null)
                             .date(leaveDate)
                             .title(title)
-                            .startAt(null)
-                            .endAt(null)
+                            .startAt(dayStart)
+                            .endAt(dayEnd)
                             .allDay(true)
                             .timeSource("ALL_DAY")
                             .status(st)
@@ -343,6 +345,8 @@ public class ScheduleQueryService {
                 if (!leaveDate.isBefore(from) && !leaveDate.isAfter(to)) {
                     AttendanceStatus st = AttendanceStatus.LEAVE;
                     String badge = badgeResolver.toBadgeText(s, st);
+                    LocalDateTime dayStart = LocalDateTime.of(leaveDate, LocalTime.MIN);
+                    LocalDateTime dayEnd = LocalDateTime.of(leaveDate.plusDays(1), LocalTime.MIDNIGHT);
                     result.add(ScheduleCalendarDto.builder()
                             .id(s.getId())
                             .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
@@ -351,8 +355,8 @@ public class ScheduleQueryService {
                             .branchName(s.getBranch() != null ? s.getBranch().getName() : null)
                             .date(leaveDate)
                             .title(title)
-                            .startAt(null)
-                            .endAt(null)
+                            .startAt(dayStart)
+                            .endAt(dayEnd)
                             .allDay(true)
                             .timeSource("ALL_DAY")
                             .status(st)

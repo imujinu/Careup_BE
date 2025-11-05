@@ -21,8 +21,9 @@ public class AttendanceController {
 
     @GetMapping("/event/{scheduleId}")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
-    public ResponseEntity<CommonSuccessDto> eventDetail(@PathVariable Long scheduleId) {
-        ScheduleEventDetailDto result = attendanceService.detail(scheduleId);
+    public ResponseEntity<CommonSuccessDto> eventDetail(@PathVariable String scheduleId) {
+        Long id = parseScheduleId(scheduleId);
+        ScheduleEventDetailDto result = attendanceService.detail(id);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result(result)
                 .status_code(HttpStatus.OK.value())
@@ -30,12 +31,12 @@ public class AttendanceController {
                 .build());
     }
 
-    /** 관리/보정: 관리자만 가능 */
     @PatchMapping("/event/{scheduleId}")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
-    public ResponseEntity<CommonSuccessDto> upsertEvent(@PathVariable Long scheduleId,
+    public ResponseEntity<CommonSuccessDto> upsertEvent(@PathVariable String scheduleId,
                                                         @Valid @RequestBody ScheduleEventUpdateDto req) {
-        ScheduleEventDetailDto result = attendanceService.upsertEvent(scheduleId, req);
+        Long id = parseScheduleId(scheduleId);
+        ScheduleEventDetailDto result = attendanceService.upsertEvent(id, req);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result(result)
                 .status_code(HttpStatus.OK.value())
@@ -43,11 +44,11 @@ public class AttendanceController {
                 .build());
     }
 
-    /** 삭제: 관리자만 가능 */
     @DeleteMapping("/event/{scheduleId}")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER')")
-    public ResponseEntity<CommonSuccessDto> deleteEvent(@PathVariable Long scheduleId) {
-        attendanceService.deleteEvent(scheduleId);
+    public ResponseEntity<CommonSuccessDto> deleteEvent(@PathVariable String scheduleId) {
+        Long id = parseScheduleId(scheduleId);
+        attendanceService.deleteEvent(id);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result("ok")
                 .status_code(HttpStatus.OK.value())
@@ -55,12 +56,12 @@ public class AttendanceController {
                 .build());
     }
 
-    // 액션 엔드포인트 (서버 now + 지오펜스 검증) — STAFF 포함 허용
     @PostMapping("/event/{scheduleId}/clock-in")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
-    public ResponseEntity<CommonSuccessDto> clockIn(@PathVariable Long scheduleId,
+    public ResponseEntity<CommonSuccessDto> clockIn(@PathVariable String scheduleId,
                                                     @RequestBody(required = false) AttendanceActionRequest req) {
-        ScheduleEventDetailDto result = attendanceService.clockIn(scheduleId, req);
+        Long id = parseScheduleId(scheduleId);
+        ScheduleEventDetailDto result = attendanceService.clockIn(id, req);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result(result)
                 .status_code(HttpStatus.OK.value())
@@ -70,9 +71,10 @@ public class AttendanceController {
 
     @PostMapping("/event/{scheduleId}/break-start")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
-    public ResponseEntity<CommonSuccessDto> breakStart(@PathVariable Long scheduleId,
+    public ResponseEntity<CommonSuccessDto> breakStart(@PathVariable String scheduleId,
                                                        @RequestBody(required = false) AttendanceActionRequest req) {
-        ScheduleEventDetailDto result = attendanceService.breakStart(scheduleId, req);
+        Long id = parseScheduleId(scheduleId);
+        ScheduleEventDetailDto result = attendanceService.breakStart(id, req);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result(result)
                 .status_code(HttpStatus.OK.value())
@@ -82,9 +84,10 @@ public class AttendanceController {
 
     @PostMapping("/event/{scheduleId}/break-end")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
-    public ResponseEntity<CommonSuccessDto> breakEnd(@PathVariable Long scheduleId,
+    public ResponseEntity<CommonSuccessDto> breakEnd(@PathVariable String scheduleId,
                                                      @RequestBody(required = false) AttendanceActionRequest req) {
-        ScheduleEventDetailDto result = attendanceService.breakEnd(scheduleId, req);
+        Long id = parseScheduleId(scheduleId);
+        ScheduleEventDetailDto result = attendanceService.breakEnd(id, req);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result(result)
                 .status_code(HttpStatus.OK.value())
@@ -94,13 +97,21 @@ public class AttendanceController {
 
     @PostMapping("/event/{scheduleId}/clock-out")
     @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
-    public ResponseEntity<CommonSuccessDto> clockOut(@PathVariable Long scheduleId,
+    public ResponseEntity<CommonSuccessDto> clockOut(@PathVariable String scheduleId,
                                                      @RequestBody(required = false) AttendanceActionRequest req) {
-        ScheduleEventDetailDto result = attendanceService.clockOut(scheduleId, req);
+        Long id = parseScheduleId(scheduleId);
+        ScheduleEventDetailDto result = attendanceService.clockOut(id, req);
         return ResponseEntity.ok(CommonSuccessDto.builder()
                 .result(result)
                 .status_code(HttpStatus.OK.value())
                 .status_message("퇴근 처리 완료")
                 .build());
+    }
+
+    private Long parseScheduleId(String raw) {
+        if (raw == null) throw new IllegalArgumentException("invalid scheduleId");
+        int idx = raw.indexOf(':');
+        String head = idx >= 0 ? raw.substring(0, idx) : raw;
+        return Long.valueOf(head);
     }
 }

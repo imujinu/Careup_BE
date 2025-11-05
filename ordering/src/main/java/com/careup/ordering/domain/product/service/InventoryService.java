@@ -6,14 +6,17 @@ import com.careup.ordering.domain.notification.NotificationService;
 import com.careup.ordering.domain.notification.SseNotificationResDto;
 import com.careup.ordering.domain.product.dto.BranchProductResponseDto;
 import com.careup.ordering.domain.product.dto.PromotionPriceDto;
+import com.careup.ordering.domain.product.entity.AttributeValue;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
 import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.repository.AttributeValueRepository;
 import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
@@ -37,17 +40,23 @@ public class InventoryService {
     private final BranchProductRepository branchProductRepository;
     private final InventoryFlowDetailRepository inventoryFlowDetailRepository;
     private final ProductRepository productRepository;
+    private final AttributeValueRepository attributeValueRepository;
     private final PromotionService promotionService;
     
     // redis와 kafka 추가
     private final RedisTemplate<String, Object> redisTemplate;
-    private final KafkaTemplate<String, Object> kafkaTemplate;
     private final DistributedLockService distributedLockService;
     
+    @Autowired(required = false)
+    private KafkaTemplate<String, Object> kafkaTemplate;
+
     private static final String INVENTORY_CACHE_PREFIX = "inventory:branch:";
     private static final String EMPLOYEE_BRANCH_CACHE_PREFIX = "employee:branch:";
     private static final String INVENTORY_CHANGE_TOPIC = "inventory-change";
-    private final NotificationService notificationService;
+
+    @Autowired(required = false)
+    private NotificationService notificationService;
+
     private final BranchClient branchClient;
 
     // 권한분리
@@ -357,15 +366,31 @@ public class InventoryService {
 
     // 지점별 상품 등록
     public BranchProduct createBranchProduct(Long productId, Long branchId, String serialNumber,
-                                           Long stockQuantity, Long safetyStock, Long price) {
+                                           Long stockQuantity, Long safetyStock, Long price, Long attributeValueId) {
         // Product 조회
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다: " + productId));
         
-        // 중복 등록 방지
-        boolean exists = branchProductRepository.existsByBranchIdAndProductId(branchId, productId);
-        if (exists) {
-            throw new IllegalArgumentException("이미 해당 지점에 등록된 상품입니다.");
+        // AttributeValue 조회
+        AttributeValue attributeValue = null;
+        if (attributeValueId != null) {
+            attributeValue = attributeValueRepository.findById(attributeValueId)
+                    .orElseThrow(() -> new IllegalArgumentException("속성 값을 찾을 수 없습니다: " + attributeValueId));
+        }
+        
+        // 중복 등록 방지 (사이즈별 재고가 있는 경우 사이즈별로도 체크)
+        if (attributeValueId != null) {
+            boolean exists = branchProductRepository.existsByBranchIdAndProductIdAndAttributeValueId(
+                    branchId, productId, attributeValueId);
+            if (exists) {
+                throw new IllegalArgumentException("이미 해당 지점에 등록된 상품입니다. (동일 사이즈)");
+            }
+        } else {
+            // 사이즈 정보가 없으면 기존 방식으로 체크
+            boolean exists = branchProductRepository.existsByBranchIdAndProductId(branchId, productId);
+            if (exists) {
+                throw new IllegalArgumentException("이미 해당 지점에 등록된 상품입니다.");
+            }
         }
         
         // BranchProduct 생성
@@ -376,6 +401,7 @@ public class InventoryService {
                 .stockQuantity(stockQuantity != null ? stockQuantity : 0L)
                 .safetystock(safetyStock != null ? safetyStock : 0L)
                 .price(price)
+                .attributeValue(attributeValue)
                 .build();
         
         return branchProductRepository.save(branchProduct);
@@ -490,7 +516,7 @@ public class InventoryService {
         
         BranchProduct branchProduct = branchProductRepository.findById(branchProductId)
                 .orElseThrow(() -> new IllegalArgumentException("재고를 찾을 수 없습니다: " + branchProductId));
-        
+
         if ("INCREASE".equals(type)) {
             branchProduct.increaseStock(quantity);
         } else if ("DECREASE".equals(type)) {
@@ -712,8 +738,10 @@ public class InventoryService {
             eventData.put("reason", reason);
             eventData.put("currentStock", branchProduct.getStockQuantity());
             
-            kafkaTemplate.send(INVENTORY_CHANGE_TOPIC, eventData);
-            log.info("재고 변경 이벤트 발송: branchId={}, productId={}, type={}, quantity={}", 
+            if (kafkaTemplate != null) {
+                kafkaTemplate.send(INVENTORY_CHANGE_TOPIC, eventData);
+            }
+            log.info("재고 변경 이벤트 발송: branchId={}, productId={}, type={}, quantity={}",
                 branchProduct.getBranchId(), branchProduct.getProduct().getId(), type, quantity);
         } catch (Exception e) {
             log.error("재고 변경 이벤트 발송 실패: branchProductId={}", branchProduct.getId(), e);
