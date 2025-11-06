@@ -106,7 +106,6 @@ public class PurchaseOrderService {
 
         //[알림 - 발주 요청]
         Branch branch = branchRepository.findById(requestDto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
         SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "REQUESTED", HEAD_OFFICE_BRANCH_ID);
         sseAlarmService.publishNotification(dto);
 
@@ -526,9 +525,10 @@ public class PurchaseOrderService {
 
         //[알림 - 발주 승인]
         Branch branch = branchRepository.findById(purchaseOrder.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
-        SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "APPROVE", purchaseOrder.getBranchId());
-        sseAlarmService.publishNotification(dto);
+        SseNotificationResDto branchDto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "APPROVED", purchaseOrder.getBranchId());
+        SseNotificationResDto headOfficeDto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "승인", HEAD_OFFICE_BRANCH_ID);
+        sseAlarmService.publishNotification(branchDto);
+        sseAlarmService.publishNotification(headOfficeDto);
 
         return convertToResponseDto(savedOrder, orderDetails);
     }
@@ -553,9 +553,10 @@ public class PurchaseOrderService {
 
         //[알림 - 발주 반려]
         Branch branch = branchRepository.findById(purchaseOrder.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
-        List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
         SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "REJECTED", purchaseOrder.getBranchId());
+        SseNotificationResDto headOfficeDto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "반려", HEAD_OFFICE_BRANCH_ID);
         sseAlarmService.publishNotification(dto);
+        sseAlarmService.publishNotification(headOfficeDto);
         return convertToResponseDto(savedOrder, orderDetails);
     }
 
@@ -588,7 +589,9 @@ public class PurchaseOrderService {
         Branch branch = branchRepository.findById(purchaseOrder.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
         List<DispatchStatus> employees = dispatchStatusRepository.findAllByBranchId(HEAD_OFFICE_BRANCH_ID);
         SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "PARTIALLY_APPROVED", purchaseOrder.getBranchId());
+        SseNotificationResDto headOfficeDto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "부분 승인", HEAD_OFFICE_BRANCH_ID);
         sseAlarmService.publishNotification(dto);
+        sseAlarmService.publishNotification(headOfficeDto);
         return convertToResponseDto(savedOrder, savedDetails);
     }
 

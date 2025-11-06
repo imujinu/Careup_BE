@@ -20,6 +20,7 @@ public class SseNotificationResDto {
     private String body;          // 알림 내용
     private String type;          // ex: STOCK_LOW, ORDER_PLACED
     private String action;
+    private boolean isRead;
 
     public static SseNotificationResDto fromEntity(Notification notification){
         return SseNotificationResDto.builder()
@@ -31,6 +32,7 @@ public class SseNotificationResDto {
                 .body(notification.getBody())
                 .type(notification.getType())
                 .action(notification.getAction())
+                .isRead(notification.getIsRead())
                 .build();
 
     }
@@ -69,23 +71,23 @@ public class SseNotificationResDto {
         switch (status.toUpperCase()) {
             case "REQUESTED" -> {
                 title = "📦 발주 요청 접수";
-                body = String.format("발주번호 : [%d], [%s]의 발주 요청이 등록되었습니다.", orderId, senderBranch);
+                body = String.format("발주번호 : [%d], 지점명 : [%s]의 발주 요청이 등록되었습니다.", orderId, senderBranch);
             }
             case "APPROVED" -> {
                 title = "✅ 발주 승인 완료";
-                body = String.format("발주번호 : [%d], [%s]의 발주가 승인되었습니다.", orderId, senderBranch);
+                body = String.format("발주번호 : [%d] 의 발주가 승인되었습니다.", orderId);
             }
             case "REJECTED" -> {
                 title = "❌ 발주 반려 처리";
-                body = String.format("발주번호 : [%d], [%s]의 발주가 반려되었습니다.", orderId,senderBranch);
+                body = String.format("발주번호 : [%d]의 발주가 반려되었습니다.", orderId);
             }
             case "PARTIALLY_APPROVED" -> {
                 title = "🟡 발주 부분 승인";
-                body = String.format("발주번호 :[%d], [%s]의 발주가 일부 승인되었습니다.", orderId,senderBranch);
+                body = String.format("발주번호 :[%d]의 발주가 일부 승인되었습니다.", orderId);
             }
             default -> {
                 title = "ℹ️ 발주 상태 변경";
-                body = String.format("발주번호 : [%d], [%s]의 발주가 [%s]로 변경되었습니다.", orderId,senderBranch, status);
+                body = String.format("발주번호 : [%d], 지점명 : [%s]의 발주가 [%s]되었습니다.", orderId,senderBranch, status);
             }
         }
 

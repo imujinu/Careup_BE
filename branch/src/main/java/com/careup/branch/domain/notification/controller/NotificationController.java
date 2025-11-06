@@ -35,4 +35,18 @@ public class NotificationController {
         notificationService.readAllNotification(notificationIds);
         return new ResponseEntity<>(new CommonSuccessDto(notificationIds, HttpStatus.OK.value(), "알림상태 읽음으로 수정 성공"), HttpStatus.OK);
     }
+
+    // 알림 삭제 요청
+    @PatchMapping("/delete/{notificationId}")
+    public ResponseEntity<?> deleteNotification(@PathVariable Long notificationId) {
+        notificationService.deleteNotification(notificationId);
+        return new ResponseEntity<>(new CommonSuccessDto(notificationId, HttpStatus.OK.value(), "알림상태 읽음으로 수정 성공"), HttpStatus.OK);
+    }
+
+    // 알림 전체 삭제 요청
+    @PatchMapping("/deleteAll")
+    public ResponseEntity<?> deleteAllNotification(@RequestBody List<Long> notificationIds) {
+        notificationService.deleteAllNotification(notificationIds);
+        return new ResponseEntity<>(new CommonSuccessDto(notificationIds, HttpStatus.OK.value(), "알림상태 읽음으로 수정 성공"), HttpStatus.OK);
+    }
 }

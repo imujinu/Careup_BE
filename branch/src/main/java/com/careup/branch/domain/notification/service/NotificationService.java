@@ -37,9 +37,8 @@ public class NotificationService {
         Map<String, Object> details = (Map<String, Object>) auth.getDetails();
         String email = details.get("email").toString();
 
-        System.out.println("emai: " + email);
         List<SseNotificationResDto> notificationListResDtoList
-                = notificationRepository.findByReceiverEmailAndIsReadFalse(email).stream().map(SseNotificationResDto::fromEntity).toList();
+                = notificationRepository.findByReceiverEmailAndIsDeletedFalse(email).stream().map(SseNotificationResDto::fromEntity).toList();
 
         log.info("[CAREUP][INFO] - NotificationService/getNotificationList - 알림목록 조회 성공");
 
@@ -49,7 +48,7 @@ public class NotificationService {
     // [알림 읽음 처리]
     public void readNotification(Long notificationId) {
 
-        notificationRepository.findById(notificationId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 알림 입니다.")).readNotification();
+        getNotification(notificationId).readNotification();
 
         log.info("[CAREUP][INFO] - NotificationService/getNotificationList - 알림 읽음 처리 성공");
     }
@@ -63,11 +62,15 @@ public class NotificationService {
 
         for(Long id : notificationIds){
 
-        notificationRepository.findById(id).orElseThrow(()->new EntityNotFoundException("존재하지 않는 알림 입니다.")).readNotification();
+        getNotification(id).readNotification();
         }
 
 
         log.info("[CAREUP][INFO] - NotificationService/getNotificationList - 전체 알림 읽음 처리 성공");
+    }
+
+    private Notification getNotification(Long id) {
+        return notificationRepository.findById(id).orElseThrow(() -> new EntityNotFoundException("존재하지 않는 알림 입니다."));
     }
 
     /**
@@ -114,4 +117,17 @@ public class NotificationService {
         log.info("[CAREUP][INFO] - NotificationService/sendNotificationToEmail - 알림 저장 완료: {}", receiverEmail);
     }
 
+
+    public void deleteNotification ( Long notificationId){
+        getNotification(notificationId).delete();
+        log.info("[CAREUP][INFO] - Delete - 알림 삭제 완료: {}");
+    }
+
+    public void deleteAllNotification (List<Long> notificationIds){
+
+        for(Long notificationId : notificationIds){
+            getNotification(notificationId).delete();
+        }
+        log.info("[CAREUP][INFO] - DeleteAll - 알림 전체 삭제 완료: {}");
+    }
 }
