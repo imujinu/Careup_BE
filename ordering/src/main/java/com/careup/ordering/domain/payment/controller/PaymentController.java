@@ -98,7 +98,7 @@ public class PaymentController {
                     log.info("결제 실패로 인한 주문 취소 처리 시작 - orderId: {}", numericOrderId);
                     
                     try {
-                        orderService.cancelOrder(numericOrderId);
+                        orderService.cancelOrder(numericOrderId, "결제 실패로 인한 자동 취소");
                         log.info("주문 취소 완료 - orderId: {}", numericOrderId);
                     } catch (IllegalStateException e) {
                         log.warn("주문 취소 실패 (이미 승인됨 등) - orderId: {}, error: {}", numericOrderId, e.getMessage());

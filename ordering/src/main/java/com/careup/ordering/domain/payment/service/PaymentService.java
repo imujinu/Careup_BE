@@ -131,7 +131,7 @@ public class PaymentService {
             // 결제 실패 시 주문 취소 및 재고 복구
             log.error("토스페이먼츠 API 호출 실패 - 주문 취소 및 재고 복구 시작 - orderId: {}", order.getId(), e);
             try {
-                orderService.cancelOrder(order.getId());
+                orderService.cancelOrder(order.getId(), "결제 실패로 인한 자동 취소");
                 log.info("결제 실패로 인한 주문 취소 완료 - orderId: {}", order.getId());
             } catch (Exception cancelException) {
                 log.error("주문 취소 중 오류 발생 - orderId: {}", order.getId(), cancelException);
@@ -172,18 +172,18 @@ public class PaymentService {
      */
     @SuppressWarnings("unchecked")
     private JSONObject callTossPaymentsApi(PaymentConfirmRequest request, String tossOrderId) throws Exception {
-        // 요청 데이터 생성 - ⭐ tossOrderId 사용
+        // 요청 데이터 생성 -  tossOrderId 사용
         JSONObject requestData = new JSONObject();
-        requestData.put("orderId", tossOrderId);  // ⭐ getTossOrderId() 결과 사용
+        requestData.put("orderId", tossOrderId);  //  getTossOrderId() 결과 사용
         requestData.put("amount", request.getAmount());
         requestData.put("paymentKey", request.getPaymentKey());
 
         log.info("토스페이먼츠 API 호출 - tossOrderId: {}, amount: {}", tossOrderId, request.getAmount());
 
-        // Authorization 헤더 생성 ⭐ Config 사용
+        // Authorization 헤더 생성  Config 사용
         String authorization = "Basic " + tossPaymentConfig.getEncodedSecretKey();
 
-        // HTTP 연결 설정 ⭐ Config의 API URL 사용
+        // HTTP 연결 설정  Config의 API URL 사용
         URL url = new URL(tossPaymentConfig.getApiUrl() + "/v1/payments/confirm");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
         connection.setRequestProperty("Authorization", authorization);
