@@ -37,7 +37,9 @@ public class Notification extends BaseTimeEntity {
     public void readNotification(){
         this.isRead = true;
     }
-
+    public void delete(){
+        this.isDeleted = true;
+    }
     public Notification toEntity(SseNotificationResDto dto, String email){
         return Notification.builder()
                 .receiverEmail(email)

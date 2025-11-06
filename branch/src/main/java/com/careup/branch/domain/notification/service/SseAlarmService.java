@@ -48,12 +48,9 @@ public class SseAlarmService {
     @KafkaListener(topics = "notification-topic", groupId = "sse-group")
     public void onMessage(String message) {
         try {
-            log.info("📨 Kafka message received: {}", message);
-            System.out.println("message========" + message);
             SseNotificationResDto dto = objectMapper.readValue(message, SseNotificationResDto.class);
             Branch branch = branchRepository.findById(dto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
             List<DispatchStatus> dispatchStatus = dispatchStatusRepository.findAllByBranch(branch);
-
             if ("ATTENDANCE".equals(dto.getEventName())){
                 Employee owner = getOwner(dto.getBranchId());
                 SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(owner.getEmail());
@@ -63,7 +60,6 @@ public class SseAlarmService {
                     try {
                         sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
 
-                        System.out.println("알림 +==========" + notification);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -77,7 +73,6 @@ public class SseAlarmService {
             if (sseEmitter != null) {
                 try {
                     sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
-                    System.out.println("알림 +==========" + notification);
 
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -86,7 +81,6 @@ public class SseAlarmService {
                 }
             }
 
-            System.out.println("메시지가 저장되지 않고 종료됩니다!");
         } catch (IOException e) {
             log.error("❌ Kafka listener error: {}", e.getMessage(), e);
             throw new RuntimeException(e);
