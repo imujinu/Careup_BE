@@ -15,6 +15,8 @@ public class TopBranchResponseDto {
     private Long totalSales;
     private Long totalOrders;
     private String month; // YYYY-MM
+    private Long averageSales; // 평균 매출
+    private Long differenceFromAverage; // 평균 대비 차이
 }
 
 

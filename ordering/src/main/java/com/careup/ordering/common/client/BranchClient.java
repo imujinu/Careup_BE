@@ -47,4 +47,10 @@ public interface BranchClient {
      */
     @GetMapping("/employees/internal/branch-id/{employeeId}")
     Map<String, Object> getBranchIdByEmployeeId(@PathVariable("employeeId") Long employeeId);
+
+    /**
+     * 내부 API용: employeeId로 직원 정보 조회
+     */
+    @GetMapping("/employees/internal/{employeeId}")
+    Map<String, Object> getEmployeeById(@PathVariable("employeeId") Long employeeId);
 }

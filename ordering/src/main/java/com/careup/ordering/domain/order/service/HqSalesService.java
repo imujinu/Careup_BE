@@ -643,6 +643,13 @@ public class HqSalesService {
         Long totalSales = top.getValue()[0];
         Long totalOrders = top.getValue()[1];
 
+        // 평균 매출 계산
+        Long totalAllSales = allBranchSales.stream()
+                .mapToLong(entry -> entry.getValue()[0])
+                .sum();
+        Long averageSales = allBranchSales.isEmpty() ? 0L : totalAllSales / allBranchSales.size();
+        Long differenceFromAverage = totalSales - averageSales;
+
         // 브랜치네임이 없으면 다시 조회 시도
         String branchName = allBranchNames.getOrDefault(branchId, null);
         if (branchName == null) {
@@ -659,6 +666,8 @@ public class HqSalesService {
                 .totalSales(totalSales)
                 .totalOrders(totalOrders)
                 .month(String.format("%04d-%02d", y, m))
+                .averageSales(averageSales)
+                .differenceFromAverage(differenceFromAverage)
                 .build();
     }
 
@@ -811,6 +820,8 @@ public class HqSalesService {
                     .totalSales(0L)
                     .totalOrders(0L)
                     .month(String.format("%04d-%02d", y, m))
+                    .averageSales(0L)
+                    .differenceFromAverage(0L)
                     .build();
         }
 
@@ -820,6 +831,13 @@ public class HqSalesService {
         Long branchId = low.getKey();
         Long totalSales = low.getValue()[0];
         Long totalOrders = low.getValue()[1];
+
+        // 평균 매출 계산
+        Long totalAllSales = allBranchSales.stream()
+                .mapToLong(entry -> entry.getValue()[0])
+                .sum();
+        Long averageSales = allBranchSales.isEmpty() ? 0L : totalAllSales / allBranchSales.size();
+        Long differenceFromAverage = totalSales - averageSales;
 
         // 브랜치네임이 없으면 다시 조회 시도
         String branchName = allBranchNames.getOrDefault(branchId, null);
@@ -837,6 +855,8 @@ public class HqSalesService {
                 .totalSales(totalSales)
                 .totalOrders(totalOrders)
                 .month(String.format("%04d-%02d", y, m))
+                .averageSales(averageSales)
+                .differenceFromAverage(differenceFromAverage)
                 .build();
     }
 
@@ -1020,7 +1040,31 @@ public class HqSalesService {
         // 모든 지점 조회 (매출이 0인 지점도 포함)
         List<BranchSalesSummaryDto> allBranches = new ArrayList<>();
         try {
-            List<Map<String, Object>> allBranchList = branchClient.getBranchesByIds(Collections.emptyList());
+            Map<String, Object> allBranchResponse = branchClient.getBranchesByIds(Collections.emptyList());
+            List<Map<String, Object>> allBranchList = new ArrayList<>();
+            
+            // 응답이 Map인 경우 data 필드에서 리스트 추출
+            if (allBranchResponse != null) {
+                Object data = allBranchResponse.get("data");
+                if (data instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> branchList = (List<Map<String, Object>>) data;
+                    allBranchList = branchList;
+                } else if (allBranchResponse.containsKey("result")) {
+                    Object result = allBranchResponse.get("result");
+                    if (result instanceof Map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> resultMap = (Map<String, Object>) result;
+                        Object resultData = resultMap.get("data");
+                        if (resultData instanceof List) {
+                            @SuppressWarnings("unchecked")
+                            List<Map<String, Object>> branchList = (List<Map<String, Object>>) resultData;
+                            allBranchList = branchList;
+                        }
+                    }
+                }
+            }
+            
             Set<Long> branchesWithSales = new HashSet<>(branchIds);
             
             // 매출이 있는 지점들
@@ -1046,7 +1090,10 @@ public class HqSalesService {
 
             // 매출이 0인 지점들 추가
             for (Map<String, Object> branch : allBranchList) {
-                Long branchId = ((Number) branch.get("id")).longValue();
+                Object idObj = branch.get("id");
+                if (idObj == null) continue;
+                
+                Long branchId = ((Number) idObj).longValue();
                 if (!branchesWithSales.contains(branchId)) {
                     String branchName = (String) branch.get("name");
                     allBranches.add(BranchSalesSummaryDto.builder()
