@@ -71,15 +71,27 @@ public class AutoOrderService {
             log.debug("파싱된 재고 변경 이벤트: branchId={}, productId={}", branchId, productId);
 
             executeWithSystemAuthentication(() -> {
-                // 해당 지점의 상품 정보 조회
-                OrderingInventoryClient.BranchProductResponseDto product = 
-                    orderingInventoryClient.getBranchProduct(branchId, productId);
+                // 해당 상품의 모든 속성 조합 조회
+                List<OrderingInventoryClient.BranchProductResponseDto> branchProducts = 
+                    orderingInventoryClient.getBranchProducts(branchId);
                 
-                if (product != null && product.stockQuantity < product.safetyStock) {
-                    Long orderQuantity = product.safetyStock - product.stockQuantity;
-                    log.info("재고 부족 감지: branchId={}, productId={}, 현재재고={}, 안전재고={}, 발주수량={}", 
-                        branchId, productId, product.stockQuantity, product.safetyStock, orderQuantity);
-                    createAutoOrder(branchId, productId, orderQuantity);
+                // 해당 productId를 가진 BranchProduct들만 필터링
+                List<OrderingInventoryClient.BranchProductResponseDto> productBranchProducts = 
+                    branchProducts.stream()
+                        .filter(bp -> bp.productId != null && bp.productId.equals(productId))
+                        .collect(Collectors.toList());
+                
+                // 각 속성 조합별로 재고 확인 및 자동 발주
+                for (OrderingInventoryClient.BranchProductResponseDto branchProduct : productBranchProducts) {
+                    Long currentStock = branchProduct.stockQuantity != null ? branchProduct.stockQuantity : 0L;
+                    Long safetyStock = branchProduct.safetyStock != null ? branchProduct.safetyStock : 0L;
+                    
+                    if (currentStock < safetyStock) {
+                        Long orderQuantity = safetyStock - currentStock;
+                        log.info("재고 부족 감지: branchId={}, productId={}, branchProductId={}, 현재재고={}, 안전재고={}, 발주수량={}", 
+                            branchId, productId, branchProduct.branchProductId, currentStock, safetyStock, orderQuantity);
+                        createAutoOrder(branchId, productId, branchProduct.branchProductId, orderQuantity);
+                    }
                 }
             });
             
@@ -125,7 +137,8 @@ public class AutoOrderService {
     /**
      * 매일 지정 시각에 모든 지점의 재고를 체크하여 자동 발주 실행
      */
-    @Scheduled(cron = "0 40 21 * * *")
+    // @Scheduled(cron = "0 0 0 * * *")
+    @Scheduled(cron = "0 37 4 * * *")
     public void checkAllBranchesInventory() {
         try {
             log.info("일일 자동 발주 체크 시작");
@@ -182,22 +195,43 @@ public class AutoOrderService {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> autoOrderProducts = (List<Map<String, Object>>) cachedSettings.get("products");
             
-            // 자동 발주 설정된 상품들만 체크 (Redis에 저장된 재고 정보 사용)
+            // 지점의 모든 BranchProduct 조회 (실제 재고 정보)
+            List<OrderingInventoryClient.BranchProductResponseDto> branchProducts = orderingInventoryClient.getBranchProducts(branchId);
+            
+            // 자동 발주 설정된 상품들만 체크
             for (Map<String, Object> autoOrderProduct : autoOrderProducts) {
                 Boolean productAutoOrderEnabled = (Boolean) autoOrderProduct.get("autoOrderEnabled");
                 if (!productAutoOrderEnabled) {
                     continue;
                 }
                 
+                // branchProductId가 있으면 해당 속성 조합만 체크
+                Object branchProductIdObj = autoOrderProduct.get("branchProductId");
                 Long productId = Long.valueOf(autoOrderProduct.get("productId").toString());
                 Long safetyStock = Long.valueOf(autoOrderProduct.get("safetyStock").toString());
-                Long currentStock = Long.valueOf(autoOrderProduct.get("currentStock").toString());
-
-                if (currentStock < safetyStock) {
-                    Long orderQuantity = safetyStock - currentStock;
-                    createAutoOrder(branchId, productId, orderQuantity);
-                    log.info("지점 {} 상품 {} 자동 발주 실행: 현재재고={}, 안전재고={}, 발주수량={}", 
-                        branchId, productId, currentStock, safetyStock, orderQuantity);
+                
+                if (branchProductIdObj != null) {
+                    // 특정 속성 조합(BranchProduct)만 체크
+                    Long branchProductId = Long.valueOf(branchProductIdObj.toString());
+                    OrderingInventoryClient.BranchProductResponseDto branchProduct = branchProducts.stream()
+                            .filter(bp -> bp.branchProductId != null && bp.branchProductId.equals(branchProductId))
+                            .findFirst()
+                            .orElse(null);
+                    
+                    if (branchProduct != null) {
+                        Long currentStock = branchProduct.stockQuantity != null ? branchProduct.stockQuantity : 0L;
+                        Long branchProductSafetyStock = branchProduct.safetyStock != null ? branchProduct.safetyStock : safetyStock;
+                        
+                        if (currentStock < branchProductSafetyStock) {
+                            Long orderQuantity = branchProductSafetyStock - currentStock;
+                            createAutoOrder(branchId, productId, branchProductId, orderQuantity);
+                            log.info("지점 {} 상품 {} (속성 조합 ID: {}) 자동 발주 실행: 현재재고={}, 안전재고={}, 발주수량={}", 
+                                branchId, productId, branchProductId, currentStock, branchProductSafetyStock, orderQuantity);
+                        }
+                    } else {
+                        log.warn("지점 {} 상품 {} (속성 조합 ID: {})를 찾을 수 없습니다. 자동 발주를 건너뜁니다.", 
+                            branchId, productId, branchProductId);
+                    }
                 }
             }
             
@@ -209,7 +243,7 @@ public class AutoOrderService {
     /**
      * 자동 발주 생성
      */
-    private void createAutoOrder(Long branchId, Long productId, Long quantity) {
+    private void createAutoOrder(Long branchId, Long productId, Long branchProductId, Long quantity) {
         try {
             // 중복 발주 방지 체크
             if (hasPendingAutoOrder(branchId, productId)) {
@@ -218,7 +252,7 @@ public class AutoOrderService {
             }
 
             // 자동 발주 실행
-            executeAutoOrder(branchId, productId, quantity);
+            executeAutoOrder(branchId, productId, branchProductId, quantity);
             
         } catch (Exception e) {
             log.error("자동 발주 생성 중 오류 발생: {}", e.getMessage(), e);
@@ -250,9 +284,26 @@ public class AutoOrderService {
     /**
      * 자동 발주 실행
      */
-    private void executeAutoOrder(Long branchId, Long productId, Long quantity) {
+    private void executeAutoOrder(Long branchId, Long productId, Long branchProductId, Long quantity) {
         try {
-            log.info("자동 발주 실행: 지점={}, 상품={}, 수량={}", branchId, productId, quantity);
+            log.info("자동 발주 실행: 지점={}, 상품={}, 속성조합ID={}, 수량={}", branchId, productId, branchProductId, quantity);
+            
+            // 가맹점의 branchProductId로 attributeValueId 조회
+            Long attributeValueId = null;
+            try {
+                OrderingInventoryClient.BranchProductResponseDto branchProduct = 
+                    orderingInventoryClient.getBranchProducts(branchId).stream()
+                        .filter(bp -> bp.branchProductId != null && bp.branchProductId.equals(branchProductId))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (branchProduct != null && branchProduct.attributeValueId != null) {
+                    attributeValueId = branchProduct.attributeValueId;
+                    log.info("가맹점 속성 조합 ID: {}, attributeValueId: {}", branchProductId, attributeValueId);
+                }
+            } catch (Exception e) {
+                log.warn("가맹점 branchProductId로 attributeValueId 조회 실패: {}", e.getMessage());
+            }
             
             // 발주 요청 생성
             PurchaseOrderRequestDto request = PurchaseOrderRequestDto.builder()
@@ -260,6 +311,8 @@ public class AutoOrderService {
                 .orderDetails(List.of(
                     PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto.builder()
                         .productId(productId)
+                        .branchProductId(branchProductId)  // 가맹점 branchProductId 전달
+                        .attributeValueId(attributeValueId)  // attributeValueId 전달
                         .quantity(quantity.intValue())
                         .build()
                 ))
@@ -326,15 +379,32 @@ public class AutoOrderService {
         try {
             log.info("수동 자동 발주 실행: 지점={}, 상품={}", branchId, productId);
             
-            // 상품 정보 조회
-            OrderingInventoryClient.BranchProductResponseDto product = 
-                orderingInventoryClient.getBranchProduct(branchId, productId);
+            // 해당 상품의 모든 속성 조합(BranchProduct) 조회
+            List<OrderingInventoryClient.BranchProductResponseDto> branchProducts = 
+                orderingInventoryClient.getBranchProducts(branchId);
             
-            if (product != null && product.stockQuantity < product.safetyStock) {
-                createAutoOrder(branchId, productId, product.safetyStock - product.stockQuantity);
-            } else {
-                log.info("자동 발주가 필요하지 않습니다. 현재 재고: {}, 안전 재고: {}", 
-                    product.stockQuantity, product.safetyStock);
+            // 해당 productId를 가진 BranchProduct들만 필터링
+            List<OrderingInventoryClient.BranchProductResponseDto> productBranchProducts = 
+                branchProducts.stream()
+                    .filter(bp -> bp.productId != null && bp.productId.equals(productId))
+                    .collect(Collectors.toList());
+            
+            boolean hasAutoOrder = false;
+            for (OrderingInventoryClient.BranchProductResponseDto branchProduct : productBranchProducts) {
+                Long currentStock = branchProduct.stockQuantity != null ? branchProduct.stockQuantity : 0L;
+                Long safetyStock = branchProduct.safetyStock != null ? branchProduct.safetyStock : 0L;
+                
+                if (currentStock < safetyStock) {
+                    Long orderQuantity = safetyStock - currentStock;
+                    createAutoOrder(branchId, productId, branchProduct.branchProductId, orderQuantity);
+                    log.info("속성 조합 ID: {} 자동 발주 실행: 현재재고={}, 안전재고={}, 발주수량={}", 
+                        branchProduct.branchProductId, currentStock, safetyStock, orderQuantity);
+                    hasAutoOrder = true;
+                }
+            }
+            
+            if (!hasAutoOrder) {
+                log.info("자동 발주가 필요하지 않습니다. 모든 속성 조합의 재고가 안전재고 이상입니다.");
             }
             
         } catch (Exception e) {
@@ -366,13 +436,20 @@ public class AutoOrderService {
                 
                 List<FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto> productSettings = 
                     products.stream()
-                        .map(product -> FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto.builder()
-                            .productId(Long.valueOf(product.get("productId").toString()))
-                            .productName(product.get("productName").toString())
-                            .autoOrderEnabled((Boolean) product.get("autoOrderEnabled"))
-                            .safetyStock(Long.valueOf(product.get("safetyStock").toString()))
-                            .currentStock(Long.valueOf(product.get("currentStock").toString()))
-                            .build())
+                        .map(product -> {
+                            Long branchProductId = null;
+                            if (product.get("branchProductId") != null) {
+                                branchProductId = Long.valueOf(product.get("branchProductId").toString());
+                            }
+                            return FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto.builder()
+                                .productId(Long.valueOf(product.get("productId").toString()))
+                                .branchProductId(branchProductId)
+                                .productName(product.get("productName").toString())
+                                .autoOrderEnabled((Boolean) product.get("autoOrderEnabled"))
+                                .safetyStock(Long.valueOf(product.get("safetyStock").toString()))
+                                .currentStock(Long.valueOf(product.get("currentStock").toString()))
+                                .build();
+                        })
                         .collect(Collectors.toList());
                 
                 return FranchiseAutoOrderSettingsDto.builder()
@@ -446,8 +523,14 @@ public class AutoOrderService {
                             Long.valueOf(product.get("currentStock").toString()) : 
                             Long.valueOf(product.get("stockQuantity").toString());
                         
+                        Long branchProductId = null;
+                        if (product.get("branchProductId") != null) {
+                            branchProductId = Long.valueOf(product.get("branchProductId").toString());
+                        }
+                        
                         return FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto.builder()
                             .productId(productId)
+                            .branchProductId(branchProductId)
                             .productName(productName)
                             .autoOrderEnabled(productAutoOrderEnabled)
                             .safetyStock(safetyStock)

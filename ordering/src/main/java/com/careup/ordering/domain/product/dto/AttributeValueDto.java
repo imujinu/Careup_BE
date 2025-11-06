@@ -20,7 +20,6 @@ public class AttributeValueDto {
     @Builder
     public static class Request {
         private Long attributeTypeId;
-        private String value;
         private String displayName;
         private Integer displayOrder;
         private Boolean isActive;
@@ -28,7 +27,6 @@ public class AttributeValueDto {
         public AttributeValue toEntity(AttributeType attributeType) {
             return AttributeValue.builder()
                     .attributeType(attributeType)
-                    .value(value)
                     .displayName(displayName)
                     .displayOrder(displayOrder)
                     .isActive(isActive)
@@ -44,7 +42,6 @@ public class AttributeValueDto {
         private Long id;
         private Long attributeTypeId;
         private String attributeTypeName;
-        private String value;
         private String displayName;
         private Integer displayOrder;
         private Boolean isActive;
@@ -54,7 +51,6 @@ public class AttributeValueDto {
                     .id(attributeValue.getId())
                     .attributeTypeId(attributeValue.getAttributeType().getId())
                     .attributeTypeName(attributeValue.getAttributeType().getName())
-                    .value(attributeValue.getValue())
                     .displayName(attributeValue.getDisplayName())
                     .displayOrder(attributeValue.getDisplayOrder())
                     .isActive(attributeValue.getIsActive())
@@ -76,7 +72,6 @@ public class AttributeValueDto {
         @AllArgsConstructor
         @Builder
         public static class ValueItem {
-            private String value;
             private String displayName;
             private Integer displayOrder;
         }

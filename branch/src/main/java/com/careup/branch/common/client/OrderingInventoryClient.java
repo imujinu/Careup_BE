@@ -19,6 +19,10 @@ public interface OrderingInventoryClient {
     @GetMapping("/api/products/{productId}")
     ResponseDto<ProductResponseDto> getProduct(@PathVariable Long productId);
 
+    // 상품 속성 값 조회
+    @GetMapping("/api/product-attribute-values/product/{productId}")
+    ResponseDto<List<ProductAttributeValueResponseDto>> getProductAttributeValues(@PathVariable Long productId);
+
     // ====== 필요 시 사용 가능한 나머지 API (그대로 두셔도 OK) ======
     @GetMapping("/api/products")
     List<ProductResponseDto> getProducts();
@@ -121,6 +125,9 @@ public interface OrderingInventoryClient {
         public Long price;
         public String productName;
         public String productDescription;
+        public Long attributeValueId;
+        public String attributeValueName;
+        public String attributeTypeName;
     }
 
     // 안전재고 설정
@@ -180,4 +187,14 @@ public interface OrderingInventoryClient {
     public CommonSuccessDto getProductId(@PathVariable Long memberId);
 
 
+
+    // 속성
+    class ProductAttributeValueResponseDto {
+        public Long id;
+        public Long productId;
+        public Long attributeValueId;
+        public Long attributeTypeId;
+        public String attributeTypeName;
+        public String displayName;
+    }
 }

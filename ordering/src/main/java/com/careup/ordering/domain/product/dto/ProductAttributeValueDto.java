@@ -41,8 +41,8 @@ public class ProductAttributeValueDto {
         private Long id;
         private Long productId;
         private Long attributeValueId;
+        private Long attributeTypeId;
         private String attributeTypeName;
-        private String value;
         private String displayName;
         private String customValue;
         
@@ -52,8 +52,8 @@ public class ProductAttributeValueDto {
                     .id(productAttributeValue.getId())
                     .productId(productAttributeValue.getProduct().getId())
                     .attributeValueId(av.getId())
+                    .attributeTypeId(av.getAttributeType().getId())
                     .attributeTypeName(av.getAttributeType().getName())
-                    .value(av.getValue())
                     .displayName(av.getDisplayName())
                     .customValue(productAttributeValue.getCustomValue())
                     .build();
