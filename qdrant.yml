@@ -22,22 +22,25 @@ spec:
           env:
             - name: QDRANT__SERVICE__API_KEY
               value: "careup-qdrant"
-          volumeMounts:
-            - name: qdrant-storage
-              mountPath: /qdrant/storage
+            - name: QDRANT__STORAGE__PATH
+              value: "/qdrant/storage"
           livenessProbe:
             httpGet:
-              path: /health
+              path: /readyz
               port: 6333
-            initialDelaySeconds: 10
+            initialDelaySeconds: 15
             periodSeconds: 15
             timeoutSeconds: 5
             failureThreshold: 3
-      volumes:
-        - name: qdrant-storage
-          persistentVolumeClaim:
-            claimName: qdrant-pvc
 
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 6333
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
@@ -50,7 +53,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
-
+  storageClassName: gp2
 ---
 apiVersion: v1
 kind: Service

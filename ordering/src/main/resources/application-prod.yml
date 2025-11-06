@@ -1,10 +1,14 @@
 server:
   port: 8080
-
+eureka:
+  client:
+    enabled: false
 spring:
   application:
     name: ordering-service
   redis:
+    redisson:
+      file: classpath:redisson.yaml
     host: redis-service
     port: 6379
     database: 0
@@ -24,7 +28,7 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show_sql: true
   servlet:
     multipart:
