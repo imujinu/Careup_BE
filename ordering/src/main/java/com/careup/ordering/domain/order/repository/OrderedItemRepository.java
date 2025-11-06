@@ -43,4 +43,19 @@ public interface OrderedItemRepository extends JpaRepository<OrderedItem, Long> 
     List<Object[]> findHqProductSalesStatistics(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+    // 본점(HQ)용: 카테고리별 매출 통계 조회 (기간 내 확정 주문 기준)
+    @Query("SELECT oi.branchProduct.product.category.id as categoryId, " +
+           "oi.branchProduct.product.category.name as categoryName, " +
+           "SUM(oi.totalPrice) as totalSales, " +
+           "SUM(oi.quantity) as totalQuantity, " +
+           "COUNT(DISTINCT oi.order.id) as orderCount " +
+           "FROM OrderedItem oi " +
+           "WHERE oi.order.orderStatus = com.careup.ordering.domain.order.entity.OrderStatus.CONFIRMED " +
+           "AND oi.order.createdAt BETWEEN :startDate AND :endDate " +
+           "GROUP BY oi.branchProduct.product.category.id, oi.branchProduct.product.category.name " +
+           "ORDER BY totalSales DESC")
+    List<Object[]> findCategorySalesStatistics(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate);
 }

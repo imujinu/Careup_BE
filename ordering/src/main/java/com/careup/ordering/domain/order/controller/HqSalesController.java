@@ -7,6 +7,8 @@ import com.careup.ordering.domain.order.dto.response.AllBranchesSalesResponseDto
 import com.careup.ordering.domain.order.dto.response.BranchComparisonResponseDto;
 import com.careup.ordering.domain.order.dto.response.BranchSalesDetailResponseDto;
 import com.careup.ordering.domain.order.dto.response.TopBranchResponseDto;
+import com.careup.ordering.domain.order.dto.response.CategorySalesResponseDto;
+import com.careup.ordering.domain.order.dto.response.BranchSalesSummaryResponseDto;
 import com.careup.ordering.domain.order.service.HqSalesService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -183,6 +185,93 @@ public class HqSalesController {
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.NOT_FOUND.value())
                             .status_message("가맹점 간 매출 비교 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 이달의 매출 저조 지점 (월 기준 총 매출 최하위)
+     * GET /hq/sales/low-branch?year=2025&month=11
+     * year, month가 없으면 현재 월 기준
+     */
+    @GetMapping("/low-branch")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    public ResponseEntity<?> getLowBranch(
+            @RequestParam(required = false) Integer year,
+            @RequestParam(required = false) Integer month) {
+        try {
+            TopBranchResponseDto response = hqSalesService.getLowBranchOfMonth(year, month);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(response)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("이달의 매출 저조 지점 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_message("이달의 매출 저조 지점 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 카테고리별 매출 비중 조회
+     * GET /hq/sales/categories?startDate=2025-01-01&endDate=2025-01-31&periodType=MONTH
+     */
+    @GetMapping("/categories")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    public ResponseEntity<?> getCategorySales(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
+            @RequestParam(defaultValue = "MONTH") String periodType) {
+        try {
+            CategorySalesResponseDto response = hqSalesService.getCategorySales(startDate, endDate, periodType);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(response)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("카테고리별 매출 비중 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_message("카테고리별 매출 비중 조회 실패 error: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    /**
+     * 지점별 매출 집계 조회 (지점간 비교용)
+     * GET /hq/sales/branches-summary?startDate=2025-01-01&endDate=2025-01-31&periodType=MONTH
+     */
+    @GetMapping("/branches-summary")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    public ResponseEntity<?> getBranchSalesSummary(
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate,
+            @RequestParam(defaultValue = "MONTH") String periodType) {
+        try {
+            BranchSalesSummaryResponseDto response = hqSalesService.getBranchSalesSummary(startDate, endDate, periodType);
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(response)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지점별 매출 집계 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_message("지점별 매출 집계 조회 실패 error: " + e.getMessage())
                             .build()
             );
         }
