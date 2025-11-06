@@ -1,0 +1,128 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ordering-deployment
+  namespace: care-up
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ordering-service
+  template:
+    metadata:
+      labels:
+        app: ordering-service
+    spec:
+      containers:
+        - name: ordering-service
+          image: 565393060633.dkr.ecr.ap-northeast-2.amazonaws.com/careup/ordering:latest
+          ports:
+            - containerPort: 8080
+          resources:
+            limits:
+              cpu: "1"
+              memory: "600Mi"
+            requests:
+              cpu: "0.5"
+              memory: "300Mi"
+          env:
+            # ===== DB =====
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: DB_HOST
+            - name: DB_PW
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: DB_PW
+
+            # ===== MAIL =====
+            - name: MAIL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: MAIL_USER
+            - name: MAIL_PW
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: MAIL_PW
+
+            # ===== AWS S3 =====
+            - name: ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: ACCESS_KEY
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: SECRET_KEY
+            - name: S3_BUCKET
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: S3_BUCKET
+
+            # ===== JWT =====
+            - name: ACCESS_TOKEN_CUSTOMER
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: ACCESS_TOKEN_CUSTOMER
+            - name: REFRESH_TOKEN_CUSTOMER
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: REFRESH_TOKEN_CUSTOMER
+
+            # ===== OAuth =====
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: GOOGLE_CLIENT_ID
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: GOOGLE_CLIENT_SECRET
+            - name: KAKAO_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: KAKAO_CLIENT_ID
+            - name: KAKAO_ADMIN_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: careup-secrets
+                  key: KAKAO_ADMIN_KEY
+
+            # ===== 컨테이너 메타 정보 =====
+            - name: CONSUMER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ordering-service
+  namespace: care-up
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8080
+  selector:
+    app: ordering-service
