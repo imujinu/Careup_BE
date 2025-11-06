@@ -32,5 +32,9 @@ public class ProductWithBranchesDto {
         private String branchName;
         private Long stockQuantity;
         private Long price;
+        // 속성 정보 추가
+        private Long attributeValueId;
+        private String attributeValueName;
+        private String attributeTypeName;
     }
 }

@@ -54,6 +54,21 @@ public class Order {
     @Column(name = "rejected_reason", length = 255)
     private String rejectedReason;
 
+    @Column(name = "rejected_by")
+    private Long rejectedBy;
+
+    @Column(name = "rejected_at")
+    private LocalDateTime rejectedAt;
+
+    @Column(name = "cancelled_reason", length = 255)
+    private String cancelledReason;
+
+    @Column(name = "cancelled_by")
+    private Long cancelledBy;
+
+    @Column(name = "cancelled_at")
+    private LocalDateTime cancelledAt;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderedItem> orderedItems = new ArrayList<>();
 
@@ -96,18 +111,23 @@ public class Order {
         this.approvedAt = LocalDateTime.now();
     }
 
-    public void reject(String reason) {
+    public void reject(String reason, Long rejectedBy) {
         if (this.orderStatus != OrderStatus.PENDING) {
             throw new IllegalStateException("대기 중인 주문만 거부할 수 있습니다.");
         }
-        this.orderStatus = OrderStatus.CANCELLED;
+        this.orderStatus = OrderStatus.REJECTED;
         this.rejectedReason = reason;
+        this.rejectedBy = rejectedBy;
+        this.rejectedAt = LocalDateTime.now();
     }
 
-    public void cancel() {
+    public void cancel(String reason, Long cancelledBy) {
         if (this.orderStatus == OrderStatus.CONFIRMED) {
             throw new IllegalStateException("이미 승인된 주문은 취소할 수 없습니다.");
         }
         this.orderStatus = OrderStatus.CANCELLED;
+        this.cancelledReason = reason;
+        this.cancelledBy = cancelledBy;
+        this.cancelledAt = LocalDateTime.now();
     }
 }
