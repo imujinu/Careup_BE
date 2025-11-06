@@ -6,9 +6,15 @@ eureka:
     enabled: true
     serviceUrl:
       defaultZone: http://localhost:8761/eureka/
+    # 레지스트리 정보를 빠르게 가져오기
+    registry-fetch-interval-seconds: 5  # 5초마다 레지스트리 갱신 (기본: 30초)
+    initial-instance-info-replication-interval-seconds: 5  # 최초 등록 5초 후 (기본: 40초)
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${spring.application.instance_id:${server.port}}
+    # 하트비트를 빠르게 전송하여 빠른 등록
+    lease-renewal-interval-in-seconds: 5  # 5초마다 하트비트 전송 (기본: 30초)
+    lease-expiration-duration-in-seconds: 10  # 10초 동안 하트비트 없으면 제거 (기본: 90초)
 
 spring:
   application:
@@ -45,7 +51,7 @@ spring:
       max-request-size: 1000MB
   kafka:
     enabled: true
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: localhost:9093
     consumer:
       group-id: ordering-group
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
@@ -57,6 +63,17 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   elasticsearch:
     uris: http://localhost:9200
+    streams:
+      application-id: ordering-service     # Streams 애플리케이션 ID
+      replication-factor: 1
+      state-dir: /tmp/kafka-streams
+      properties:
+        auto.offset.reset: earliest
+  ai:
+    openai:
+      embedding:
+        options:
+          model: text-embedding-3-small
 
   mail:
     host: smtp.gmail.com

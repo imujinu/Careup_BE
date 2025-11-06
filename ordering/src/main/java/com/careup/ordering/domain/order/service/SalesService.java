@@ -303,18 +303,26 @@ public class SalesService {
      * 인근 지역 가맹점 평균 및 매출 비교 (위치 기반 - MSA 개선)
      */
     public List<BranchComparisonDto> compareBranchSales(Long branchId, LocalDate startDate, LocalDate endDate, Double radiusKm) {
+        log.info("인근 지점 매출 비교 시작 - 지점 ID: {}, 기간: {} ~ {}, 반경: {}km",
+                branchId, startDate, endDate, radiusKm);
+
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
         try {
             // branch 서비스에서 인근 지점 조회
+            log.info("Branch 서비스 호출: getNearbyBranches(branchId={}, radiusKm={})", branchId, radiusKm);
             Map<String, Object> response = branchClient.getNearbyBranches(branchId, radiusKm);
+            log.info("Branch 서비스 응답 수신: {}", response);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> resultMap = (Map<String, Object>) response.get("result");
+            List<Map<String, Object>> nearbyBranchesData = (List<Map<String, Object>>) response.get("result");
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> nearbyBranchesData = (List<Map<String, Object>>) resultMap;
+            if (nearbyBranchesData == null || nearbyBranchesData.isEmpty()) {
+                log.warn("인근 지점 데이터가 없습니다. 응답: {}", response);
+            } else {
+                log.info("인근 지점 {} 개 조회됨", nearbyBranchesData.size());
+            }
 
             // 인근 지점 정보 파싱
             List<NearbyBranchInfoDto> nearbyBranches = nearbyBranchesData.stream()
@@ -333,8 +341,15 @@ public class SalesService {
             allBranchIds.add(branchId);
             nearbyBranches.forEach(branch -> allBranchIds.add(branch.getId()));
 
-            // Branch 정보 조회
-            Map<Long, String> branchNamesMap = getBranchNamesMap(allBranchIds);
+            // Branch 이름 매핑 (인근 지점 정보 활용)
+            Map<Long, String> branchNamesMap = new HashMap<>();
+            nearbyBranches.forEach(branch -> branchNamesMap.put(branch.getId(), branch.getName()));
+
+            // 본인 지점 정보는 별도 조회
+            Map<Long, String> ownBranchNames = getBranchNamesMap(List.of(branchId));
+            branchNamesMap.putAll(ownBranchNames);
+
+            log.info("최종 Branch 이름 매핑: {}", branchNamesMap);
 
             // 각 지점의 매출 통계 계산
             List<BranchComparisonDto> comparisons = new ArrayList<>();
@@ -384,21 +399,28 @@ public class SalesService {
      */
     private Map<Long, String> getBranchNamesMap(List<Long> branchIds) {
         try {
+            log.info("Branch 이름 조회 시작 - Branch IDs: {}", branchIds);
             Map<String, Object> response = branchClient.getBranchesByIds(branchIds);
+            log.info("Branch 서비스 응답: {}", response);
 
             @SuppressWarnings("unchecked")
-            Map<String, Object> resultMap = (Map<String, Object>) response.get("result");
+            List<Map<String, Object>> branchesData = (List<Map<String, Object>>) response.get("result");
 
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> branchesData = (List<Map<String, Object>>) resultMap;
+            if (branchesData == null || branchesData.isEmpty()) {
+                log.warn("Branch 데이터가 비어있습니다. 응답: {}", response);
+                return new HashMap<>();
+            }
 
-            return branchesData.stream()
+            Map<Long, String> branchNamesMap = branchesData.stream()
                     .collect(Collectors.toMap(
                             data -> ((Number) data.get("id")).longValue(),
                             data -> (String) data.get("name")
                     ));
+
+            log.info("Branch 이름 매핑 완료: {}", branchNamesMap);
+            return branchNamesMap;
         } catch (Exception e) {
-            log.error("Branch 이름 조회 실패: {}", e.getMessage());
+            log.error("Branch 이름 조회 실패: {}", e.getMessage(), e);
             return new HashMap<>();
         }
     }

@@ -1,5 +1,6 @@
 package com.careup.branch.common.client;
 
+import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.chat.dto.stock.StockAdjustRequestDto;
 import lombok.Builder;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -173,4 +174,10 @@ public interface OrderingInventoryClient {
         public String reason;
         public Long purchaseOrderId;
     }
+
+    // 마지막 조회 상품
+    @GetMapping("/customer/product/view/{memberId}")
+    public CommonSuccessDto getProductId(@PathVariable Long memberId);
+
+
 }

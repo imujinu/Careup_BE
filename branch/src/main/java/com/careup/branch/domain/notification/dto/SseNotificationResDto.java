@@ -99,4 +99,42 @@ public class SseNotificationResDto {
                 .action(action)
                 .build();
     }
+
+    /** ✅ 지점 정보 수정 요청 알림 (본사 관리자에게) */
+    public static SseNotificationResDto branchUpdateRequested(String branchName, Long requestId, String requesterName) {
+        return SseNotificationResDto.builder()
+                .senderName(requesterName)
+                .eventName("BRANCH_UPDATE")
+                .title("🏢 지점 정보 수정 요청")
+                .body(String.format("[%s] 지점의 정보 수정 요청이 접수되었습니다. 승인/거부 처리가 필요합니다.", branchName))
+                .type("BRANCH_UPDATE_REQUEST")
+                .action("REQUESTED")
+                .build();
+    }
+
+    /** ✅ 지점 정보 수정 승인 알림 (요청자에게) */
+    public static SseNotificationResDto branchUpdateApproved(String branchName, Long branchId, String approverName) {
+        return SseNotificationResDto.builder()
+                .branchId(branchId)
+                .senderName(approverName)
+                .eventName("BRANCH_UPDATE")
+                .title("✅ 지점 정보 수정 승인")
+                .body(String.format("[%s] 지점의 정보 수정 요청이 승인되었습니다.", branchName))
+                .type("BRANCH_UPDATE_REQUEST")
+                .action("APPROVED")
+                .build();
+    }
+
+    /** ✅ 지점 정보 수정 거부 알림 (요청자에게) */
+    public static SseNotificationResDto branchUpdateRejected(String branchName, Long branchId, String approverName) {
+        return SseNotificationResDto.builder()
+                .branchId(branchId)
+                .senderName(approverName)
+                .eventName("BRANCH_UPDATE")
+                .title("❌ 지점 정보 수정 거부")
+                .body(String.format("[%s] 지점의 정보 수정 요청이 거부되었습니다.", branchName))
+                .type("BRANCH_UPDATE_REQUEST")
+                .action("REJECTED")
+                .build();
+    }
 }

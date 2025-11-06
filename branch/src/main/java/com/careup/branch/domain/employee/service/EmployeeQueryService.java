@@ -137,8 +137,10 @@ public class EmployeeQueryService {
         throw new AccessDeniedException("권한이 없습니다.");
     }
 
-    // 지점별 소속 직원 목록 조회 (페이지네이션, 정렬 지원)
-    public Page<EmployeeDetailDto> listByBranch(Long branchId, Pageable pageable) {
+    // 지점별 소속 직원 목록 조회 (페이지네이션, 정렬, 검색, 필터 지원)
+    public Page<EmployeeDetailDto> listByBranch(Long branchId, String search, String employmentStatus,
+                                                  String gender, String employmentType, String authorityType,
+                                                  Pageable pageable) {
         Branch branch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new EntityNotFoundException("지점을 찾을 수 없습니다."));
 
@@ -158,6 +160,15 @@ public class EmployeeQueryService {
                         m -> new ArrayList<>(m.values())
                 ));
 
+        // 검색 및 필터 적용
+        List<Employee> filteredEmployees = distinctEmployees.stream()
+                .filter(e -> matchesSearch(e, search))
+                .filter(e -> matchesEmploymentStatus(e, employmentStatus))
+                .filter(e -> matchesGender(e, gender))
+                .filter(e -> matchesEmploymentType(e, employmentType))
+                .filter(e -> matchesAuthorityType(e, authorityType))
+                .collect(Collectors.toList());
+
         // 정렬 처리
         Sort sort = pageable.getSort();
         if (sort.isSorted()) {
@@ -166,15 +177,15 @@ public class EmployeeQueryService {
                 Comparator<Employee> currentComparator = getEmployeeComparator(order);
                 comparator = (comparator == null) ? currentComparator : comparator.thenComparing(currentComparator);
             }
-            if (comparator != null) distinctEmployees.sort(comparator);
+            if (comparator != null) filteredEmployees.sort(comparator);
         }
 
         // 페이지네이션
         int from = (int) pageable.getOffset();
-        int to = Math.min(from + pageable.getPageSize(), distinctEmployees.size());
-        if (from >= to) return new PageImpl<>(List.of(), pageable, distinctEmployees.size());
+        int to = Math.min(from + pageable.getPageSize(), filteredEmployees.size());
+        if (from >= to) return new PageImpl<>(List.of(), pageable, filteredEmployees.size());
 
-        List<Employee> pageEmployees = distinctEmployees.subList(from, to);
+        List<Employee> pageEmployees = filteredEmployees.subList(from, to);
 
         final Map<Long, List<EmployeeDispatchDto>> activeMap = activeDispatches.stream()
                 .collect(Collectors.groupingBy(
@@ -186,7 +197,67 @@ public class EmployeeQueryService {
                 .map(e -> EmployeeDetailDto.fromEntity(e, activeMap.getOrDefault(e.getId(), List.of())))
                 .toList();
 
-        return new PageImpl<>(content, pageable, distinctEmployees.size());
+        return new PageImpl<>(content, pageable, filteredEmployees.size());
+    }
+
+    // 검색어 매칭 (이름, 이메일, 전화번호, 사원번호)
+    private boolean matchesSearch(Employee employee, String search) {
+        if (search == null || search.trim().isEmpty()) {
+            return true;
+        }
+        String lowerSearch = search.toLowerCase().trim();
+        return (employee.getName() != null && employee.getName().toLowerCase().contains(lowerSearch)) ||
+               (employee.getEmail() != null && employee.getEmail().toLowerCase().contains(lowerSearch)) ||
+               (employee.getMobile() != null && employee.getMobile().contains(lowerSearch)) ||
+               (employee.getEmployeeNumber() != null && employee.getEmployeeNumber().toLowerCase().contains(lowerSearch));
+    }
+
+    // 고용 상태 필터
+    private boolean matchesEmploymentStatus(Employee employee, String employmentStatus) {
+        if (employmentStatus == null || employmentStatus.trim().isEmpty() || "전체".equals(employmentStatus)) {
+            return true;
+        }
+        try {
+            return employee.getEmploymentStatus() == com.careup.branch.domain.employee.entity.EmploymentStatus.valueOf(employmentStatus.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return true; // 잘못된 값은 무시
+        }
+    }
+
+    // 성별 필터
+    private boolean matchesGender(Employee employee, String gender) {
+        if (gender == null || gender.trim().isEmpty() || "전체".equals(gender)) {
+            return true;
+        }
+        try {
+            return employee.getGender() == com.careup.branch.domain.employee.entity.Gender.valueOf(gender.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return true;
+        }
+    }
+
+    // 고용 유형 필터
+    private boolean matchesEmploymentType(Employee employee, String employmentType) {
+        if (employmentType == null || employmentType.trim().isEmpty() || "전체".equals(employmentType)) {
+            return true;
+        }
+        try {
+            return employee.getEmploymentType() == com.careup.branch.domain.employee.entity.EmploymentType.valueOf(employmentType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return true;
+        }
+    }
+
+    // 권한 유형 필터
+    private boolean matchesAuthorityType(Employee employee, String authorityType) {
+        if (authorityType == null || authorityType.trim().isEmpty() || "전체".equals(authorityType)) {
+            return true;
+        }
+        try {
+            return employee.getAuthorityType() == com.careup.branch.domain.employee.entity.AuthorityType.valueOf(authorityType.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return true;
+        }
     }
 
     // 정렬 Comparator

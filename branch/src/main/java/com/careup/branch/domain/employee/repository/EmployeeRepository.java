@@ -49,6 +49,9 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Page<Employee> searchByKeyword(String keyword, Pageable pageable);
 
     boolean existsByEmailIgnoreCase(String email);
+
+    @Query("select e.email from Employee e where e.authorityType = 'HQ_ADMIN' and e.employmentStatus = 'ACTIVE'")
+    List<String> findAllHqAdminEmails();
     boolean existsByMobile(String mobile);
     boolean existsByEmployeeNumber(String employeeNumber);
 

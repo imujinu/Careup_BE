@@ -52,6 +52,7 @@ public class SecurityConfig {
 
                 // 상품/카테고리: 조회는 공개, 쓰기/수정/삭제는 관리자 계열만
                 .requestMatchers(HttpMethod.GET, "/products/**", "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/products/**", "/api/rank/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -127,6 +128,7 @@ public class SecurityConfig {
                 // 매출 통계 조회 (MSA 간 통신용) - 관리자 전용
                 .requestMatchers("/sales/**").authenticated()
 
+                .requestMatchers(HttpMethod.GET, "/rec/**").permitAll()
                 .anyRequest().authenticated()
         );
 

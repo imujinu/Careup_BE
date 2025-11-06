@@ -3,6 +3,7 @@ package com.careup.branch.domain.branch.service;
 import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.domain.branch.dto.branch.*;
 import com.careup.branch.domain.branch.entity.Branch;
+import com.careup.branch.domain.branch.entity.BranchStatus;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.employee.entity.AuthorityType;
 import com.careup.branch.domain.employee.entity.DispatchStatus;
@@ -86,14 +87,15 @@ public class BranchService {
         return BranchDto.fromEntity(findBranch, ownerInfo);
     }
 
-    // 지점 목록 조회 (페이징)
+    // 지점 목록 조회 (페이징, 검색, 필터)
     @Transactional(readOnly = true)
-    public BranchListResDto getBranchList(Pageable pageable) {
-        Page<Branch> findBranches = branchRepository.findAll(pageable);
+    public BranchListResDto getBranchList(String keyword, BranchStatus status, Pageable pageable) {
+        Page<Branch> findBranches = branchRepository.searchBranches(keyword, status, pageable);
 
         // Entity를 DTO로 변환
         Page<BranchDto> branchDtoPage = findBranches.map(BranchDto::fromEntity);
 
+        log.info("지점 목록 조회 - 검색어: {}, 상태: {}", keyword, status);
         log.info("지점 목록 조회 - 페이지: {}", pageable.getPageNumber() + 1);
         log.info("지점 목록 조회 - 총 페이지: {}", branchDtoPage.getTotalPages());
         log.info("지점 목록 조회 - 총 데이터 갯수: {}", branchDtoPage.getTotalElements());
@@ -199,23 +201,35 @@ public class BranchService {
         Branch targetBranch = branchRepository.findById(branchId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 지점입니다."));
 
+        log.info("인근 지점 조회 시작 - 기준 지점 ID: {}, 이름: {}, 위도: {}, 경도: {}, 반경: {}km",
+                branchId, targetBranch.getName(), targetBranch.getLatitude(), targetBranch.getLongitude(), radiusKm);
+
         if (targetBranch.getLatitude() == null || targetBranch.getLongitude() == null) {
-            throw new IllegalArgumentException("해당 지점의 위치 정보가 없습니다.");
+            log.warn("지점 ID {}의 위치 정보가 없습니다. (위도: {}, 경도: {})",
+                    branchId, targetBranch.getLatitude(), targetBranch.getLongitude());
+            throw new IllegalArgumentException("해당 지점의 위치 정보가 없습니다. 지점 정보를 업데이트해주세요.");
         }
 
         // 모든 지점 조회 (자신 제외)
-        List<Branch> allBranches = branchRepository.findAll().stream()
+        List<Branch> allBranches = branchRepository.findAll();
+        log.info("전체 지점 수: {}", allBranches.size());
+
+        List<Branch> branchesWithLocation = allBranches.stream()
                 .filter(branch -> !branch.getId().equals(branchId))
                 .filter(branch -> branch.getLatitude() != null && branch.getLongitude() != null)
                 .collect(Collectors.toList());
 
+        log.info("위치 정보가 있는 지점 수 (자신 제외): {}", branchesWithLocation.size());
+
         // 거리 계산 및 반경 내 지점 필터링
-        return allBranches.stream()
+        List<NearbyBranchDto> nearbyBranches = branchesWithLocation.stream()
                 .map(branch -> {
                     double distance = calculateDistance(
                             targetBranch.getLatitude(), targetBranch.getLongitude(),
                             branch.getLatitude(), branch.getLongitude()
                     );
+
+                    log.debug("지점 ID: {}, 이름: {}, 거리: {}km", branch.getId(), branch.getName(), distance);
 
                     return NearbyBranchDto.builder()
                             .id(branch.getId())
@@ -229,6 +243,10 @@ public class BranchService {
                 .filter(dto -> dto.getDistance() <= radiusKm)
                 .sorted(Comparator.comparing(NearbyBranchDto::getDistance))
                 .collect(Collectors.toList());
+
+        log.info("반경 {}km 내 인근 지점 수: {}", radiusKm, nearbyBranches.size());
+
+        return nearbyBranches;
     }
 
     /**

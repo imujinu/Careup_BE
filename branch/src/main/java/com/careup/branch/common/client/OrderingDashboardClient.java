@@ -2,6 +2,7 @@ package com.careup.branch.common.client;
 
 import com.careup.branch.common.config.FeignConfig;
 import org.springframework.cloud.openfeign.FeignClient;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -11,10 +12,10 @@ import java.util.Map;
 
 /**
  * Ordering 서비스의 대시보드 관련 API를 호출하는 FeignClient
+ * Eureka를 통해 ordering-service와 직접 통신
  */
 @FeignClient(
-        name = "ordering-dashboard-service",
-        url = "${feign.ordering.url:http://localhost:8080}",
+        name = "ordering-service",
         configuration = FeignConfig.class
 )
 public interface OrderingDashboardClient {
@@ -25,8 +26,8 @@ public interface OrderingDashboardClient {
     @GetMapping("/api/dashboard/sales-summary")
     SalesSummaryDto getSalesSummary(
             @RequestParam("branchId") Long branchId,
-            @RequestParam(value = "startDate", required = false) LocalDate startDate,
-            @RequestParam(value = "endDate", required = false) LocalDate endDate
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate
     );
 
     /**
@@ -41,8 +42,8 @@ public interface OrderingDashboardClient {
     @GetMapping("/api/dashboard/order-summary")
     OrderSummaryDto getOrderSummary(
             @RequestParam("branchId") Long branchId,
-            @RequestParam(value = "startDate", required = false) LocalDate startDate,
-            @RequestParam(value = "endDate", required = false) LocalDate endDate
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate
     );
 
     /**
@@ -61,8 +62,8 @@ public interface OrderingDashboardClient {
     @GetMapping("/api/dashboard/category-sales")
     CategorySalesDto getCategorySales(
             @RequestParam("branchId") Long branchId,
-            @RequestParam(value = "startDate", required = false) LocalDate startDate,
-            @RequestParam(value = "endDate", required = false) LocalDate endDate
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate
     );
 
     // ====== DTOs ======
