@@ -68,6 +68,12 @@ spring:
             - Path=/api/**, /inventory/**
           uri: lb://ordering-service
 
+        # 본점 매출(HQ) API 직접 경로 지원
+        - id: ordering-hq-sales
+          predicates:
+            - Path=/hq/sales/**
+          uri: lb://ordering-service
+
         # 직원 인증(/auth/**) — customers보다 뒤
         - id: branch-auth-shortcut
           predicates:

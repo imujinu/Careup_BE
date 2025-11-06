@@ -3,13 +3,18 @@ package com.careup.ordering.domain.order.service;
 import com.careup.ordering.common.client.BranchClient;
 import com.careup.ordering.domain.order.dto.AllBranchesSalesDto;
 import com.careup.ordering.domain.order.dto.BranchSalesDetailDto;
+import com.careup.ordering.domain.order.dto.ProductSalesDto;
 import com.careup.ordering.domain.order.dto.request.HqSalesRequestDto;
 import com.careup.ordering.domain.order.dto.response.AllBranchesSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.BranchComparisonResponseDto;
 import com.careup.ordering.domain.order.dto.response.BranchSalesDetailResponseDto;
+import com.careup.ordering.domain.order.dto.response.TopBranchResponseDto;
 import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.entity.OrderStatus;
 import com.careup.ordering.domain.order.repository.OrderRepository;
+import com.careup.ordering.domain.order.repository.OrderedItemRepository;
+import com.careup.ordering.domain.product.entity.Product;
+import com.careup.ordering.domain.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +33,8 @@ import java.util.stream.Collectors;
 public class HqSalesService {
 
     private final OrderRepository orderRepository;
+    private final OrderedItemRepository orderedItemRepository;
+    private final ProductRepository productRepository;
     private final BranchClient branchClient;
 
     /**
@@ -71,6 +78,85 @@ public class HqSalesService {
                 .totalBranchCount(totalBranchCount)
                 .salesData(salesData)
                 .build();
+    }
+
+    /**
+     * 전체 지점 대상 기간 내 상품별 판매 통계 조회 (정렬/상위 N개)
+     * sortType: HIGH_SALES | LOW_SALES | HIGH_MARGIN | LOW_MARGIN
+     */
+    public List<ProductSalesDto> getHqProductSales(LocalDate startDate, LocalDate endDate, String sortType, Integer size) {
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<Object[]> results = orderedItemRepository.findHqProductSalesStatistics(startDateTime, endDateTime);
+
+        // 판매 발생한 상품들 집계
+        Map<Long, ProductSalesDto> productMap = results.stream()
+                .map(result -> {
+                    Long productId = ((Number) result[0]).longValue();
+                    String productName = (String) result[1];
+                    Long totalQuantity = ((Number) result[2]).longValue();
+                    Long totalSales = ((Number) result[3]).longValue();
+                    Long supplyPrice = ((Number) result[4]).longValue();
+                    Double avgSellingPrice = ((Number) result[5]).doubleValue();
+                    Long orderCount = ((Number) result[6]).longValue();
+
+                    Double marginRate = (avgSellingPrice != 0)
+                            ? ((avgSellingPrice - supplyPrice) / avgSellingPrice) * 100
+                            : 0.0;
+
+                    return ProductSalesDto.builder()
+                            .productId(productId)
+                            .productName(productName)
+                            .totalQuantity(totalQuantity)
+                            .totalSales(totalSales)
+                            .supplyPrice(supplyPrice)
+                            .averageSellingPrice(avgSellingPrice.longValue())
+                            .marginRate(marginRate)
+                            .orderCount(orderCount)
+                            .build();
+                })
+                .collect(Collectors.toMap(ProductSalesDto::getProductId, dto -> dto));
+
+        // 전체 상품 목록을 가져와서, 집계에 없는 상품은 0으로 채워 넣음 (판매 0건 포함)
+        List<Product> allProducts = productRepository.findAll();
+        for (Product p : allProducts) {
+            if (!productMap.containsKey(p.getId())) {
+                productMap.put(p.getId(), ProductSalesDto.builder()
+                        .productId(p.getId())
+                        .productName(p.getName())
+                        .totalQuantity(0L)
+                        .totalSales(0L)
+                        .supplyPrice(p.getSupplyPrice())
+                        .averageSellingPrice(0L)
+                        .marginRate(0.0)
+                        .orderCount(0L)
+                        .build());
+            }
+        }
+
+        List<ProductSalesDto> products = new ArrayList<>(productMap.values());
+
+        String sort = (sortType != null ? sortType : "HIGH_SALES").toUpperCase();
+        switch (sort) {
+            case "HIGH_MARGIN":
+                products.sort(Comparator.comparing(ProductSalesDto::getMarginRate).reversed());
+                break;
+            case "LOW_MARGIN":
+                products.sort(Comparator.comparing(ProductSalesDto::getMarginRate));
+                break;
+            case "LOW_SALES":
+                products.sort(Comparator.comparing(ProductSalesDto::getTotalSales));
+                break;
+            case "HIGH_SALES":
+            default:
+                products.sort(Comparator.comparing(ProductSalesDto::getTotalSales).reversed());
+        }
+
+        if (size != null && size > 0 && products.size() > size) {
+            return products.subList(0, size);
+        }
+        return products;
     }
 
     /**
@@ -391,6 +477,53 @@ public class HqSalesService {
                 .totalSales(totalSales)
                 .branchNames(branchNames)
                 .comparisonData(comparisonData)
+                .build();
+    }
+
+    /**
+     * 이달의 우수 지점 (지정 month의 총 매출 1위 지점)
+     * @param year 연도 (null이면 현재 연도)
+     * @param month 월 (1-12, null이면 현재 월)
+     */
+    public TopBranchResponseDto getTopBranchOfMonth(Integer year, Integer month) {
+        LocalDate now = LocalDate.now();
+        int y = (year != null ? year : now.getYear());
+        int m = (month != null ? month : now.getMonthValue());
+
+        LocalDate startDate = LocalDate.of(y, m, 1);
+        LocalDate endDate = startDate.plusMonths(1).minusDays(1);
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        // 모든 지점의 매출 통계 [branchId, totalSales, totalOrders]
+        List<Object[]> allBranchStats = orderRepository.findBranchSalesStatistics(
+                OrderStatus.CONFIRMED, startDateTime, endDateTime);
+
+        if (allBranchStats == null || allBranchStats.isEmpty()) {
+            return TopBranchResponseDto.builder()
+                    .branchId(null)
+                    .branchName(null)
+                    .totalSales(0L)
+                    .totalOrders(0L)
+                    .month(String.format("%04d-%02d", y, m))
+                    .build();
+        }
+
+        // 첫 번째가 1위라고 가정 (정렬되어 있지 않다면 정렬)
+        allBranchStats.sort((a, b) -> Long.compare(((Number) b[1]).longValue(), ((Number) a[1]).longValue()));
+        Object[] top = allBranchStats.get(0);
+        Long branchId = ((Number) top[0]).longValue();
+        Long totalSales = ((Number) top[1]).longValue();
+        Long totalOrders = ((Number) top[2]).longValue();
+
+        String branchName = getBranchName(branchId);
+
+        return TopBranchResponseDto.builder()
+                .branchId(branchId)
+                .branchName(branchName)
+                .totalSales(totalSales)
+                .totalOrders(totalOrders)
+                .month(String.format("%04d-%02d", y, m))
                 .build();
     }
 
