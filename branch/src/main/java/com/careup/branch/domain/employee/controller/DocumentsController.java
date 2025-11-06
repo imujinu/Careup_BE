@@ -26,7 +26,7 @@ public class DocumentsController {
     private final DocumentsService documentsService;
 
     // 생성 - 특정 지점 하위
-    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
     @PostMapping(value = "/branch/{branchId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createDocument(
             @PathVariable Long branchId,
@@ -99,7 +99,7 @@ public class DocumentsController {
     }
 
     // 서류 수정 - 특정 지점 하위
-    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
     @PatchMapping(value = "/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateDocument(
             @PathVariable Long documentId,
@@ -124,7 +124,7 @@ public class DocumentsController {
     }
 
     // 서류 삭제 - 특정 지점 하위
-    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADIMN', 'FRANCHISE_ADMIN')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_ADMIN', 'FRANCHISE_ADMIN')")
     @DeleteMapping("/{documentId}")
     public ResponseEntity<?> deleteBranchDocument(@PathVariable Long documentId) {
         try {
