@@ -64,7 +64,7 @@ public class SseNotificationResDto {
                 .branchId(branchId)
                 .eventName("STOCK")
                 .title("📉 재고 차감")
-                .body(String.format("%s 상품의 재고가 %d개 차감되었습니다.", productName, quantity))
+                .body(String.format("제품명 : %s의 재고가 %d개 차감되었습니다.", productName, quantity))
                 .action("STOCK_DECREASE")
                 .build();
     }
@@ -75,7 +75,7 @@ public class SseNotificationResDto {
                 .branchId(branchId)
                 .eventName("STOCK")
                 .title("📦 재고 추가")
-                .body(String.format("%s 상품의 재고가 %d개 추가되었습니다.", productName, quantity))
+                .body(String.format("제품명 : %s의 재고가 %d개 추가되었습니다.", productName, quantity))
                 .action("STOCK_INCREASE")
                 .build();
     }
@@ -86,7 +86,7 @@ public class SseNotificationResDto {
                 .branchId(branchId)
                 .eventName("STOCK")
                 .title("🔁 재고 변경")
-                .body(String.format("%s 상품의 재고가 %d개로 변경되었습니다.", productName, newQuantity))
+                .body(String.format("제품명 : %s의 재고가 %d개로 변경되었습니다.", productName, newQuantity))
                 .action("STOCK_UPDATE")
                 .build();
     }

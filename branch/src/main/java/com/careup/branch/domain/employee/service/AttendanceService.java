@@ -28,10 +28,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -400,7 +397,10 @@ public class AttendanceService {
     }
 
     public Employee getEmployee() {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            Map<String, Object> details = (Map<String, Object>) auth.getDetails();
+            String email = (String) details.get("email");
+
         return employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 직원입니다."));
     }
