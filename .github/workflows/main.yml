@@ -13,7 +13,7 @@ on:
 env:
   DOCKER_REGISTRY: ghcr.io
   IMAGE_TAG: ${{ github.sha }}
-  K8S_NAMESPACE: careup
+  K8S_NAMESPACE: care-up
 
 jobs:
   # ==================== 변경 사항 감지 ====================
