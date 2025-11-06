@@ -96,7 +96,7 @@ public class QdrantService {
     private void extracted(ProductAttributeValue pa, Map<String, String> features) {
         AttributeValue av = attributeValueRepository.findById(pa.getAttributeValue().getId()).orElseThrow(()-> new EntityNotFoundException("존재 하지 않는 상품 속성입니다."));
         AttributeType at = av.getAttributeType();
-        features.put(at.getName(), av.getValue());
+        features.put(at.getName(), av.getDisplayName());
     }
 
 
