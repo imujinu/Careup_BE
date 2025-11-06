@@ -86,9 +86,18 @@ public class ProductService {
                 .visibility(visibilityEnum)
                 .build();
 
-        // 상품 유사도 저장
+        // 상품 저장
         Product savedProduct = productRepository.save(product);
-        qdrantService.saveProduct(savedProduct);
+        
+        // Qdrant 벡터 저장 (실패해도 상품 등록은 성공하도록 처리)
+        try {
+            qdrantService.saveProduct(savedProduct);
+            log.info("Qdrant 벡터 저장 성공 - productId: {}", savedProduct.getId());
+        } catch (Exception e) {
+            log.error("Qdrant 벡터 저장 실패 - productId: {}, error: {}", savedProduct.getId(), e.getMessage(), e);
+            // Qdrant 저장 실패해도 상품 등록은 성공 처리
+        }
+        
         return ProductResponseDto.from(savedProduct);
     }
 

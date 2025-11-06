@@ -5,19 +5,12 @@ import com.careup.ordering.domain.product.repository.*;
 import com.careup.ordering.domain.recomendation.config.QdrantClientWrapper;
 import com.careup.ordering.domain.recomendation.config.VectorEncoder;
 import com.careup.ordering.domain.recomendation.dto.ProductWithSimilarity;
-import io.qdrant.client.QdrantClient;
-import io.qdrant.client.grpc.Points;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.ai.vectorstore.qdrant.QdrantVectorStore;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.List;
@@ -27,34 +20,56 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional
 @Slf4j
 public class QdrantService {
     private final ProductRepository productRepository;
     private final QdrantClientWrapper qdrantClientWrapper;
     private final VectorEncoder vectorEncoder;
     private final AttributeValueRepository attributeValueRepository;
-    @Transactional
+    
+    /**
+     * Qdrant 벡터 저장
+     * 외부 서비스이므로 트랜잭션 없이 실행하여 DB 트랜잭션에 영향을 주지 않도록 함
+     */
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void saveProduct(Product product) {
-        long price = (product.getMaxPrice() + product.getMinPrice()) / 2;
-        Map<String, String> features = new HashMap<>();
-        features.put("category", product.getCategory().getName());
-        features.put("price", String.valueOf(price));
+        try {
+            long price = (product.getMaxPrice() + product.getMinPrice()) / 2;
+            Map<String, String> features = new HashMap<>();
+            features.put("category", product.getCategory().getName());
+            features.put("price", String.valueOf(price));
 
-        List<ProductAttributeValue> list = product.getProductAttributeValues();
-        for (ProductAttributeValue pa : list) {
-            extracted(pa, features);
+            // ProductAttributeValue가 null이거나 빈 리스트일 수 있음
+            List<ProductAttributeValue> list = product.getProductAttributeValues();
+            if (list != null && !list.isEmpty()) {
+                for (ProductAttributeValue pa : list) {
+                    try {
+                        extracted(pa, features);
+                    } catch (Exception e) {
+                        log.warn("속성 값 추출 실패 - productId: {}, attributeValueId: {}, error: {}", 
+                                product.getId(), 
+                                pa != null && pa.getAttributeValue() != null ? pa.getAttributeValue().getId() : "unknown",
+                                e.getMessage());
+                        // 개별 속성 값 추출 실패해도 계속 진행
+                    }
+                }
+            }
+
+            float[] vector = vectorEncoder.encode(features, product);
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("product_id", product.getId());
+            payload.putAll(features);
+
+            qdrantClientWrapper.upsertProductVector(product.getId(), vector, payload);
+            log.info("Qdrant 벡터 저장 성공 - productId: {}", product.getId());
+        } catch (Exception e) {
+            log.error("Qdrant 벡터 저장 중 예외 발생 - productId: {}, error: {}", product.getId(), e.getMessage(), e);
+            throw e; // 예외를 다시 던져서 호출자에서 처리하도록
         }
-
-        float[] vector = vectorEncoder.encode(features, product);
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("product_id", product.getId());
-        payload.putAll(features);
-
-        qdrantClientWrapper.upsertProductVector(product.getId(), vector, payload);
     }
 
+    @Transactional(readOnly = true)
     public List<ProductWithSimilarity> searchSimilarProducts(Long productId, int limit) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new IllegalArgumentException("상품을 찾을 수 없습니다."));
@@ -94,9 +109,19 @@ public class QdrantService {
     }
 
     private void extracted(ProductAttributeValue pa, Map<String, String> features) {
-        AttributeValue av = attributeValueRepository.findById(pa.getAttributeValue().getId()).orElseThrow(()-> new EntityNotFoundException("존재 하지 않는 상품 속성입니다."));
+        if (pa == null || pa.getAttributeValue() == null) {
+            log.warn("ProductAttributeValue 또는 AttributeValue가 null입니다.");
+            return;
+        }
+        
+        Long attributeValueId = pa.getAttributeValue().getId();
+        AttributeValue av = attributeValueRepository.findById(attributeValueId)
+                .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 상품 속성입니다. attributeValueId: " + attributeValueId));
+        
         AttributeType at = av.getAttributeType();
-        features.put(at.getName(), av.getDisplayName());
+        if (at != null && at.getName() != null) {
+            features.put(at.getName(), av.getDisplayName() != null ? av.getDisplayName() : "");
+        }
     }
 
 

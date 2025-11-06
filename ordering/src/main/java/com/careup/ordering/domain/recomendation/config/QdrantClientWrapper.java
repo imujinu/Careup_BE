@@ -2,25 +2,39 @@ package com.careup.ordering.domain.recomendation.config;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 public class QdrantClientWrapper {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final String apiKey;
 
-    public QdrantClientWrapper(ObjectMapper objectMapper) {
+    public QdrantClientWrapper(
+            ObjectMapper objectMapper,
+            @Value("${qdrant.host:localhost}") String host,
+            @Value("${qdrant.port:6333}") int port,
+            @Value("${qdrant.api-key:}") String apiKey) {
         this.objectMapper = objectMapper;
-        this.webClient = WebClient.builder()
-                .baseUrl("http://localhost:6333") // Qdrant 서버 주소
-                .build();
+        this.apiKey = apiKey;
+        
+        WebClient.Builder builder = WebClient.builder()
+                .baseUrl(String.format("http://%s:%d", host, port));
+        
+        // API 키가 있으면 기본 헤더에 추가 (api-key 또는 Authorization Bearer 형식 지원)
+        if (apiKey != null && !apiKey.trim().isEmpty()) {
+            builder.defaultHeader("api-key", apiKey);
+            // Authorization Bearer 형식도 지원 (Qdrant가 둘 다 지원)
+            builder.defaultHeader("Authorization", "Bearer " + apiKey);
+        }
+        
+        this.webClient = builder.build();
     }
 
     public void upsertProductVector(Long productId, float[] vector, Map<String, Object> payload) {
