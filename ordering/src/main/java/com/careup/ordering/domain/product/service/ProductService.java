@@ -259,20 +259,22 @@ public class ProductService {
      */
     @Transactional(readOnly = true)
     public Page<ProductWithBranchesDto> getPublicProductsWithBranches(Long categoryId, Pageable pageable) {
-        // 전체 상품을 먼저 조회 (페이지네이션 없이)
-        List<Product> allProducts;
+        // 카테고리 필터링 여부에 따라 다른 쿼리 사용
+        Page<Product> productsPage;
         
         if (categoryId != null) {
-            // 카테고리 + visibility=ALL + 활성 필터링 (전체 조회)
-            allProducts = productRepository.findByCategoryIdAndVisibilityAndActive(categoryId, Visibility.ALL);
+            // 카테고리 + visibility=ALL + 활성 필터링
+            productsPage = productRepository.findByCategoryIdAndVisibilityAndActive(categoryId, Visibility.ALL, pageable);
         } else {
-            // 전체 상품 중 visibility=ALL + 활성 필터링 (전체 조회)
-            allProducts = productRepository.findByVisibilityAndActive(Visibility.ALL);
+            // 전체 상품 중 visibility=ALL + 활성 필터링
+            productsPage = productRepository.findByVisibilityAndActive(Visibility.ALL, pageable);
         }
         
+        List<Product> products = productsPage.getContent();
+
         // 모든 상품의 지점 ID 수집
         Set<Long> allBranchIds = new HashSet<>();
-        allProducts.forEach(product -> {
+        products.forEach(product -> {
             List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
             branchProducts.stream()
                     .filter(bp -> bp.getStockQuantity() > 0)
@@ -332,7 +334,7 @@ public class ProductService {
 
         // 최종 결과 생성
         final Map<Long, String> branchNameMap = branchIdToNameMap; // final 변수로 사용하기 위해
-        List<ProductWithBranchesDto> allFilteredProducts = allProducts.stream()
+        List<ProductWithBranchesDto> result = products.stream()
                 .map(product -> {
                     // 해당 상품을 판매하는 모든 지점 정보 조회
                     List<BranchProduct> branchProducts = branchProductRepository.findByProduct(product);
@@ -363,24 +365,17 @@ public class ProductService {
                             .maxPrice(product.getMaxPrice())
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
+                            .attributeValues(product.getProductAttributeValues() != null ?
+                                    product.getProductAttributeValues().stream()
+                                            .map(com.careup.ordering.domain.product.dto.ProductAttributeValueDto.Response::from)
+                                            .collect(java.util.stream.Collectors.toList()) : java.util.List.of())
                             .build();
                 })
                 .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
                 .collect(Collectors.toList());
 
-        // 필터링 후 페이지네이션 적용
-        long filteredTotalElements = allFilteredProducts.size();
-        int pageNumber = pageable.getPageNumber();
-        int pageSize = pageable.getPageSize();
-        int start = pageNumber * pageSize;
-        int end = Math.min(start + pageSize, allFilteredProducts.size());
-        
-        List<ProductWithBranchesDto> result = start < allFilteredProducts.size() 
-                ? allFilteredProducts.subList(start, end)
-                : new ArrayList<>();
-        
-        // Page 객체로 변환 (필터링 후 실제 개수 사용)
-        return new PageImpl<>(result, pageable, filteredTotalElements);
+        // Page 객체로 변환
+        return new PageImpl<>(result, pageable, productsPage.getTotalElements());
     }
 
     /**
@@ -478,6 +473,10 @@ public class ProductService {
                             .maxPrice(product.getMaxPrice())
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
+                            .attributeValues(product.getProductAttributeValues() != null ?
+                                    product.getProductAttributeValues().stream()
+                                            .map(com.careup.ordering.domain.product.dto.ProductAttributeValueDto.Response::from)
+                                            .collect(java.util.stream.Collectors.toList()) : java.util.List.of())
                             .build();
                 })
                 .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
