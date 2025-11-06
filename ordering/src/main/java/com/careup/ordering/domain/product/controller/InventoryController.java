@@ -105,14 +105,24 @@ public class InventoryController {
     public ResponseEntity<List<BranchProductResponseDto>> getBranchProducts(
             @PathVariable Long branchId, 
             Authentication authentication) {
-        // 자동발주 페이지에서 본사 조회 허용
+        // 본점 관리자(HQ_ADMIN)인 경우 요청한 branchId를 그대로 사용 (모든 지점 조회 가능)
+        // 지점 관리자/직원인 경우 자신의 지점만 조회 가능
         Long actualBranchId;
         if (branchId == 1L) {
             // 본사 조회는 자동발주 등에서 사용하므로 허용
             actualBranchId = 1L;
         } else {
-            // 사용자는 자신의 지점 재고만 조회 가능
-            actualBranchId = inventoryService.getCurrentUserBranchId(authentication);
+            // 본점 관리자인지 확인
+            boolean isHqAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(authority -> authority.getAuthority().equals("ROLE_HQ_ADMIN"));
+            
+            if (isHqAdmin) {
+                // 본점 관리자는 요청한 branchId를 그대로 사용 (모든 지점 조회 가능)
+                actualBranchId = branchId;
+            } else {
+                // 지점 관리자/직원은 자신의 지점 재고만 조회 가능
+                actualBranchId = inventoryService.getCurrentUserBranchId(authentication);
+            }
         }
 
         List<BranchProduct> branchProducts = inventoryService.getBranchProducts(actualBranchId, authentication);

@@ -284,7 +284,7 @@ public class InventoryService {
      */
     @Transactional(readOnly = true)
     public List<BranchProductResponseDto> getAllBranchProductsWithPromotion() {
-        List<BranchProduct> products = branchProductRepository.findAll();
+        List<BranchProduct> products = branchProductRepository.findAllWithAttribute();
         
         return products.stream()
                 .map(this::convertToDtoWithPromotion)
@@ -296,7 +296,7 @@ public class InventoryService {
      */
     @Transactional(readOnly = true)
     public List<BranchProductResponseDto> getBranchProductsByBranchWithPromotion(Long branchId) {
-        List<BranchProduct> products = branchProductRepository.findByBranchId(branchId);
+        List<BranchProduct> products = branchProductRepository.findByBranchIdWithAttribute(branchId);
         
         return products.stream()
                 .map(this::convertToDtoWithPromotion)
@@ -308,7 +308,7 @@ public class InventoryService {
      */
     @Transactional(readOnly = true)
     public BranchProductResponseDto getBranchProductWithPromotion(Long branchProductId) {
-        BranchProduct product = branchProductRepository.findById(branchProductId)
+        BranchProduct product = branchProductRepository.findByIdWithAttribute(branchProductId)
                 .orElseThrow(() -> new IllegalArgumentException("지점 상품을 찾을 수 없습니다."));
         
         return convertToDtoWithPromotion(product);
@@ -320,7 +320,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public List<BranchProductResponseDto> searchBranchProductsWithPromotion(String keyword) {
         List<BranchProduct> products = branchProductRepository
-                .findByProduct_NameContaining(keyword);
+                .findByProductNameContainingWithAttribute(keyword);
         
         return products.stream()
                 .map(this::convertToDtoWithPromotion)
@@ -333,7 +333,7 @@ public class InventoryService {
     @Transactional(readOnly = true)
     public List<BranchProductResponseDto> searchBranchProductsByBranchWithPromotion(Long branchId, String keyword) {
         List<BranchProduct> products = branchProductRepository
-                .findByBranchIdAndProduct_NameContaining(branchId, keyword);
+                .findByBranchIdAndProductNameContainingWithAttribute(branchId, keyword);
         
         return products.stream()
                 .map(this::convertToDtoWithPromotion)

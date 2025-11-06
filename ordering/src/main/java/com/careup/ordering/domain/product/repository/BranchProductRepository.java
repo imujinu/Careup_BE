@@ -13,15 +13,23 @@ import java.util.Optional;
 @Repository
 public interface BranchProductRepository extends JpaRepository<BranchProduct, Long> {
 
-    // 지점별 상품 조회 (Product와 함께 로드)
-    @Query("SELECT bp FROM BranchProduct bp JOIN FETCH bp.product WHERE bp.branchId = :branchId")
+    // 지점별 상품 조회 (Product와 함께 로드, 속성 정보 포함)
+    @Query("SELECT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE bp.branchId = :branchId")
     List<BranchProduct> findByBranchIdWithProduct(@Param("branchId") Long branchId);
 
     // 지점별 상품 조회
     List<BranchProduct> findByBranchId(Long branchId);
 
-    // 지점&상품으로 조회
-    @Query("SELECT bp FROM BranchProduct bp WHERE bp.branchId = :branchId AND bp.product.id = :productId")
+    // 지점&상품으로 조회 (속성 정보 포함)
+    @Query("SELECT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE bp.branchId = :branchId AND bp.product.id = :productId")
     Optional<BranchProduct> findByBranchIdAndProductId(@Param("branchId") Long branchId, @Param("productId") Long productId);
 
     // 지점&상품 존재 여부 확인
@@ -67,4 +75,55 @@ public interface BranchProductRepository extends JpaRepository<BranchProduct, Lo
      */
     boolean existsByBranchIdAndProductIdAndAttributeValueId(
             Long branchId, Long productId, Long attributeValueId);
+
+    /**
+     * 전체 지점 상품 조회 (속성 정보 포함)
+     */
+    @Query("SELECT DISTINCT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType")
+    List<BranchProduct> findAllWithAttribute();
+
+    /**
+     * 지점별 상품 조회 (속성 정보 포함)
+     */
+    @Query("SELECT DISTINCT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE bp.branchId = :branchId")
+    List<BranchProduct> findByBranchIdWithAttribute(@Param("branchId") Long branchId);
+
+    /**
+     * 상품명으로 검색 (속성 정보 포함)
+     */
+    @Query("SELECT DISTINCT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE p.name LIKE %:keyword%")
+    List<BranchProduct> findByProductNameContainingWithAttribute(@Param("keyword") String keyword);
+
+    /**
+     * 지점별 + 상품명 검색 (속성 정보 포함)
+     */
+    @Query("SELECT DISTINCT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE bp.branchId = :branchId AND p.name LIKE %:keyword%")
+    List<BranchProduct> findByBranchIdAndProductNameContainingWithAttribute(
+            @Param("branchId") Long branchId, 
+            @Param("keyword") String keyword);
+
+    /**
+     * ID로 조회 (속성 정보 포함)
+     */
+    @Query("SELECT bp FROM BranchProduct bp " +
+           "JOIN FETCH bp.product p " +
+           "LEFT JOIN FETCH bp.attributeValue av " +
+           "LEFT JOIN FETCH av.attributeType " +
+           "WHERE bp.id = :id")
+    Optional<BranchProduct> findByIdWithAttribute(@Param("id") Long id);
 }

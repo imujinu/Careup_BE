@@ -25,6 +25,8 @@ public class PurchaseOrderRequestDto {
     @Builder
     public static class PurchaseOrderDetailRequestDto {
         private Long productId; // 상품 ID
+        private Long branchProductId; // 가맹점 BranchProduct ID
+        private Long attributeValueId; // 속성 값 ID (본사 재고 예약용)
         private int quantity; // 수량
         private Long supplyPrice; // 공급가
     }

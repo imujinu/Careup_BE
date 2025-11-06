@@ -30,6 +30,7 @@ public class FranchiseAutoOrderSettingsDto {
     // 상품별 자동 발주 설정
     public static class ProductAutoOrderSettingDto {
         private Long productId;
+        private Long branchProductId;
         private String productName;
         private Boolean autoOrderEnabled;
         private Long safetyStock;

@@ -30,8 +30,8 @@ public class AttributeValueController {
     @PostMapping
     public ResponseEntity<ResponseDto<AttributeValueDto.Response>> createAttributeValue(
             @Valid @RequestBody AttributeValueDto.Request request) {
-        log.info("POST /api/attribute-values - 속성 값 등록: attributeTypeId={}, value={}", 
-                request.getAttributeTypeId(), request.getValue());
+        log.info("POST /api/attribute-values - 속성 값 등록: attributeTypeId={}, displayName={}", 
+                request.getAttributeTypeId(), request.getDisplayName());
         
         AttributeValueDto.Response response = attributeValueService.createAttributeValue(request);
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.CREATED), HttpStatus.CREATED);

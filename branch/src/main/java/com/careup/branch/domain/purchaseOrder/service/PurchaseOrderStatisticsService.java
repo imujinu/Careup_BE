@@ -308,25 +308,29 @@ public class PurchaseOrderStatisticsService {
 
         List<Object[]> results = purchaseOrderDetailRepository.findProductStatistics(startDate, endDate);
 
-        return results.stream()
-                .limit(10) // TOP 10만
-                .map(result -> {
-                    Long productId = (Long) result[0];
-                    String productName = (String) result[1]; // 저장된 상품명 사용
-                    Long totalQuantity = result[2] != null ? ((Number) result[2]).longValue() : 0L;
-                    Long approvedQuantity = result[3] != null ? ((Number) result[3]).longValue() : 0L;
-                    Long totalAmount = result[4] != null ? ((Number) result[4]).longValue() : 0L;
-                    Long orderCount = (Long) result[5];
+        // 상품명으로 그룹화하여 합치기
+        Map<String, HQStatisticsResponseDto.ProductStatistics> productStatsMap = new HashMap<>();
 
-                    // 상품명이 null이거나 비어있으면 기본값 사용
-                    if (productName == null || productName.trim().isEmpty()) {
-                        productName = "상품-" + productId;
-                    }
+        for (Object[] result : results) {
+            Long productId = (Long) result[0];
+            String productNameResult = (String) result[1]; // 저장된 상품명 사용
+            Long totalQuantity = result[2] != null ? ((Number) result[2]).longValue() : 0L;
+            Long approvedQuantity = result[3] != null ? ((Number) result[3]).longValue() : 0L;
+            Long totalAmount = result[4] != null ? ((Number) result[4]).longValue() : 0L;
+            Long orderCount = (Long) result[5];
 
+            // 상품명이 null이거나 비어있으면 기본값 사용
+            final String productName = (productNameResult == null || productNameResult.trim().isEmpty()) 
+                    ? "상품-" + productId 
+                    : productNameResult;
+
+            // 상품명으로 그룹화하여 합치기
+            productStatsMap.compute(productName, (name, existing) -> {
+                if (existing == null) {
+                    // 첫 번째 항목
                     double approvalRate = totalQuantity > 0 ? (approvedQuantity * 100.0) / totalQuantity : 0.0;
-
                     return HQStatisticsResponseDto.ProductStatistics.builder()
-                            .productId(productId)
+                            .productId(productId) // 첫 번째 productId 사용
                             .productName(productName)
                             .totalQuantity(totalQuantity)
                             .approvedQuantity(approvedQuantity)
@@ -334,7 +338,33 @@ public class PurchaseOrderStatisticsService {
                             .orderCount(orderCount)
                             .approvalRate(Math.round(approvalRate * 100.0) / 100.0)
                             .build();
-                })
+                } else {
+                    // 기존 항목과 합치기
+                    long newTotalQuantity = existing.getTotalQuantity() + totalQuantity;
+                    long newApprovedQuantity = existing.getApprovedQuantity() + approvedQuantity;
+                    long newTotalAmount = existing.getTotalAmount() + totalAmount;
+                    long newOrderCount = existing.getOrderCount() + orderCount;
+                    double newApprovalRate = newTotalQuantity > 0 
+                            ? (newApprovedQuantity * 100.0) / newTotalQuantity 
+                            : 0.0;
+
+                    return HQStatisticsResponseDto.ProductStatistics.builder()
+                            .productId(existing.getProductId()) // 기존 productId 유지
+                            .productName(productName)
+                            .totalQuantity(newTotalQuantity)
+                            .approvedQuantity(newApprovedQuantity)
+                            .totalAmount(newTotalAmount)
+                            .orderCount(newOrderCount)
+                            .approvalRate(Math.round(newApprovalRate * 100.0) / 100.0)
+                            .build();
+                }
+            });
+        }
+
+        // 발주량 많은 순으로 정렬하고 TOP 10만 반환
+        return productStatsMap.values().stream()
+                .sorted((a, b) -> Long.compare(b.getTotalQuantity(), a.getTotalQuantity()))
+                .limit(10)
                 .collect(Collectors.toList());
     }
 
@@ -427,7 +457,7 @@ public class PurchaseOrderStatisticsService {
         // 특정 가맹점의 발주 상세 조회
         List<PurchaseOrder> orders = purchaseOrderRepository.findByBranchIdAndCreatedAtBetween(branchId, startDateTime, endDateTime);
 
-        // 상품별 통계 계산
+        // 상품별 통계 계산 (상품명으로 그룹화)
         class TempProductStats {
             Long productId;
             String productName;
@@ -437,23 +467,23 @@ public class PurchaseOrderStatisticsService {
             Long orderCount = 0L;
         }
 
-        Map<Long, TempProductStats> productStatsMap = new HashMap<>();
+        Map<String, TempProductStats> productStatsMap = new HashMap<>(); // productName으로 키 변경
 
         for (PurchaseOrder order : orders) {
             for (com.careup.branch.domain.purchaseOrder.entity.PurchaseOrderDetail detail : order.getOrderDetails()) {
                 Long productId = detail.getProductId();
+                
+                // 저장된 상품명 사용
+                String productNameResult = detail.getProductName();
+                final String productName = (productNameResult == null || productNameResult.trim().isEmpty()) 
+                        ? "상품-" + productId 
+                        : productNameResult;
 
-                TempProductStats stats = productStatsMap.computeIfAbsent(productId, k -> {
+                // 상품명으로 그룹화
+                TempProductStats stats = productStatsMap.computeIfAbsent(productName, k -> {
                     TempProductStats s = new TempProductStats();
-                    s.productId = productId;
-
-                    // 저장된 상품명 사용
-                    String productName = detail.getProductName();
-                    if (productName == null || productName.trim().isEmpty()) {
-                        productName = "상품-" + productId;
-                    }
+                    s.productId = productId; // 첫 번째 productId 저장
                     s.productName = productName;
-
                     return s;
                 });
 

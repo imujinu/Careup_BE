@@ -61,14 +61,17 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-  elasticsearch:
-    uris: http://localhost:9200
     streams:
       application-id: ordering-service     # Streams 애플리케이션 ID
+      bootstrap-servers: localhost:9093    # Kafka Streams용 bootstrap servers
       replication-factor: 1
       state-dir: /tmp/kafka-streams
       properties:
         auto.offset.reset: earliest
+        default.key.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+        default.value.serde: org.apache.kafka.common.serialization.Serdes$StringSerde
+  elasticsearch:
+    uris: http://localhost:9200
   ai:
     openai:
       embedding:
@@ -161,6 +164,12 @@ brand:
   logo-url: ""   # 필요 시 CDN 경로
   slogan: "KICKS RULE EVERYTHING AROUND ME"
   cta-color: "#111827"   # 검정 버튼
+
+# Qdrant 설정
+qdrant:
+  host: localhost
+  port: 6333
+  api-key: ${QDRANT_API_KEY:careup-qdrant}  # Docker Compose에서 설정한 API 키
 
 logging:
   level:

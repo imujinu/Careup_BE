@@ -36,12 +36,12 @@ public interface AttributeValueRepository extends JpaRepository<AttributeValue, 
     List<AttributeValue> findActiveByAttributeTypeId(@Param("attributeTypeId") Long attributeTypeId);
     
     /**
-     * 속성 타입과 값으로 조회
+     * 속성 타입과 표시명으로 조회
      */
-    Optional<AttributeValue> findByAttributeTypeAndValue(AttributeType attributeType, String value);
+    Optional<AttributeValue> findByAttributeTypeAndDisplayName(AttributeType attributeType, String displayName);
     
     /**
-     * 중복 확인 (같은 속성 타입 내에서)
+     * 중복 확인 (같은 속성 타입 내에서 표시명 기준)
      */
-    boolean existsByAttributeTypeAndValue(AttributeType attributeType, String value);
+    boolean existsByAttributeTypeAndDisplayName(AttributeType attributeType, String displayName);
 }

@@ -39,5 +39,17 @@ public class PurchaseOrderResponseDto extends BaseTimeEntity {
         private int approvedQuantity; // 승인 수량
         private long unitPrice; // 단가
         private long subtotalPrice; // 소계
+        private List<AttributeInfo> attributes; // 속성 정보
+        
+        @Getter
+        @NoArgsConstructor
+        @AllArgsConstructor
+        @Builder
+        public static class AttributeInfo {
+            private Long attributeTypeId;
+            private String attributeTypeName;
+            private Long attributeValueId;
+            private String attributeValueName;
+        }
     }
 }
