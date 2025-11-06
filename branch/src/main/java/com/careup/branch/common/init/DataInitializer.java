@@ -177,7 +177,7 @@ public class DataInitializer implements CommandLineRunner {
                     "서울특별시 동작구 상도로 12길 7", "1층",
                     "02-826-0202", "dongjak@careup.com",
                     "카페/음료", LocalDate.of(2021, 1, 1),
-                    37.5124, 126.9399, 300, "대학가 상권 중심, 테이크아웃 강세"
+                    37.49716551719695, 126.92752643336487, 50, "대학가 상권 중심, 테이크아웃 강세"
             );
             Long boramaeId = ensureBranch(
                     "보라매점", OwnershipType.YES, "103-30-00003", "330303-3000003",

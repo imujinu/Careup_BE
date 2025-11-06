@@ -59,6 +59,9 @@ public class Product extends BaseTimeEntity {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductAttributeValue> productAttributeValues = new ArrayList<>();
 
+    @Column(name = "view_count", nullable = true, columnDefinition = "BIGINT DEFAULT 0")
+    private Long viewCount = 0L;
+
     @Builder
     public Product(Category category, String name, String description,
                    Long supplyPrice, Long minPrice, Long maxPrice, String imageUrl, Visibility visibility) {
@@ -90,5 +93,9 @@ public class Product extends BaseTimeEntity {
         if (minPrice != null) this.minPrice = minPrice;
         if (maxPrice != null) this.maxPrice = maxPrice;
         if (imageUrl != null) this.imageUrl = imageUrl;
+    }
+
+    public void plusCount(){
+        this.viewCount++;
     }
 }

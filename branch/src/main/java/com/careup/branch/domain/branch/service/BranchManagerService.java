@@ -11,24 +11,30 @@ import com.careup.branch.domain.employee.entity.DispatchStatus;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.notification.dto.SseNotificationResDto;
+import com.careup.branch.domain.notification.service.NotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class BranchManagerService {
 
     private final DispatchStatusRepository dispatchStatusRepository;
     private final BranchUpdateRequestRepository branchUpdateRequestRepository;
     private final EmployeeRepository employeeRepository;
     private final AwsS3Uploader awsS3Uploader;
+    private final NotificationService notificationService;
 
     /**
      * 현재 로그인한 관리자(직영점장/가맹점주)의 지점 정보 조회
@@ -85,7 +91,19 @@ public class BranchManagerService {
             updateRequest.updateProfileImageUrl(uploadedImageUrl);
         }
 
-        branchUpdateRequestRepository.save(updateRequest);
+        BranchUpdateRequest savedRequest = branchUpdateRequestRepository.save(updateRequest);
+
+        // 본사 관리자(HQ_ADMIN)들에게 알림 발송
+        List<String> hqAdminEmails = employeeRepository.findAllHqAdminEmails();
+        if (!hqAdminEmails.isEmpty()) {
+            SseNotificationResDto notificationDto = SseNotificationResDto.branchUpdateRequested(
+                    myBranch.getName(),
+                    savedRequest.getId(),
+                    requester.getName()
+            );
+            notificationService.sendNotificationToEmails(hqAdminEmails, notificationDto);
+            log.info("[CAREUP][INFO] - BranchManagerService/requestBranchUpdate - 본사 관리자 {}명에게 지점 수정 요청 알림 발송 완료", hqAdminEmails.size());
+        }
     }
 
     /**

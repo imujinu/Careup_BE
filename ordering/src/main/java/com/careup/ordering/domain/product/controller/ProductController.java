@@ -1,10 +1,13 @@
 package com.careup.ordering.domain.product.controller;
 
+import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.common.dto.ResponseDto;
 import com.careup.ordering.domain.product.dto.ProductRequestDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.dto.ProductWithBranchesDto;
 import com.careup.ordering.domain.product.service.ProductService;
+import com.careup.ordering.domain.recomendation.dto.ProductsResDto;
+import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -24,7 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProductController {
 
     private final ProductService productService;
-
+    private final CoPurchaseService queryService;
 
     /**
      * 고객용 상품 목록 조회 (페이지네이션)
@@ -186,5 +189,11 @@ public class ProductController {
 
         productService.deleteProduct(productId);
         return new ResponseEntity<>(ResponseDto.ok(null, HttpStatus.OK), HttpStatus.OK);
+    }
+
+    @GetMapping("/rank")
+    public ResponseEntity<?> getProductsRank(@PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        List<ProductsResDto> result = queryService.getProducts(pageable);
+        return new ResponseEntity<>(new CommonSuccessDto(result, HttpStatus.OK.value(), "상품 함께 구매 횟수 조회 성공"), HttpStatus.OK);
     }
 }

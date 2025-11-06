@@ -111,4 +111,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
      * 상품명으로 첫 번째 상품 조회
      */
     Optional<Product> findFirstByName(String name);
+
+    Optional<Product> findTopByOrderByViewCountDesc();
 }

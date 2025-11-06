@@ -15,7 +15,6 @@ import org.springframework.stereotype.Component;
 @ConditionalOnProperty(name = "spring.kafka.enabled", havingValue = "true")
 public class ProductEventConsumer {
 
-    // Elasticsearch 관련 리포지토리 주석처리
     private final ProductSearchRepository productSearchRepository;
 
     @KafkaListener(topics = "product-events", groupId = "ordering-group")
@@ -42,6 +41,7 @@ public class ProductEventConsumer {
                     log.info("Product document saved to Elasticsearch: {}", event.getProductId());
                 }
                 case DELETED -> {
+
                     // Elasticsearch 관련 코드 주석처리
                     productSearchRepository.deleteById(String.valueOf(event.getProductId()));
                     log.info("Product document deleted from Elasticsearch: {}", event.getProductId());

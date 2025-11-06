@@ -9,6 +9,8 @@ import com.careup.branch.domain.branch.entity.BranchUpdateRequest;
 import com.careup.branch.domain.branch.repository.BranchUpdateRequestRepository;
 import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
+import com.careup.branch.domain.notification.dto.SseNotificationResDto;
+import com.careup.branch.domain.notification.service.NotificationService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ public class BranchUpdateRequestService {
     private final BranchUpdateRequestRepository branchUpdateRequestRepository;
     private final EmployeeRepository employeeRepository;
     private final AwsS3Uploader awsS3Uploader;
+    private final NotificationService notificationService;
 
     /**
      * 모든 지점 수정 요청 목록 조회 (페이징)
@@ -67,7 +70,7 @@ public class BranchUpdateRequestService {
      * 지점 수정 요청 승인 (본사 관리자)
      */
     @Transactional
-    public void approveRequest(Long requestId) {
+    public BranchUpdateRequestDto approveRequest(Long requestId) {
         Long employeeId = AuthenticationUtils.getAuthenticatedEmployeeId();
         Employee approver = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EntityNotFoundException("승인자 정보를 찾을 수 없습니다. ID: " + employeeId));
@@ -106,13 +109,28 @@ public class BranchUpdateRequestService {
         request.approve(approver);
 
         log.info("지점 수정 요청 승인 완료 - 지점ID: {}, 요청ID: {}, 승인자: {}", branch.getId(), requestId, approver.getName());
+
+        // 요청자에게 승인 알림 발송
+        String requesterEmail = request.getRequester().getEmail();
+        if (requesterEmail != null && !requesterEmail.isEmpty()) {
+            SseNotificationResDto notificationDto = SseNotificationResDto.branchUpdateApproved(
+                    branch.getName(),
+                    branch.getId(),
+                    approver.getName()
+            );
+            notificationService.sendNotificationToEmail(requesterEmail, notificationDto);
+            log.info("[CAREUP][INFO] - BranchUpdateRequestService/approveRequest - 요청자에게 승인 알림 발송 완료: {}", requesterEmail);
+        }
+
+        // 업데이트된 요청 정보 반환
+        return BranchUpdateRequestDto.fromEntity(request);
     }
 
     /**
      * 지점 수정 요청 거부 (본사 관리자)
      */
     @Transactional
-    public void rejectRequest(Long requestId) {
+    public BranchUpdateRequestDto rejectRequest(Long requestId) {
         Long employeeId = AuthenticationUtils.getAuthenticatedEmployeeId();
         Employee approver = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new EntityNotFoundException("승인자 정보를 찾을 수 없습니다. ID: " + employeeId));
@@ -142,6 +160,21 @@ public class BranchUpdateRequestService {
         request.reject(approver);
 
         log.info("지점 수정 요청 거부 완료 - 요청ID: {}, 거부자: {}", requestId, approver.getName());
+
+        // 요청자에게 거부 알림 발송
+        String requesterEmail = request.getRequester().getEmail();
+        if (requesterEmail != null && !requesterEmail.isEmpty()) {
+            SseNotificationResDto notificationDto = SseNotificationResDto.branchUpdateRejected(
+                    request.getBranch().getName(),
+                    request.getBranch().getId(),
+                    approver.getName()
+            );
+            notificationService.sendNotificationToEmail(requesterEmail, notificationDto);
+            log.info("[CAREUP][INFO] - BranchUpdateRequestService/rejectRequest - 요청자에게 거부 알림 발송 완료: {}", requesterEmail);
+        }
+
+        // 업데이트된 요청 정보 반환
+        return BranchUpdateRequestDto.fromEntity(request);
     }
 }
 

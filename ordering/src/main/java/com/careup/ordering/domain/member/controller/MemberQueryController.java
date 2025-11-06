@@ -3,6 +3,7 @@ package com.careup.ordering.domain.member.controller;
 import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.domain.member.dto.response.MemberMyPageDto;
 import com.careup.ordering.domain.member.service.MemberQueryService;
+import com.careup.ordering.domain.order.dto.response.ProductViewCountResDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,5 +29,19 @@ public class MemberQueryController {
                         .status_message("고객 마이페이지 조회")
                         .build()
         );
+    }
+
+    // 최근 조회 상품 업데이트
+    @PostMapping("/product/{productId}")
+    public ResponseEntity<?> viewProduct(@PathVariable Long productId, @RequestParam Long memberId) {
+        memberQueryService.viewProduct(productId, memberId);
+        return new ResponseEntity<>(new CommonSuccessDto("최근 조회 상품 업데이트 성공", HttpStatus.OK.value(), "최근 조회 상품 업데이트 성공"), HttpStatus.OK);
+    }
+
+    // 가장 최근 조회 상품 조회
+    @GetMapping("/product/view/{memberId}")
+    public ResponseEntity<?> getProductId(@PathVariable Long memberId) {
+       ProductViewCountResDto productId =  memberQueryService.getProductId(memberId);
+        return new ResponseEntity<>(new CommonSuccessDto(productId, HttpStatus.OK.value(), "최근 조회 상품 ID 조회 완료"), HttpStatus.OK);
     }
 }

@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.product.entity;
 
+import com.careup.ordering.common.domain.BaseTimeEntity;
 import com.careup.ordering.domain.member.entity.Member;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -14,7 +15,8 @@ import java.math.BigDecimal;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductViewLog {
+@Builder
+public class ProductViewLog extends BaseTimeEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -22,25 +24,18 @@ public class ProductViewLog {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "branch_products_id", nullable = false)
-    private BranchProduct branchProduct;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "member_id",nullable = false)
     private Member member;
 
-    @Column(name = "view_count")
-    private Long viewCount;
-
-    @Column(name = "repeat_purchase_rate", precision = 5,scale = 2)
-    private BigDecimal repeatPurchaseRate;
-
-    @Builder
-    public ProductViewLog(BranchProduct branchProduct,Member member,
-                          Long viewCount,BigDecimal repeatPurchaseRate){
-        this.branchProduct = branchProduct;
-        this.member = member;
-        this.viewCount = viewCount;
-        this.repeatPurchaseRate = repeatPurchaseRate;
+    public static ProductViewLog toEntity(Product product, Member member){
+        return ProductViewLog.builder()
+                .product(product)
+                .member(member)
+                .build();
     }
+
 }
