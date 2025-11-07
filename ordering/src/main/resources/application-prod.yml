@@ -3,6 +3,9 @@ server:
 eureka:
   client:
     enabled: false
+feign:
+  branch-service:
+    url: http://branch-service
 spring:
   application:
     name: ordering-service

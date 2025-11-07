@@ -7,7 +7,9 @@ import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
 import com.careup.branch.domain.chat.dto.SalesStatisticsDto;
 import com.careup.branch.domain.chat.dto.attendance.*;
+import com.careup.branch.domain.chat.dto.purchase.PurchaseResDto;
 import com.careup.branch.domain.chat.dto.sales.*;
+import com.careup.branch.domain.chat.dto.stock.StockResponseDto;
 import com.careup.branch.domain.employee.controller.ScheduleController;
 import com.careup.branch.domain.employee.dto.request.ScheduleUpdateDto;
 import com.careup.branch.domain.employee.dto.response.*;
@@ -17,12 +19,14 @@ import com.careup.branch.domain.employee.entity.Employee;
 import com.careup.branch.domain.employee.repository.*;
 import com.careup.branch.domain.employee.service.ScheduleService;
 import com.careup.branch.domain.purchaseOrder.controller.PurchaseOrderController;
+import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -80,7 +84,7 @@ public class ChatUserService {
     private ChatClient salesReportClient;
     // [근태 서비스 ]
 
-    public ResponseEntity<?> handleAttendanceAction(String action, JSONObject params, Long branchId) {
+    public ResponseEntity<?> handleAttendanceAction(String intent, String action, JSONObject params, Long branchId) {
         LocalDate startDate = null;
         LocalDate endDate = null;
         if(branchId==null){
@@ -110,20 +114,22 @@ public class ChatUserService {
                 if("DAY".equals(periodType)){
                     LocalDate today = LocalDate.parse(date);
                     List<ScheduleListDto> dto = scheduleService.listAll(today,today);
-                    TodayAttendanceResDto resultDto = TodayAttendanceResDto.makeDto(dto, branch.getName());
+                    TodayAttendanceResDto resultDto = TodayAttendanceResDto.makeDto(intent,"get",dto, branch.getName());
                     System.out.println(resultDto);
                     return ResponseEntity.ok(resultDto);
                 }
                 //전체 근태 조회
                 else if (params.has("allAttendance")) {
                     List<ScheduleListDto> list = scheduleService.listAll(startDate, endDate);
-                    AttendanceCompareResDto resultDto = AttendanceCompareResDto.makeDto(list, branch.getName(), startDate,endDate);
+                    AttendanceCompareResDto resultDto = AttendanceCompareResDto.makeDto(intent, action, list, branch.getName(), startDate,endDate);
                     List<AttendanceTemplateListDto> template = attendanceTemplateRepository.findAll().stream()
                             .map(AttendanceTemplateListDto::fromEntity)
                             .collect(Collectors.toList());
                     List<LeaveTypeDetailDto> leaveDtos = leaveTypeRepository.findAll().stream().map(LeaveTypeDetailDto::fromEntity).collect(Collectors.toList());
                     List<WorkTypeDetailDto> workDtos = workTypeRepository.findAll().stream().map(WorkTypeDetailDto::fromEntity).collect(Collectors.toList());
                     AttendanceAllResDto response = AttendanceAllResDto.builder()
+                            .intent(intent)
+                            .action("all")
                             .attendance(resultDto)
                             .templates(template)
                             .leaveTypes(leaveDtos)
@@ -145,7 +151,7 @@ public class ChatUserService {
                             .stream()
                             .filter(s -> employees.stream().anyMatch(name -> s.getEmployeeName().contains(name)))
                             .collect(Collectors.toList());
-                    AttendanceCompareResDto resultDto = AttendanceCompareResDto.makeDto(list, branch.getName(), startDate,endDate);
+                    AttendanceCompareResDto resultDto = AttendanceCompareResDto.makeDto(intent,"detail", list, branch.getName(), startDate,endDate);
                     return ResponseEntity.ok(resultDto);
                 }
                 else{
@@ -165,200 +171,19 @@ public class ChatUserService {
                     req.setBranchId(branchId);
                 }
                 System.out.println("req===" + req.toString());
-                scheduleService.updateSchedule(
+                        scheduleService.updateSchedule(
                         req.getScheduleId(),
                         ScheduleUpdateDto.makeDto(req)
                 );
                 return ResponseEntity.ok("근태 수정 완료");
 
             }
-            case "CALCULATE" ->{
-                ZoneId zone = ZoneId.of("Asia/Seoul");
-                LocalDate today = LocalDate.now(zone);
-                LocalDate targetDate = today.plusDays(1);
-                LocalDate preWeek = today.minusWeeks(1).with(DayOfWeek.MONDAY);
-                LocalDate preWeek2 = today.minusWeeks(1).with(DayOfWeek.SUNDAY);
-
-                System.out.println("전주" +preWeek + preWeek2);
-                // ✅ 1️⃣ 전주 시간대별 매출 조회
-                CommonSuccessDto salesResponse = client.getSalesStatistics(branchId, today.minusWeeks(1).with(DayOfWeek.MONDAY), today.minusWeeks(1).with(DayOfWeek.SUNDAY), "HOUR");
-                SalesStatisticsResponseDto sales = objectMapper.convertValue(salesResponse.getResult(),SalesStatisticsResponseDto.class);
-                List<SalesStatisticsDto> stats = Optional.ofNullable(sales.getStatistics())
-                                        .orElse(Collections.emptyList());
-
-                CommonSuccessDto response = client.getSalesStatistics(branchId, today, today, "HOUR");
-                SalesStatisticsResponseDto salesDto = objectMapper.convertValue(salesResponse.getResult(),SalesStatisticsResponseDto.class);
-                List<SalesStatisticsDto> todaySales = Optional.ofNullable(sales.getStatistics())
-                        .orElse(Collections.emptyList());
-
-                 String hourlySummary = stats.stream()
-                 .sorted(Comparator.comparing(SalesStatisticsDto::getHour, Comparator.nullsLast(Integer::compareTo)))
-                 .map(stat -> String.format(
-                 "%02d시~%02d시 | 매출: %,d원 (%d건, 평균 주문가 %,d원)",
-                  stat.getHour(),
-                  stat.getHour() + 1,
-                  stat.getTotalSales(),
-                  stat.getTotalOrders(), stat.getAverageOrderAmount()
-                                        ))
-                                        .collect(Collectors.joining("\n"));
-
-                                System.out.println("전주 시간대별 매출 ======" + hourlySummary);
-                String todaySummary = todaySales.stream()
-                        .sorted(Comparator.comparing(SalesStatisticsDto::getHour, Comparator.nullsLast(Integer::compareTo)))
-                        .map(stat -> String.format(
-                                "%02d시~%02d시 | 매출: %,d원 (%d건, 평균 주문가 %,d원)",
-                                stat.getHour(),
-                                stat.getHour() + 1,
-                                stat.getTotalSales(),
-                                stat.getTotalOrders(), stat.getAverageOrderAmount()
-                        ))
-                        .collect(Collectors.joining("\n"));
-
-
-                // ✅ 2️⃣ 전주 근무 스케줄 조회
-                                List<ScheduleListDto> lastWeekSchedules =
-                                        scheduleService.listAll(today.minusWeeks(1).with(DayOfWeek.MONDAY),
-                                                today.minusWeeks(1).with(DayOfWeek.SUNDAY));
-                                for(ScheduleListDto sc : lastWeekSchedules){
-                                    System.out.println(sc);
-                                }
-
-                // ✅ 3️⃣ 근무 템플릿 조회
-                                List<AttendanceTemplateListDto> template =
-                                        attendanceTemplateRepository.findAll().stream()
-                                                .map(AttendanceTemplateListDto::fromEntity)
-                                                .collect(Collectors.toList());
-                                for(AttendanceTemplateListDto at : template){
-                                    System.out.println("at===" + at);
-                                }
-                                System.out.println("근무 템플릿 ======" + template);
-                // ✅ 근무 템플릿 조회
-
-                List<LeaveTypeDetailDto> leaveDtos = leaveTypeRepository.findAll().stream().map(LeaveTypeDetailDto::fromEntity).collect(Collectors.toList());
-                List<WorkTypeDetailDto> workDtos = workTypeRepository.findAll().stream().map(WorkTypeDetailDto::fromEntity).collect(Collectors.toList());
-
-                List<DispatchStatus> dispatchStatuses = dispatchStatusRepository.findAllByBranch(branch);
-                List<EmployeeDetailDto> employees = new ArrayList<>();
-
-                for(DispatchStatus ds : dispatchStatuses){
-                    employees.add(new EmployeeDetailDto().fromEntity(ds.getEmployee()));
-                }
-                // ✅ 직원 리스트 포맷
-                String employeeSummary = employees.stream()
-                        .map(e -> String.format("{id:%d, name:'%s', position:'%s'}",
-                                e.getId(), e.getName(), e.getJobGradeName()))
-                        .collect(Collectors.joining(",\n"));
-
-                // ✅ 스케줄 포맷
-                String scheduleSummary = lastWeekSchedules.stream()
-                        .map(s -> String.format(
-                                "{scheduleId:%d, employeeId:%d, employeeName:'%s', date:'%s', clockIn:'%s', clockOut:'%s'}",
-                                s.getId(), s.getEmployeeId(), s.getEmployeeName(),
-                                s.getRegisteredDate(), s.getRegisteredClockIn(), s.getRegisteredClockOut()))
-                        .collect(Collectors.joining(",\n"));
-
-                // ✅ 템플릿 포맷
-                String templateSummary = template.stream()
-                        .map(t -> String.format("{id:%d, name:'%s', clockIn:'%s', clockOut:'%s'}",
-                                t.getId(), t.getName(), t.getDefaultClockIn(), t.getDefaultClockOut()))
-                        .collect(Collectors.joining(",\n"));
-
-                // ✅ 근무/휴가 타입 포맷
-                String workTypeSummary = workDtos.stream()
-                        .map(w -> String.format("{id:%d, name:'%s'}", w.getId(), w.getName()))
-                        .collect(Collectors.joining(", "));
-                String leaveTypeSummary = leaveDtos.stream()
-                        .map(l -> String.format("{id:%d, name:'%s'}", l.getId(), l.getName()))
-                        .collect(Collectors.joining(", "));
-
-                        // ✅ 4️⃣ 프롬프트 생성
-                                        String prompt = """
-                                아래 정보를 기반으로 인건비 효율을 분석하고, 다음주 동일 요일의 근무 스케줄 변경을 JSON으로 제안하세요.
-                                ⚠️ JSON 이외의 문자는 절대 포함하지 마세요.
-                                ⚠️ 백틱(```)이나 설명 없이 **순수 JSON 본문만 반환하세요.**
-                        
-                                현재 날짜: %s (Asia/Seoul 기준)
-                                다음주 동일 요일 범위: %s ~ %s
-                        
-                                [전주 시간대별 매출 요약]
-                                %s
-                                
-                                [금일 시간대별 매출 요약]
-                                %s
-                                
-                                [전주 근무 스케줄]
-                                %s
-                        
-                                [지점 근무 템플릿]
-                                %s
-                        
-                                [근무유형(WorkType)]
-                                %s
-                        
-                                [휴가유형(LeaveType)]
-                                %s
-                        
-                                [직원(Employee) 목록]
-                                %s
-                        
-                                요구사항:
-                                1. 전주의 시간대별 매출과 근무 인원 정보를 비교해 시간당 인건비 평균을 계산하세요.
-                                2. 오늘 매출 대비 인건비 수준을 추정하세요 (예: 효율적 / 과잉 / 부족).
-                                3. 다음주 같은 요일의 스케줄을 조회하고, 필요한 경우 수정 제안을 만드세요.
-                                4. 수정은 기존 템플릿 중 하나 또는 "ABSENT"로 변경 제안 가능합니다.
-                                5. 반드시 아래 형식의 JSON만 반환하세요.
-                                6. "reason" 필드에는 왜 이 변경이 필요한지 수치를 제시하며 논리적으로 설명하세요.
-                        
-                                JSON 형식:
-                                {
-                                  "branchId": number,
-                                  "employeeId": number,               // 위 직원 목록 중 하나여야 함
-                                  "scheduleId": number,               // 위 스케줄 목록 중 하나여야 함
-                                  "workTypeId": number,               // 위 근무유형 목록 중 하나여야 함
-                                  "leaveTypeId": number | null,       // 위 휴가유형 목록 중 하나 또는 null
-                                  "attendanceTemplateId": number,     // 위 템플릿 목록 중 하나여야 함
-                                  "registeredDate": "yyyy-MM-dd",     // 반드시 다음주 동일 요일 중 하루여야 함
-                                  "reason": string                    // 수정 이유를 간단히 기술
-                                }
-                                """.formatted(
-                        today,
-                        today.plusWeeks(1).with(DayOfWeek.MONDAY),
-                        today.plusWeeks(1).with(DayOfWeek.SUNDAY),
-                        hourlySummary,
-                        todaySummary,
-                        scheduleSummary,
-                        templateSummary,
-                        workTypeSummary,
-                        leaveTypeSummary,
-                        employeeSummary
-                );
-
-
-
-                // ✅ 5️⃣ OpenAI 호출
-                 String result = attendanceSuggestionClient.prompt()
-                                        .user(prompt)
-                                        .call()
-                                        .content();
-
-                                try {
-                                    AttendanceModifyRequestDto suggestion =
-                                            objectMapper.readValue(result, AttendanceModifyRequestDto.class);
-                                    System.out.println("근태 수정 제안 DTO === " + suggestion);
-                                } catch (JsonProcessingException e) {
-                                    throw new RuntimeException("JSON 파싱 실패: " + result, e);
-                                }
-
-                System.out.println("챗봇 결과 === " + result);
-                return ResponseEntity.ok(result);
-            }
-
-            default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
+            default -> throw new IllegalArgumentException("관련 정보가 존재하지 않습니다.: ");
         }
     }
 
     // [ 재고 서비스]
-    public ResponseEntity<?> handleStockAction(String action, JSONObject params, Long branchId) {
+    public ResponseEntity<?> handleStockAction(String intent, String action, JSONObject params, Long branchId) {
         String date = null;
         JSONObject range = null;
         if(params!=null){
@@ -393,12 +218,12 @@ public class ChatUserService {
                                 new TypeReference<List<OrderingInventoryClient.BranchProductResponseDto>>() {}
                         );
 
+
 //                CommonSuccessDto response = orderingInventoryClient.getBranchProducts(branchId);
                 System.out.println("branchID ======" + branchId);
-
                 System.out.println("response =====" + response);
-
-                return ResponseEntity.ok(stocks);
+                StockResponseDto dto = new StockResponseDto().makeDto(intent,action,stocks);
+                return ResponseEntity.ok(dto);
 
             }
 
@@ -474,7 +299,13 @@ public class ChatUserService {
                 } catch (JsonProcessingException e) {
                     throw new RuntimeException(e);
                 }
-                return ResponseEntity.ok(parsed);
+
+                ObjectNode responseNode = (ObjectNode) parsed;
+
+                responseNode.put("intent", intent);
+                responseNode.put("action", action);
+
+                return ResponseEntity.ok(responseNode);
 
             }
             default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
@@ -483,7 +314,7 @@ public class ChatUserService {
 
 
     // [발주 서비스 ]
-    public ResponseEntity<?> handleOrderAction(String action, JSONObject params, Long branchId) {
+    public ResponseEntity<?> handleOrderAction(String intent, String action, JSONObject params, Long branchId) {
         String date = null;
         JSONObject range = null;
         if(params!=null){
@@ -512,7 +343,9 @@ public class ChatUserService {
 
         switch (action) {
             case "GET" -> {
-                return  purchaseOrderController.getPurchaseOrders(branch.getId());
+                List<PurchaseOrderListResponseDto> list = purchaseOrderController.getPurchaseOrders(branch.getId()).getBody();
+                PurchaseResDto dto = new PurchaseResDto().makeDto(intent, action, list);
+                return ResponseEntity.ok(dto);
             }
             case "CREATE" -> {
                 JSONArray itemsArr = params.getJSONArray("items");
@@ -539,7 +372,7 @@ public class ChatUserService {
 
     // [ 매출 서비스 ]
 
-    public ResponseEntity<?> handleSalesAction(String action, JSONObject params, Long branchId) {
+    public ResponseEntity<?> handleSalesAction(String intent, String action, JSONObject params, Long branchId) {
         String date = null;
         JSONObject range = null;
         LocalDate startDate = null;

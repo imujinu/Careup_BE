@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.time.LocalDate;
 import java.util.List;
 
-@FeignClient(name= "ordering-service", url="http://ordering-service")
+@FeignClient(name= "ordering-service",  url = "${feign.ordering-service.url}")
 public interface ChatFeignClient {
     // [일일 매출 조회]
     @GetMapping("/{branchId}/sales/today")

@@ -16,7 +16,7 @@ spec:
       # ✅ initContainer: Nori 플러그인 설치
       initContainers:
         - name: install-nori-plugin
-          image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
           command:
             - sh
             - -c
@@ -28,7 +28,7 @@ spec:
               mountPath: /usr/share/elasticsearch/plugins
       containers:
         - name: elasticsearch
-          image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
           ports:
             - containerPort: 9200
             - containerPort: 9300
