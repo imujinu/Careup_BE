@@ -243,6 +243,23 @@ public class ProductService {
         // 상품 삭제
         productRepository.delete(product);
     }
+
+    /**
+     * 상품 설명용 이미지 업로드
+     * 상품을 생성하지 않고 이미지만 S3에 업로드하여 URL 반환
+     */
+    public String uploadDescriptionImage(MultipartFile imageFile) {
+        if (imageFile == null || imageFile.isEmpty()) {
+            throw new IllegalArgumentException("이미지 파일이 없습니다.");
+        }
+
+        // S3에 이미지 업로드 (상품 설명용이므로 tableName을 "product-description"으로 설정)
+        String imageUrl = awsS3Uploader.uploadFile("product-description", 0L, imageFile);
+        log.info("상품 설명용 이미지 업로드 완료 - URL: {}", imageUrl);
+        
+        return imageUrl;
+    }
+
     /**
      * 고객용 상품 목록 조회 (페이지네이션)
      *  visibility=ALL인 활성 상품만 반환
@@ -347,6 +364,11 @@ public class ProductService {
                                     .branchName(branchNameMap.getOrDefault(bp.getBranchId(), "지점 " + bp.getBranchId()))  // 실제 지점명 사용
                                     .stockQuantity(bp.getStockQuantity())
                                     .price(bp.getPrice())
+                                    // 속성 정보 추가
+                                    .attributeValueId(bp.getAttributeValue() != null ? bp.getAttributeValue().getId() : null)
+                                    .attributeValueName(bp.getAttributeValue() != null ? bp.getAttributeValue().getDisplayName() : null)
+                                    .attributeTypeName(bp.getAttributeValue() != null && bp.getAttributeValue().getAttributeType() != null 
+                                            ? bp.getAttributeValue().getAttributeType().getName() : null)
                                     .build())
                             .collect(Collectors.toList());
 
@@ -360,6 +382,10 @@ public class ProductService {
                             .maxPrice(product.getMaxPrice())
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
+                            .attributeValues(product.getProductAttributeValues() != null ?
+                                    product.getProductAttributeValues().stream()
+                                            .map(com.careup.ordering.domain.product.dto.ProductAttributeValueDto.Response::from)
+                                            .collect(java.util.stream.Collectors.toList()) : java.util.List.of())
                             .build();
                 })
                 .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만
@@ -446,6 +472,11 @@ public class ProductService {
                                     .branchName(branchNameMap.getOrDefault(bp.getBranchId(), "지점 " + bp.getBranchId()))  // ✅ 실제 지점명 사용
                                     .stockQuantity(bp.getStockQuantity())
                                     .price(bp.getPrice())
+                                    // 속성 정보 추가
+                                    .attributeValueId(bp.getAttributeValue() != null ? bp.getAttributeValue().getId() : null)
+                                    .attributeValueName(bp.getAttributeValue() != null ? bp.getAttributeValue().getDisplayName() : null)
+                                    .attributeTypeName(bp.getAttributeValue() != null && bp.getAttributeValue().getAttributeType() != null 
+                                            ? bp.getAttributeValue().getAttributeType().getName() : null)
                                     .build())
                             .collect(Collectors.toList());
 
@@ -459,6 +490,10 @@ public class ProductService {
                             .maxPrice(product.getMaxPrice())
                             .availableBranchCount(branchInfos.size())
                             .availableBranches(branchInfos)
+                            .attributeValues(product.getProductAttributeValues() != null ?
+                                    product.getProductAttributeValues().stream()
+                                            .map(com.careup.ordering.domain.product.dto.ProductAttributeValueDto.Response::from)
+                                            .collect(java.util.stream.Collectors.toList()) : java.util.List.of())
                             .build();
                 })
                 .filter(dto -> dto.getAvailableBranchCount() > 0)  // 판매 지점 있는 상품만

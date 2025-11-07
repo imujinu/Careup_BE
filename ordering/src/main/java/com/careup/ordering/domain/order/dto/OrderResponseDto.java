@@ -20,12 +20,20 @@ public class OrderResponseDto {
     private Long memberId;
     private String memberName;
     private Long branchId;
+    private String branchName;
     private Long totalAmount;
     private OrderStatus orderStatus;
     private OrderType orderType;
     private Long approvedBy;
     private LocalDateTime approvedAt;
+    private String approvedByName;
     private String rejectedReason;
+    private Long rejectedBy;
+    private LocalDateTime rejectedAt;
+    private String rejectedByName;
+    private String cancelledReason;
+    private Long cancelledBy;
+    private LocalDateTime cancelledAt;
     private LocalDateTime createdAt;
     private List<OrderItemResponseDto> orderItems;
     // 결제 정보 추가

@@ -14,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.persistence.EntityNotFoundException;
 import java.util.Map;
 
 @Slf4j
@@ -132,5 +133,29 @@ public class EmployeeQueryController {
                         .status_message("지점 ID 조회 성공")
                         .build()
         );
+    }
+
+    // 내부 API용: employeeId로 직원 정보 조회 (이름 등 기본 정보)
+    @GetMapping("/internal/{employeeId}")
+    public ResponseEntity<CommonSuccessDto> getEmployeeById(@PathVariable Long employeeId) {
+        try {
+            Map<String, Object> employeeData = employeeQueryService.getEmployeeByIdInternal(employeeId);
+            
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(employeeData)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("직원 정보 조회 성공")
+                            .build()
+            );
+        } catch (EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
+                    CommonSuccessDto.builder()
+                            .result(null)
+                            .status_code(HttpStatus.NOT_FOUND.value())
+                            .status_message("직원을 찾을 수 없습니다.")
+                            .build()
+            );
+        }
     }
 }

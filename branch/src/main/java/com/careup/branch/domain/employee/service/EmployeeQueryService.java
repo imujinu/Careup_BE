@@ -327,6 +327,24 @@ public class EmployeeQueryService {
         return null;
     }
 
+    /**
+     * 내부 API용: employeeId로 직원 정보 조회 (이름 등 기본 정보만)
+     * 인증 없이 호출 가능하도록 구현
+     */
+    public Map<String, Object> getEmployeeByIdInternal(Long employeeId) {
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new EntityNotFoundException("직원을 찾을 수 없습니다. ID: " + employeeId));
+        
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", employee.getId());
+        result.put("name", employee.getName());
+        result.put("employeeName", employee.getName()); // 호환성을 위해 두 필드 모두 제공
+        result.put("employeeNumber", employee.getEmployeeNumber());
+        result.put("email", employee.getEmail());
+        
+        return result;
+    }
+
     private List<Branch> activeBranchesOf(Employee employee, LocalDate today) {
         return dispatchStatusRepository
                 .findByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
