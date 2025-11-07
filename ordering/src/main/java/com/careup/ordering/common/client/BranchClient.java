@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 import java.util.Map;
 
-@FeignClient(name = "branch-service") // Eureka를 통한 서비스 디스커버리 사용 url = "${feign.branch.url:http://localhost:8081}")주석처리함 문제있음 복구함
+@FeignClient(name = "branch-service", url = "${feign.branch-service.url}") // Eureka를 통한 서비스 디스커버리 사용 url = "${feign.branch.url:http://localhost:8081}")주석처리함 문제있음 복구함
 public interface BranchClient {
 
     /**

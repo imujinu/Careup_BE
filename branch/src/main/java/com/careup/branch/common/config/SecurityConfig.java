@@ -6,6 +6,7 @@ import com.careup.branch.common.auth.JwtTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -14,6 +15,13 @@ import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.Arrays;
 
 
 @Configuration
@@ -24,20 +32,19 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
                                                    JwtTokenFilter jwtTokenFilter,
                                                    JwtAuthenticationEntryPoint entryPoint,
-                                                   JwtAccessDeniedHandler deniedHandler) throws Exception {
+                                                   JwtAccessDeniedHandler deniedHandler,
+                                                   CorsConfigurationSource corsConfigurationSource
+                                                   ) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
-        http.httpBasic(AbstractHttpConfigurer::disable);
+        http.cors(c -> c.configurationSource(corsConfigurationSource));
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-
-        // 백엔드 CORS 비활성화 (게이트웨이에서만 CORS 처리)
-        http.cors(AbstractHttpConfigurer::disable);
-
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
                         "/actuator/**",
                         "/public/**",
                         "/health",
+                        "/branch-service/auth/login",
                         "/auth/login",
                         "/auth/refresh",
                         "/auth/logout",
@@ -55,6 +62,7 @@ public class SecurityConfig {
                         "/branch/list-by-ids",//  지점 목록 조회 공개 (ordering 서비스에서 사용)
                         "/employees/internal/**", // 내부 API용 직원 정보 조회 (ordering 서비스에서 사용)
                         "/sse/**"
+
                 ).permitAll()
                 .anyRequest().authenticated()
         );
@@ -66,6 +74,17 @@ public class SecurityConfig {
 
         http.addFilterBefore(jwtTokenFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
+    }
+
+    private CorsConfigurationSource corsConfiguration(){
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://www.careup.store"));
+        configuration.setAllowedMethods(Arrays.asList("*"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowCredentials(true);
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean

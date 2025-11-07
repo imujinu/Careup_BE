@@ -1,10 +1,12 @@
 package com.careup.branch.domain.chat.dto.attendance;
 
+import com.careup.branch.domain.chat.dto.BaseResponseDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,8 +17,8 @@ import java.util.stream.Collectors;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class TodayAttendanceResDto {
+@SuperBuilder
+public class TodayAttendanceResDto extends BaseResponseDto {
     private String branchName;
     private LocalDate date;
     private List<EmployeeTodayAttendanceDto> employees;
@@ -46,7 +48,7 @@ public class TodayAttendanceResDto {
         private LocalDateTime actualClockOut;
     }
 
-    public static TodayAttendanceResDto makeDto(List<ScheduleListDto> schedules, String branchName) {
+    public static TodayAttendanceResDto makeDto(String intent, String action, List<ScheduleListDto> schedules, String branchName) {
         LocalDate today = LocalDate.now();
 
         List<EmployeeTodayAttendanceDto> employeeDtos = schedules.stream()
@@ -72,6 +74,8 @@ public class TodayAttendanceResDto {
                 .collect(Collectors.toList());
 
         return TodayAttendanceResDto.builder()
+                .intent(intent)
+                .action(action)
                 .branchName(branchName)
                 .date(today)
                 .employees(employeeDtos)

@@ -11,7 +11,7 @@ import java.util.Map;
  * Ordering 서비스의 매출 통계 API를 호출하는 FeignClient
  * Eureka를 통해 ordering-service와 직접 통신
  */
-@FeignClient(name = "ordering-service", url="http://ordering-service", configuration = FeignConfig.class)
+@FeignClient(name = "ordering-service",  url = "${feign.ordering-service.url}", configuration = FeignConfig.class)
 public interface OrderingSalesClient {
 
     /**

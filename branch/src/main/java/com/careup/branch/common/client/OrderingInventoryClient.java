@@ -10,7 +10,7 @@ import java.util.List;
 
 @FeignClient(
         name = "ordering-service",
-        url="http://ordering-service",
+        url = "${feign.ordering-service.url}",
         configuration = com.careup.branch.common.config.FeignConfig.class
 )
 public interface OrderingInventoryClient {
