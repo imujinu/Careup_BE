@@ -121,16 +121,17 @@
     google:
       client-id: ${GOOGLE_CLIENT_ID}
       client-secret: ${GOOGLE_CLIENT_SECRET}
-      redirect-uri: http://www.careup.store/oauth/google/callback
+      redirect-uri: https://www.careup.store/oauth/google/callback
     kakao:
       client-id: ${KAKAO_CLIENT_ID}
       admin-key: ${KAKAO_ADMIN_KEY}
-      redirect-uri: http://www.careup.store/oauth/kakao/callback
+      redirect-uri: https://www.careup.store/oauth/kakao/callback
 
   security:
     cors:
       allowed-origins:
       - "http://localhost:5173"
+      - "https://www.careup.store"
     csrf:
       allowed-origins:
         - "http://localhost:5173"
