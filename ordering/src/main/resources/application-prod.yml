@@ -142,7 +142,7 @@
     mail:
       support-email: support@careup.com
       customer:
-        reset-base-url: "http://www.careup.store/customer/password/reset"  # 고객 FE 경로
+        reset-base-url: "https://www.careup.store/customer/password/reset"  # 고객 FE 경로
     branch:
       introspection:
         base-url: https://server.careup.store/branch-service
