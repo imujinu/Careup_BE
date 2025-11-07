@@ -113,7 +113,7 @@ attendance:
 careup:
   mail:
     support-email: support@careup.com
-    reset-base-url: "http://www.careup.store/password/reset"  # 직원 FE 경로
+    reset-base-url: "https://www.careup.store/password/reset"  # 직원 FE 경로
 
 # 브랜드(직원) — Care-Up (보라 버튼)
 brand:
