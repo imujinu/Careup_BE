@@ -3,17 +3,8 @@ name: CI/CD Pipeline for CareUp MSA
 on:
   push:
     branches:
-      - main
       - develop
-  pull_request:
-    branches:
       - main
-      - develop
-
-env:
-  DOCKER_REGISTRY: ghcr.io
-  IMAGE_TAG: ${{ github.sha }}
-  K8S_NAMESPACE: care-up
 
 jobs:
   # ==================== 변경 사항 감지 ====================
@@ -30,15 +21,8 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set up Docker Buildx 
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GIT_TOKEN }} 
 
       - name: Extract metadata for Docker
         id: meta
@@ -53,167 +37,95 @@ jobs:
               - 'branch/**'
             ordering:
               - 'ordering/**'
-            k8s:
-              - 'k8s/**'
-
   # ==================== Branch Service 빌드 및 배포 ====================
-  build-deploy-branch:
+  build-and-deploy:
     name: Build & Deploy Branch Service
     needs: detect-changes
     if: needs.detect-changes.outputs.branch == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: checkout github
+        uses: actions/checkout@v2
 
-      - name: Set up Docker Buildx 
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: install kubectl
+        uses: azure/setup-kubectl@v3
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          version: "v1.33"
+        id: install
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./branch/gradlew
+      - name: configure aws
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_KEY }}
+          aws-secret-access-key:  ${{ secrets.AWS_SECRET }}
+          aws-region: ap-northeast-2
 
-      - name: Build with Gradle
+      - name: update cluster information
+        run: aws eks update-kubeconfig --name 02-careUp-cluster --region ap-northeast-2
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: build and push docker image to ecr
+        env:
+          REGISTRY: 565393060633.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: careup/branch
+          IMAGE_TAG: latest
         run: |
-          cd branch
-          ./gradlew clean build -x test
+          docker build \
+          -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+          -f ./Dockerfile .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
-      - name: Run tests
+      - name: eks kubectl apply
         run: |
-          cd branch
-          ./gradlew test
-        continue-on-error: true
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GIT_TOKEN }}
-
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-branch
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./branch
-          file: ./branch/Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-branch:${{ env.IMAGE_TAG }}
-            ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-branch:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Deploy to Kubernetes
-        if: github.ref == 'refs/heads/main'
-        run: |
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
-          export KUBECONFIG=kubeconfig
-          kubectl set image deployment/branch-deployment branch=${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-branch:${{ env.IMAGE_TAG }} -n ${{ env.K8S_NAMESPACE }}
-          kubectl rollout status deployment/branch-deployment -n ${{ env.K8S_NAMESPACE }} --timeout=5m
+          kubectl rollout restart deployment careup-deployment -n care-up
+        # kubectl apply -f ./2.ordersystem/k8s/k8s-ordersystem/depl_svc.yml
 
   # ==================== Ordering Service 빌드 및 배포 ====================
-  build-deploy-ordering:
+  build-deploy-ordering-service:
     name: Build & Deploy Ordering Service
-    needs: detect-changes
-    if: needs.detect-changes.outputs.ordering == 'true' || github.event_name == 'push'
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: checkout github
+        uses: actions/checkout@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - name: install kubectl
+        uses: azure/setup-kubectl@v3
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          version: "v1.33"
+        id: install
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x ./ordering/gradlew
-
-      - name: Build with Gradle
-        run: |
-          cd ordering
-          ./gradlew clean build -x test
-
-      - name: Run tests
-        run: |
-          cd ordering
-          ./gradlew test
-        continue-on-error: true
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: configure aws
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          registry: ${{ env.DOCKER_REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GIT_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_KEY }}
+          aws-secret-access-key:  ${{ secrets.AWS_SECRET }}
+          aws-region: ap-northeast-2
 
-      - name: Extract metadata for Docker
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-ordering
-          tags: |
-            type=sha,prefix={{branch}}-
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: update cluster information
+        run: aws eks update-kubeconfig --name 02-careUp-cluster --region ap-northeast-2
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./ordering
-          file: ./ordering/Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-ordering:${{ env.IMAGE_TAG }}
-            ${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-ordering:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-      - name: Deploy to Kubernetes
-        if: github.ref == 'refs/heads/main'
+      - name: build and push docker image to ecr
+        env:
+          REGISTRY: 565393060633.dkr.ecr.ap-northeast-2.amazonaws.com
+          REPOSITORY: careup/ordering
+          IMAGE_TAG: latest
         run: |
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > kubeconfig
-          export KUBECONFIG=kubeconfig
-          kubectl set image deployment/ordering-deployment ordering=${{ env.DOCKER_REGISTRY }}/${{ github.repository_owner }}/careup-ordering:${{ env.IMAGE_TAG }} -n ${{ env.K8S_NAMESPACE }}
-          kubectl rollout status deployment/ordering-deployment -n ${{ env.K8S_NAMESPACE }} --timeout=5m
+          docker build \
+          -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
+          -f ./Dockerfile .
+          docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
-  # ==================== 배포 알림 ====================
-  notify:
-    name: Deployment Notification
-    needs: [build-deploy-branch, build-deploy-ordering]
-    if: always() && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check deployment status
+      - name: eks kubectl apply
         run: |
-          echo "🚀 Deployment Status Report"
-          echo "=========================="
-          echo "Commit: ${{ github.sha }}"
-          echo "Branch: ${{ github.ref }}"
-          echo "Actor: ${{ github.actor }}"
-          echo "Branch Service: ${{ needs.build-deploy-branch.result }}"
-          echo "Ordering Service: ${{ needs.build-deploy-ordering.result }}"
-
-        continue-on-error: true
-
+          kubectl rollout restart deployment careup-deployment -n care-up
+        # kubectl apply -f ./2.ordersystem/k8s/k8s-ordersystem/depl_svc.yml
+        
