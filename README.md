@@ -1,5 +1,5 @@
 # 🏢 한화시스템 Beyond SW 16기 최종 프로젝트 — 2팀 Care-Up
-![header_image]([헤더 이미지 링크])
+<img width="1037" height="402" alt="image" src="https://github.com/user-attachments/assets/c59a4e51-6ef7-46ae-84aa-1ee22b2fb025" />
 
 > 프랜차이즈 본사·가맹점 운영(근태, 발주/재고, 매출/정산)과 고객 쇼핑을 아우르는 ERP·커머스 통합 플랫폼
 <br>
