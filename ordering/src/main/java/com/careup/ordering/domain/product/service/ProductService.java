@@ -243,6 +243,23 @@ public class ProductService {
         // 상품 삭제
         productRepository.delete(product);
     }
+
+    /**
+     * 상품 설명용 이미지 업로드
+     * 상품을 생성하지 않고 이미지만 S3에 업로드하여 URL 반환
+     */
+    public String uploadDescriptionImage(MultipartFile imageFile) {
+        if (imageFile == null || imageFile.isEmpty()) {
+            throw new IllegalArgumentException("이미지 파일이 없습니다.");
+        }
+
+        // S3에 이미지 업로드 (상품 설명용이므로 tableName을 "product-description"으로 설정)
+        String imageUrl = awsS3Uploader.uploadFile("product-description", 0L, imageFile);
+        log.info("상품 설명용 이미지 업로드 완료 - URL: {}", imageUrl);
+        
+        return imageUrl;
+    }
+
     /**
      * 고객용 상품 목록 조회 (페이지네이션)
      *  visibility=ALL인 활성 상품만 반환
