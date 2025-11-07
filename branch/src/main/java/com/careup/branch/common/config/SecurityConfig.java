@@ -6,7 +6,6 @@ import com.careup.branch.common.auth.JwtTokenFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -18,11 +17,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
-
 
 @Configuration
 @EnableMethodSecurity
@@ -34,7 +30,7 @@ public class SecurityConfig {
                                                    JwtAuthenticationEntryPoint entryPoint,
                                                    JwtAccessDeniedHandler deniedHandler,
                                                    CorsConfigurationSource corsConfigurationSource
-                                                   ) throws Exception {
+    ) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable);
         http.cors(c -> c.configurationSource(corsConfigurationSource));
         http.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
@@ -79,10 +75,9 @@ public class SecurityConfig {
                         "/sales-forecast/**",
                         "/sales/**",
                         "/chatbot/**",
-                        "/branch/list-by-ids",//  지점 목록 조회 공개 (ordering 서비스에서 사용)
-                        "/employees/internal/**", // 내부 API용 직원 정보 조회 (ordering 서비스에서 사용)
+                        "/branch/list-by-ids",
+                        "/employees/internal/**",
                         "/sse/**"
-
                 ).permitAll()
                 .anyRequest().authenticated()
         );
@@ -96,9 +91,17 @@ public class SecurityConfig {
         return http.build();
     }
 
-    private CorsConfigurationSource corsConfiguration(){
+    // ✅ 명시적 Bean + 도메인 변형(https/http, www 유무) 모두 허용
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://www.careup.store"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "https://www.careup.store",
+                "https://careup.store",
+                "http://www.careup.store",
+                "http://careup.store"
+        ));
         configuration.setAllowedMethods(Arrays.asList("*"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
