@@ -60,6 +60,7 @@ public class SecurityConfig {
                         "/sales/**",
                         "/chatbot/**",
                         "/branch/list-by-ids",//  지점 목록 조회 공개 (ordering 서비스에서 사용)
+                        "/employees/internal/**", // 내부 API용 직원 정보 조회 (ordering 서비스에서 사용)
                         "/sse/**"
 
                 ).permitAll()

@@ -354,25 +354,34 @@ public class DashboardService {
         LocalDateTime startDateTime = startDate.atStartOfDay();
         LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
 
-        // 상품별 매출 통계 조회
-        List<Object[]> productSalesStats = orderedItemRepository.findProductSalesStatistics(
+        // 카테고리별 매출 통계 조회
+        List<Object[]> categorySalesStats = orderedItemRepository.findBranchCategorySalesStatistics(
                 branchId, startDateTime, endDateTime);
 
-        // 카테고리별 매출 집계 (카테고리 정보가 없으므로 상품별로 처리)
+        // 카테고리별 매출 집계
         Map<String, Long> categorySalesDistribution = new LinkedHashMap<>();
         Long totalSales = 0L;
         String topCategory = "없음";
         Long topCategorySales = 0L;
 
-        for (Object[] stat : productSalesStats) {
-            String productName = (String) stat[1];
-            Long sales = ((Number) stat[3]).longValue();
+        for (Object[] stat : categorySalesStats) {
+            // [categoryId, categoryName, totalSales, totalQuantity, orderCount]
+            Long categoryId = ((Number) stat[0]).longValue();
+            String categoryName = (String) stat[1];
+            Long sales = ((Number) stat[2]).longValue();
+            
+            // 카테고리가 없는 경우 "미분류"로 처리
+            if (categoryName == null || categoryName.isEmpty()) {
+                categoryName = "미분류";
+            }
 
-            categorySalesDistribution.put(productName, sales);
+            // 이미 같은 카테고리가 있으면 합산
+            categorySalesDistribution.put(categoryName, 
+                    categorySalesDistribution.getOrDefault(categoryName, 0L) + sales);
             totalSales += sales;
 
             if (sales > topCategorySales) {
-                topCategory = productName;
+                topCategory = categoryName;
                 topCategorySales = sales;
             }
         }
