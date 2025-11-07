@@ -46,7 +46,6 @@ import java.time.LocalTime;
 import java.util.*;
 
 @Component
-@Profile({"local","dev"})
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 

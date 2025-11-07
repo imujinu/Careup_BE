@@ -1,5 +1,6 @@
 package com.careup.ordering.domain.order.service;
 
+import com.careup.ordering.common.client.BranchClient;
 import com.careup.ordering.common.service.DistributedLockService;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -50,6 +52,9 @@ public class OrderService {
     private final DistributedLockService distributedLockService;
     private final PaymentRepository paymentRepository;
     private final CoPurchaseService coPurchaseService;
+    
+    @Autowired(required = false)
+    private BranchClient branchClient;
 
     /**
      * 주문 생성
@@ -285,11 +290,11 @@ public class OrderService {
      * 주문 거부
      */
     @Transactional
-    public OrderResponseDto rejectOrder(Long orderId, String reason) {
+    public OrderResponseDto rejectOrder(Long orderId, String reason, Long rejectedBy) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
-        order.reject(reason);
+        order.reject(reason, rejectedBy);
 
         // 주문 거부 시 재고 복구
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
@@ -315,14 +320,16 @@ public class OrderService {
     }
 
     /**
-     * 주문 취소
+     * 주문 취소 (고객만 가능)
      */
     @Transactional
-    public void cancelOrder(Long orderId) {
+    public void cancelOrder(Long orderId, String reason) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
-        order.cancel();
+        // 고객이 취소하는 경우 (memberId를 cancelledBy로 저장)
+        Long cancelledBy = order.getMember().getId();
+        order.cancel(reason, cancelledBy);
 
         // 주문 취소 시 재고 복구
         List<OrderedItem> items = orderedItemRepository.findByOrderId(orderId);
@@ -368,7 +375,8 @@ public class OrderService {
                 log.info("타임아웃 주문 취소 시작 - orderId: {}, 생성시간: {}",
                         order.getId(), order.getCreatedAt());
 
-                order.cancel();
+                // 타임아웃 취소는 시스템이 취소하는 것이므로 cancelledBy는 null
+                order.cancel("결제 미완료로 인한 자동 취소", null);
 
                 // 재고 복구
                 List<OrderedItem> items = orderedItemRepository.findByOrderId(order.getId());
@@ -431,21 +439,128 @@ public class OrderService {
             isPaymentCompleted = payment.getPaymentStatus() == PaymentStatus.COMPLETED;
         }
 
+        // 지점명 조회
+        String branchName = getBranchName(order.getBranchId());
+        
+        // 거부자 이름 조회
+        String rejectedByName = null;
+        if (order.getRejectedBy() != null) {
+            rejectedByName = getEmployeeName(order.getRejectedBy());
+        }
+
         return OrderResponseDto.builder()
                 .orderId(order.getId())
                 .memberId(order.getMember().getId())
                 .memberName(order.getMember().getName())
                 .branchId(order.getBranchId())
+                .branchName(branchName)
                 .totalAmount(order.getTotalAmount())
                 .orderStatus(order.getOrderStatus())
                 .orderType(order.getOrderType())
                 .approvedBy(order.getApprovedBy())
                 .approvedAt(order.getApprovedAt())
+                .approvedByName(null) // TODO: Employee 서비스에서 조회 필요
                 .rejectedReason(order.getRejectedReason())
+                .rejectedBy(order.getRejectedBy())
+                .rejectedAt(order.getRejectedAt())
+                .rejectedByName(rejectedByName)
+                .cancelledReason(order.getCancelledReason())
+                .cancelledBy(order.getCancelledBy())
+                .cancelledAt(order.getCancelledAt())
                 .createdAt(order.getCreatedAt())
                 .orderItems(orderItemDtos)
                 .paymentStatus(paymentStatus)
                 .isPaymentCompleted(isPaymentCompleted)
                 .build();
+    }
+
+    /**
+     * Branch 서비스에서 Branch 이름 조회
+     */
+    private String getBranchName(Long branchId) {
+        if (branchClient == null || branchId == null) {
+            return null;
+        }
+        
+        try {
+            List<Long> branchIds = new ArrayList<>();
+            branchIds.add(branchId);
+            Map<String, Object> response = branchClient.getBranchesByIds(branchIds);
+            
+            Object resultObj = response.get("result");
+            List<Map<String, Object>> branchesData = new ArrayList<>();
+            
+            if (resultObj instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> list = (List<Map<String, Object>>) resultObj;
+                branchesData = list;
+            } else if (resultObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> resultMap = (Map<String, Object>) resultObj;
+                Object dataObj = resultMap.get("data");
+                if (dataObj instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> list = (List<Map<String, Object>>) dataObj;
+                    branchesData = list;
+                }
+            }
+
+            if (!branchesData.isEmpty()) {
+                Map<String, Object> branch = branchesData.get(0);
+                Object nameObj = branch.get("name");
+                if (nameObj != null) {
+                    String branchName = String.valueOf(nameObj);
+                    log.debug("지점 이름 조회 성공: branchId={}, branchName={}", branchId, branchName);
+                    return branchName;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Branch 이름 조회 실패: branchId={}, error={}", branchId, e.getMessage(), e);
+        }
+        return null;
+    }
+
+    /**
+     * Branch 서비스에서 Employee 이름 조회
+     */
+    private String getEmployeeName(Long employeeId) {
+        if (branchClient == null || employeeId == null) {
+            return null;
+        }
+        
+        try {
+            Map<String, Object> response = branchClient.getEmployeeById(employeeId);
+            
+            Object resultObj = response.get("result");
+            Map<String, Object> employeeData = null;
+            
+            if (resultObj instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> resultMap = (Map<String, Object>) resultObj;
+                Object dataObj = resultMap.get("data");
+                if (dataObj instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> dataMap = (Map<String, Object>) dataObj;
+                    employeeData = dataMap;
+                } else {
+                    employeeData = resultMap;
+                }
+            }
+            
+            if (employeeData != null) {
+                Object nameObj = employeeData.get("name");
+                if (nameObj == null) {
+                    nameObj = employeeData.get("employeeName");
+                }
+                if (nameObj != null) {
+                    String employeeName = String.valueOf(nameObj);
+                    log.debug("직원 이름 조회 성공: employeeId={}, employeeName={}", employeeId, employeeName);
+                    return employeeName;
+                }
+            }
+        } catch (Exception e) {
+            log.error("Employee 이름 조회 실패: employeeId={}, error={}", employeeId, e.getMessage(), e);
+        }
+        return null;
     }
 }

@@ -1,10 +1,12 @@
 package com.careup.branch.domain.chat.dto.attendance;
 
+import com.careup.branch.domain.chat.dto.BaseResponseDto;
 import com.careup.branch.domain.employee.dto.response.ScheduleListDto;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -14,8 +16,8 @@ import java.util.stream.Collectors;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-public class AttendanceCompareResDto {
+@SuperBuilder
+public class AttendanceCompareResDto extends BaseResponseDto {
 
     private String branchName;
     private PeriodDto period;
@@ -69,6 +71,8 @@ public class AttendanceCompareResDto {
     }
 
     public static AttendanceCompareResDto makeDto(
+            String intent,
+            String action,
             List<ScheduleListDto> attendances,
             String branchName,
             LocalDate startDate,
@@ -125,6 +129,8 @@ public class AttendanceCompareResDto {
 
         return AttendanceCompareResDto.builder()
                 .branchName(branchName)
+                .intent(intent)
+                .action(action)
                 .period(PeriodDto.builder()
                         .start(startDate)
                         .end(endDate)

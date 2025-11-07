@@ -1,6 +1,8 @@
 server:
   port: 0
-
+feign:
+  branch-service:
+    url: http://localhost:8080/branch-service
 eureka:
   client:
     enabled: true
@@ -42,7 +44,7 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show_sql: true
   servlet:
     multipart:

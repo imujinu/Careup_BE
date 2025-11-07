@@ -78,18 +78,20 @@ public class OrderController {
     @PutMapping("/{orderId}/reject")
     public ResponseEntity<ResponseDto<OrderResponseDto>> rejectOrder(
             @PathVariable Long orderId,
-            @RequestParam String reason) {
+            @RequestParam String reason,
+            @RequestParam Long rejectedBy) {
 
-        OrderResponseDto response = orderService.rejectOrder(orderId, reason);
+        OrderResponseDto response = orderService.rejectOrder(orderId, reason, rejectedBy);
 
         return new ResponseEntity<>(ResponseDto.ok(response, HttpStatus.OK), HttpStatus.OK);
     }
 
     @DeleteMapping("/{orderId}")
     public ResponseEntity<ResponseDto<Void>> cancelOrder(
-            @PathVariable Long orderId) {
+            @PathVariable Long orderId,
+            @RequestParam(required = false) String reason) {
 
-        orderService.cancelOrder(orderId);
+        orderService.cancelOrder(orderId, reason);
 
         return new ResponseEntity<>(ResponseDto.ok(null, HttpStatus.OK), HttpStatus.OK);
     }
