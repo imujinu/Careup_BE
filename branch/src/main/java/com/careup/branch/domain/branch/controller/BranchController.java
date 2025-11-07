@@ -86,18 +86,17 @@ public class BranchController {
     }
 
     /**
-     * 내 소속 지점 상세 조회 (지점/가맹점 관리자 및 직원)
-     * JWT 토큰에서 직원 정보를 추출하여 소속 지점 정보와 점주 정보를 조회
+     * 내 소속 지점 상세 조회 (지점/가맹점 관리자 및 직원, +HQ 관리자 허용)
      * GET /branch/my
      *
-     * @return MyBranchDto - 지점 상세 정보 + 점주 정보
-     * @throws IllegalArgumentException - 배치 정보가 없는 경우
+     * - HQ_ADMIN의 경우 실제 소속 지점이 없을 수 있어도 200 OK + result:null 로 응답하여
+     *   클라이언트가 "지점 위치 정보 없음"으로 자연스럽게 폴백하도록 처리합니다.
      */
-    @PreAuthorize("hasAnyRole('BRANCH_ADMIN', 'FRANCHISE_OWNER', 'STAFF')")
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
     @GetMapping("/my")
     public ResponseEntity<?> getMyBranch() {
         try {
-            MyBranchDto myBranch = branchService.getMyBranch();
+            MyBranchDto myBranch = branchService.getMyBranch(); // 소속 없으면 서비스에서 IllegalArgumentException
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()
                             .result(myBranch)
@@ -106,10 +105,13 @@ public class BranchController {
                             .build()
             );
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    CommonErrorDto.builder()
-                            .status_code(HttpStatus.BAD_REQUEST.value())
-                            .status_message(e.getMessage())
+            // ⬇ 기존 400(BAD_REQUEST) → 200(OK) + result:null 로 다운그레이드
+            //    프론트는 정상 응답으로 처리하며 지점 미구성 메시지로 렌더링
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(null)
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("소속 지점이 없습니다.")
                             .build()
             );
         } catch (Exception e) {
@@ -143,7 +145,6 @@ public class BranchController {
             );
         }
     }
-
 
     // 지점 수정 API
     @PreAuthorize("hasRole('HQ_ADMIN')")
