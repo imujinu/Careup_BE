@@ -143,6 +143,9 @@ careup:
     support-email: support@careup.com
     customer:
       reset-base-url: "http://www.careup.store/customer/password/reset"  # 고객 FE 경로
+  branch:
+    introspection:
+      base-url: https://api.careup.store/branch-service   # ★ Ingress 경로(끝 슬래시 금지)
 
 # 상품 이미지 설정
 app:
