@@ -397,9 +397,9 @@ public class AttendanceService {
     }
 
     public Employee getEmployee() {
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            Map<String, Object> details = (Map<String, Object>) auth.getDetails();
-            String email = (String) details.get("email");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Map<String, Object> details = (Map<String, Object>) auth.getDetails();
+        String email = (String) details.get("email");
 
         return employeeRepository.findByEmail(email)
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 직원입니다."));
