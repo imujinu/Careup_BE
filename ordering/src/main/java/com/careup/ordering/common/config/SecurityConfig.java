@@ -46,6 +46,16 @@ public class SecurityConfig {
 
                 // 고객 인증 + OAuth 공개
                 .requestMatchers(
+                        "/ordering-service/auth/customers/signup",
+                        "/ordering-service/auth/customers/login",
+                        "/ordering-service/auth/customers/refresh",
+                        "/ordering-service/auth/customers/logout",
+                        "/ordering-service/auth/customers/password/forgot",
+                        "/ordering-service/auth/customers/password/reset",
+                        "/ordering-service/auth/customers/oauth/state",
+                        "/ordering-service/auth/customers/oauth/google",
+                        "/ordering-service/auth/customers/oauth/kakao",
+                        "/ordering-service/auth/customers/oauth/update",
                         "/auth/customers/signup",
                         "/auth/customers/login",
                         "/auth/customers/refresh",
@@ -61,6 +71,8 @@ public class SecurityConfig {
                 // 상품/카테고리: 조회는 공개, 쓰기/수정/삭제는 관리자 계열만
                 .requestMatchers(HttpMethod.GET, "/products/**", "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/products/**", "/api/rank/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/products/**", "/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/products/**", "/api/rank/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/products/**", "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -68,31 +80,40 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/public/products").permitAll()  // 고객용 상품 목록 공개
                 .requestMatchers(HttpMethod.GET, "/api/public/products/with-branches").permitAll()  // 고객용 상품 목록 (지점 정보 포함)
-                .requestMatchers(HttpMethod.GET, "/api/public/products/search").permitAll()  // 고객용 상품 검색
+                .requestMatchers(HttpMethod.GET, "/api/public/products/search").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/public/products").permitAll()  // 고객용 상품 목록 공개
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/public/products/with-branches").permitAll()  // 고객용 상품 목록 (지점 정보 포함)
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/public/products/search").permitAll()  // 고객용 상품 검색
                 .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
                 // 카테고리 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/categories/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
                 // 프로모션 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/api/promotions/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/promotions/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
                 // 상품 문의 - GET은 공개, POST/PUT/DELETE는 CUSTOMER 전용
                 .requestMatchers(HttpMethod.GET, "/api/product-inquiries/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/product-inquiries/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/product-inquiries/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.PUT, "/api/product-inquiries/**").hasRole("CUSTOMER")
                 .requestMatchers(HttpMethod.DELETE, "/api/product-inquiries/**").hasRole("CUSTOMER")
 
                 // 재고 조회 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/inventory/branch-products/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/inventory/branch-products/**").permitAll()
+
                 // 인벤토리: 본사/가맹점/직원 권한 허용 (STAFF 포함)
                 .requestMatchers("/inventory/flow").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
                 .requestMatchers("/inventory/adjustment-history").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER","STAFF")
@@ -104,11 +125,13 @@ public class SecurityConfig {
 
                 // 쿠폰(가정): 조회는 공개, 생성/수정/삭제는 관리자
                 .requestMatchers(HttpMethod.GET, "/coupons/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 // 쿠폰 - GET은 공개, 나머지는 관리자 전용
                 .requestMatchers(HttpMethod.GET, "/api/coupons/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/api/coupons/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/coupons/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
@@ -137,6 +160,7 @@ public class SecurityConfig {
                 .requestMatchers("/sales/**").authenticated()
 
                 .requestMatchers(HttpMethod.GET, "/rec/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ordering-service/rec/**").permitAll()
                 .anyRequest().authenticated()
         );
 

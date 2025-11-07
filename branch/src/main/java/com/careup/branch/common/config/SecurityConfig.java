@@ -41,10 +41,30 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers(
+                        "/branch-service/auth/login",
+                        "/branch-service/actuator/**",
+                        "/branch-service/public/**",
+                        "/branch-service/health",
+                        "/branch-service/auth/login",
+                        "/branch-service/auth/refresh",
+                        "/branch-service/auth/logout",
+                        "/branch-service/auth/password/forgot",
+                        "/branch-service/auth/password/reset",
+                        "/branch-service/auth/introspect",
+                        "/branch-service/inventory/**",
+                        "/branch-service/categories/**",
+                        "/branch-service/products/**",
+                        "/branch-service/purchase-orders/**",
+                        "/branch-service/api/products/public/**",
+                        "/branch-service/sales-forecast/**",
+                        "/branch-service/sales/**",
+                        "/branch-service/chatbot/**",
+                        "/branch-service/branch/list-by-ids",   // 지점 목록 조회 공개 (ordering 서비스에서 사용)
+                        "/branch-service/employees/internal/**", // 내부 API용 직원 정보 조회 (ordering 서비스에서 사용)
+                        "/branch-service/sse/**",
                         "/actuator/**",
                         "/public/**",
                         "/health",
-                        "/branch-service/auth/login",
                         "/auth/login",
                         "/auth/refresh",
                         "/auth/logout",
