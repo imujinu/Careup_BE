@@ -82,7 +82,7 @@ jobs:
 
       - name: eks kubectl apply
         run: |
-          kubectl rollout restart deployment careup-deployment -n care-up
+          kubectl rollout restart deployment branch-deployment -n care-up
         # kubectl apply -f ./2.ordersystem/k8s/k8s-ordersystem/depl_svc.yml
 
   # ==================== Ordering Service 빌드 및 배포 ====================
@@ -128,6 +128,6 @@ jobs:
 
       - name: eks kubectl apply
         run: |
-          kubectl rollout restart deployment careup-deployment -n care-up
+          kubectl rollout restart deployment ordering-deployment -n care-up
         # kubectl apply -f ./2.ordersystem/k8s/k8s-ordersystem/depl_svc.yml
         
