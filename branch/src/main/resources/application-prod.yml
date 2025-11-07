@@ -1,27 +1,19 @@
-
 server:
   port: 8081
-
 eureka:
   client:
     enabled: false
-    serviceUrl:
-      defaultZone: http://localhost:8761/eureka/
-
 spring:
   application:
     name: branch-service
-  config:
-    activate:
-      on-profile: local
   redis:
-    host: localhost
+    host: redis-service
     port: 6379
   datasource:
     driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://localhost:3306/careup
-    username: root
-    password: 1234
+    url: jdbc:mariadb://${DB_HOST}:3306/careup
+    username: admin
+    password: ${DB_PW}
   jpa:
     database: mysql
     database-platform: org.hibernate.dialect.MariaDBDialect
@@ -35,9 +27,52 @@ spring:
       max-file-size: 1000MB
       max-request-size: 1000MB
   kafka:
-    bootstrap-servers: localhost:9092
+    bootstrap-servers: kafka-service:9092
+    streams:
+      application-id: branch-service
+      replication-factor: 1
+      state-dir: /tmp/kafka-streams
     consumer:
       group-id: test-topic-group-01
+      auto-offset-reset: earliest
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USER}
+    password: ${MAIL_PW}
+    from: careup.noreply@gmail.com
+    from.name: Care-Up
+    default-encoding: UTF-8
+    properties:
+      mail:
+        debug: true
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+          ssl:
+            trust: smtp.gmail.com
+  main:
+    allow-bean-definition-overriding: true
+
+  ai:
+    openai:
+      api-key: ${OpenAi-Api-Key}
+      chat:
+        options:
+          model: gpt-4o-mini
+      embedding:
+        options:
+          model: text-embedding-3-small
+qdrant:
+  host: qdrant-service
+  port: 6333
+  api-key: careup-qdrant
 
 cloud:
   aws:
@@ -50,21 +85,40 @@ cloud:
       bucket: ${S3_BUCKET}
 
 jwt:
-  accessTokenExpiryMinutes: 30 # 30분
+  accessTokenExpiryMinutes: 3000 # 30분
   secretKeyAt: ${ACCESS_TOKEN}
   #  refreshTokenExpiryDays: 180 # 180일
   refreshTokenExpiryDaysPersistent: 180 # 180일 (자동 로그인 O)
   refreshTokenExpiryDaysNonPersistent: 1 # 1일 (자동 로그인 X)
-  secretKeyRt: ${REFRESH_KEY}
+  secretKeyRt: ${REFRESH_TOKEN}
 
 security:
   csrf:
     allowed-origins:
-      - "http://localhost:3000"
+      - "http://localhost:5173"
+      - "https://www.careup.store"
     skip-paths:
       - "/health"
+
+attendance:
+  window:
+    enforce: true
+    early-minutes: 60
+    late-minutes: 120
+    overtime-grace-minutes: 30
+
+careup:
+  mail:
+    support-email: support@careup.com
+    reset-base-url: "http://www.careup.store/password/reset"  # 직원 FE 경로
+
+# 브랜드(직원) — Care-Up (보라 버튼)
+brand:
+  name: Care-Up
+  logo-url: ""   # 필요 시 CDN 경로
+  slogan: "Where Management Meets Care"
+  cta-color: "#7C3AED"   # 보라 버튼
 
 logging:
   level:
     root: info
-

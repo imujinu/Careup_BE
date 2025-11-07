@@ -1,0 +1,10 @@
+singleServerConfig:
+  address: "redis://redis-service:6379"
+  connectionPoolSize: 16
+  connectionMinimumIdleSize: 8    # ✅ 추가
+  idleConnectionTimeout: 10000
+  connectTimeout: 10000
+  timeout: 3000
+threads: 2
+nettyThreads: 2
+codec: !<org.redisson.codec.JsonJacksonCodec> {}
