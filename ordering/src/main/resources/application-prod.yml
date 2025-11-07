@@ -5,7 +5,7 @@
       enabled: false
   feign:
     branch-service:
-      url: http://branch-service
+      url: https://server.careup.store/branch-service
   spring:
     application:
       name: ordering-service
@@ -145,7 +145,7 @@
         reset-base-url: "http://www.careup.store/customer/password/reset"  # 고객 FE 경로
     branch:
       introspection:
-        base-url: https://api.careup.store/branch-service   # ★ Ingress 경로(끝 슬래시 금지)
+        base-url: https://server.careup.store/branch-service
 
   # 상품 이미지 설정
   app:
