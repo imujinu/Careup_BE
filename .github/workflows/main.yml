@@ -74,6 +74,7 @@ jobs:
           REPOSITORY: careup/branch
           IMAGE_TAG: latest
         run: |
+          cd branch
           docker build \
           -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
           -f ./Dockerfile .
@@ -119,6 +120,7 @@ jobs:
           REPOSITORY: careup/ordering
           IMAGE_TAG: latest
         run: |
+          cd ordering
           docker build \
           -t $REGISTRY/$REPOSITORY:$IMAGE_TAG \
           -f ./Dockerfile .
