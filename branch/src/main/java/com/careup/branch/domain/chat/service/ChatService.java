@@ -113,19 +113,19 @@ public class ChatService {
         System.out.println("[Chat][Action] : " + action);
         switch (intent) {
                 case "SALES" -> {
-                return chatUserService.handleSalesAction(action, parameters, dto.getBranchId() );
+                return chatUserService.handleSalesAction(intent, action, parameters, dto.getBranchId() );
                 }
               case "ATTENDANCE" -> {
-                return chatUserService.handleAttendanceAction(action, parameters,  dto.getBranchId());
+                return chatUserService.handleAttendanceAction(intent, action, parameters,  dto.getBranchId());
               }
               case "STOCK" -> {
-                return chatUserService.handleStockAction(action, parameters,  dto.getBranchId());
+                return chatUserService.handleStockAction(intent, action, parameters,  dto.getBranchId());
               }
               case "ORDER" -> {
-                return chatUserService.handleOrderAction(action, parameters, dto.getBranchId());
+                return chatUserService.handleOrderAction(intent, action, parameters, dto.getBranchId());
               }
             default -> {
-                return ResponseEntity.ok("죄송해요, 아직 그 요청은 처리할 수 없어요.");
+                return ResponseEntity.ok("죄송합니다 관련 정보를 찾을 수 없습니다.");
             }
         }
     }

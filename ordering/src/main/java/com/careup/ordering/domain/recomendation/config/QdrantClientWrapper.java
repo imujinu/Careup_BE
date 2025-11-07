@@ -18,8 +18,8 @@ public class QdrantClientWrapper {
 
     public QdrantClientWrapper(
             ObjectMapper objectMapper,
-            @Value("${qdrant.host:localhost}") String host,
-            @Value("${qdrant.port:6333}") int port,
+            @Value("${qdrant.host}") String host,
+            @Value("${qdrant.port}") int port,
             @Value("${qdrant.api-key:}") String apiKey) {
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;

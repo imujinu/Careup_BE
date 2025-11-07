@@ -193,6 +193,19 @@ public class ProductController {
         return new ResponseEntity<>(ResponseDto.ok(null, HttpStatus.OK), HttpStatus.OK);
     }
 
+    /**
+     * 상품 설명용 이미지 업로드
+     */
+    @PostMapping(value = "/products/description-image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ResponseDto<String>> uploadDescriptionImage(
+            @RequestPart("image") MultipartFile imageFile) {
+
+        log.info("상품 설명용 이미지 업로드 요청 - 파일명: {}", imageFile.getOriginalFilename());
+
+        String imageUrl = productService.uploadDescriptionImage(imageFile);
+        return new ResponseEntity<>(ResponseDto.ok(imageUrl, HttpStatus.OK), HttpStatus.OK);
+    }
+
     @GetMapping("/rank")
     public ResponseEntity<?> getProductsRank(@PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         List<ProductsResDto> result = queryService.getProducts(pageable);

@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  namespace: care-up
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      # ✅ initContainer: Nori 플러그인 설치
+      initContainers:
+        - name: install-nori-plugin
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "📦 Installing Nori plugin..."
+              bin/elasticsearch-plugin install --batch analysis-nori
+          volumeMounts:
+            - name: es-plugins
+              mountPath: /usr/share/elasticsearch/plugins
+      containers:
+        - name: elasticsearch
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+          ports:
+            - containerPort: 9200
+            - containerPort: 9300
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: cluster.name
+              value: careup-cluster
+            - name: node.name
+              value: careup-node
+            - name: bootstrap.memory_lock
+              value: "true"
+            - name: ES_JAVA_OPTS
+              value: "-Xms1g -Xmx1g"
+            - name: xpack.security.enabled
+              value: "false"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+          volumeMounts:
+            - name: es-data
+              mountPath: /usr/share/elasticsearch/data
+            - name: es-plugins
+              mountPath: /usr/share/elasticsearch/plugins
+          livenessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+      # ✅ PVC 제거 → emptyDir로 교체
+      volumes:
+        - name: es-data
+          emptyDir: {}
+        - name: es-plugins
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-service
+  namespace: care-up
+spec:
+  selector:
+    app: elasticsearch
+  ports:
+    - name: rest
+      port: 9200
+      targetPort: 9200
+    - name: transport
+      port: 9300
+      targetPort: 9300
+  type: ClusterIP

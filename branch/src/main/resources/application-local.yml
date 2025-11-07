@@ -15,7 +15,9 @@ eureka:
     # 하트비트를 빠르게 전송하여 빠른 등록
     lease-renewal-interval-in-seconds: 5  # 5초마다 하트비트 전송 (기본: 30초)
     lease-expiration-duration-in-seconds: 10  # 10초 동안 하트비트 없으면 제거 (기본: 90초)
-
+feign:
+  ordering-service:
+    url: http://localhost:8080/ordering-service
 spring:
   application:
     name: branch-service
@@ -35,7 +37,7 @@ spring:
     database-platform: org.hibernate.dialect.MariaDBDialect
     generate-ddl: true
     hibernate:
-      ddl-auto: create
+      ddl-auto: update
     show_sql: true
   servlet:
     multipart:

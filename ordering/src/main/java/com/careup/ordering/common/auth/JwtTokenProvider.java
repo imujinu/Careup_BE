@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.time.Duration;
 import java.util.Base64;
@@ -32,8 +33,8 @@ public class JwtTokenProvider {
 
     @PostConstruct
     public void init() {
-        byte[] atBytes = Base64.getDecoder().decode(props.getSecretKeyAt());
-        byte[] rtBytes = Base64.getDecoder().decode(props.getSecretKeyRt());
+        byte[] atBytes = props.getSecretKeyAt().getBytes(StandardCharsets.UTF_8);
+        byte[] rtBytes = props.getSecretKeyRt().getBytes(StandardCharsets.UTF_8);
         if (atBytes.length < 64) throw new IllegalArgumentException("HS512용 AT 키는 64바이트 이상이어야 합니다.");
         if (rtBytes.length < 64) throw new IllegalArgumentException("HS512용 RT 키는 64바이트 이상이어야 합니다.");
         this.atKey = Keys.hmacShaKeyFor(atBytes);

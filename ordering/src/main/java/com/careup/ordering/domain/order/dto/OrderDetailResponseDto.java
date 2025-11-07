@@ -23,6 +23,12 @@ public class OrderDetailResponseDto {
     private String approvedByName;
     private LocalDateTime approvedAt;
     private String rejectedReason;
+    private Long rejectedBy;
+    private LocalDateTime rejectedAt;
+    private String rejectedByName;
+    private String cancelledReason;
+    private Long cancelledBy;
+    private LocalDateTime cancelledAt;
     private LocalDateTime createdAt;
     private List<OrderItemResponseDto> orderItems;
 //    private PaymentResponseDto payment;
