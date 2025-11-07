@@ -13,6 +13,10 @@ spec:
       labels:
         app: kibana
     spec:
+      initContainers:
+        - name: wait-for-es
+          image: busybox
+          command: ['sh', '-c', 'until nc -z elasticsearch-service 9200; do echo waiting for elasticsearch; sleep 3; done;']
       containers:
         - name: kibana
           image: docker.elastic.co/kibana/kibana:9.2.0
@@ -25,11 +29,18 @@ spec:
               value: kibana
             - name: XPACK_SECURITY_ENABLED
               value: "false"
+          resources:                     # ✅ Kibana도 최소 리소스 설정
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
           livenessProbe:
             httpGet:
               path: /api/status
               port: 5601
-            initialDelaySeconds: 20
+            initialDelaySeconds: 25       # ✅ ES 뜬 뒤 Kibana가 대기 시간 확보
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3

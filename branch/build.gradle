@@ -94,6 +94,9 @@ dependencies {
 	// exp4j (수식 계산용)
 	implementation 'net.objecthunter:exp4j:0.4.8'
 
+	//load balancer
+	implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+
 }
 dependencyManagement {
 	imports {

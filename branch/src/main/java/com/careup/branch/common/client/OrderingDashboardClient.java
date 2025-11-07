@@ -16,6 +16,7 @@ import java.util.Map;
  */
 @FeignClient(
         name = "ordering-service",
+        url="http://ordering-service",
         configuration = FeignConfig.class
 )
 public interface OrderingDashboardClient {

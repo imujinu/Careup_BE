@@ -13,6 +13,19 @@ spec:
       labels:
         app: elasticsearch
     spec:
+      # ✅ initContainer: Nori 플러그인 설치
+      initContainers:
+        - name: install-nori-plugin
+          image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "📦 Installing Nori plugin..."
+              bin/elasticsearch-plugin install --batch analysis-nori
+          volumeMounts:
+            - name: es-plugins
+              mountPath: /usr/share/elasticsearch/plugins
       containers:
         - name: elasticsearch
           image: docker.elastic.co/elasticsearch/elasticsearch:9.2.0
@@ -29,37 +42,35 @@ spec:
             - name: bootstrap.memory_lock
               value: "true"
             - name: ES_JAVA_OPTS
-              value: "-Xms512m -Xmx512m"
+              value: "-Xms1g -Xmx1g"
             - name: xpack.security.enabled
               value: "false"
+          resources:
+            requests:
+              memory: "1Gi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
           volumeMounts:
-            - name: elasticsearch-data
+            - name: es-data
               mountPath: /usr/share/elasticsearch/data
+            - name: es-plugins
+              mountPath: /usr/share/elasticsearch/plugins
           livenessProbe:
             httpGet:
               path: /_cluster/health
               port: 9200
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
+      # ✅ PVC 제거 → emptyDir로 교체
       volumes:
-        - name: elasticsearch-data
-          persistentVolumeClaim:
-            claimName: elasticsearch-pvc
-
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: elasticsearch-pvc
-  namespace: care-up
-spec:
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 2Gi
+        - name: es-data
+          emptyDir: {}
+        - name: es-plugins
+          emptyDir: {}
 
 ---
 apiVersion: v1
