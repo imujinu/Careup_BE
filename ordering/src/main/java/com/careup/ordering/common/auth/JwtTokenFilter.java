@@ -40,17 +40,14 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
                                     FilterChain chain) throws ServletException, IOException {
         String bearer = request.getHeader(HttpHeaders.AUTHORIZATION);
-
         if (bearer != null && bearer.startsWith("Bearer ")) {
             String token = bearer.substring(7);
-
             boolean ok = tryAuthenticateOrderingCustomer(token, response);
             if (!ok) {
                 if (response.isCommitted()) return;
                 tryAuthenticateBranchEmployee(token);
             }
         }
-
         if (response.isCommitted()) return;
         chain.doFilter(request, response);
     }
@@ -58,12 +55,14 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     private boolean tryAuthenticateOrderingCustomer(String token, HttpServletResponse response) throws IOException {
         try {
             Claims c = jwt.parseAccessToken(token);
-
             Date iat = c.getIssuedAt();
             long iatMs = (iat != null) ? iat.getTime() : 0L;
 
-            Long memberId = Long.valueOf(String.valueOf(c.get("memberId")));
-            if (memberId != null && customerRevokeStore.isTokenObsolete(memberId, iatMs)) {
+            Object mid = c.get("memberId");
+            if (mid == null) return false;
+            Long memberId = Long.valueOf(String.valueOf(mid));
+
+            if (customerRevokeStore.isTokenObsolete(memberId, iatMs)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 CommonErrorDto body = CommonErrorDto.builder()
@@ -75,8 +74,8 @@ public class JwtTokenFilter extends OncePerRequestFilter {
                 return false;
             }
 
-            String role = (c.get("role") == null || String.valueOf(c.get("role")).isBlank())
-                    ? "CUSTOMER" : String.valueOf(c.get("role"));
+            String roleRaw = c.get("role") == null ? "" : String.valueOf(c.get("role"));
+            String role = roleRaw.isBlank() ? "CUSTOMER" : (roleRaw.startsWith("ROLE_") ? roleRaw.substring(5) : roleRaw);
             var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
             var auth = new UsernamePasswordAuthenticationToken(memberId, token, authorities);
@@ -92,19 +91,21 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     private void tryAuthenticateBranchEmployee(String token) {
         try {
             var res = branchIntrospectionClient.introspect(token);
-            if (res != null && res.active() && res.employeeId() != null && res.role() != null) {
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + res.role()));
-                var auth = new UsernamePasswordAuthenticationToken(res.employeeId(), token, authorities);
-                auth.setDetails(Map.of(
-                        "realm", "EMP",
-                        "employeeId", res.employeeId(),
-                        "branchId", res.branchId(),
-                        "role", res.role(),
-                        "iat", res.iat(),
-                        "exp", res.exp()
-                ));
-                SecurityContextHolder.getContext().setAuthentication(auth);
-            }
+            if (res == null || !res.active() || res.employeeId() == null || res.role() == null || res.role().isBlank()) return;
+
+            String roleNormalized = res.role().startsWith("ROLE_") ? res.role() : "ROLE_" + res.role();
+            var authorities = List.of(new SimpleGrantedAuthority(roleNormalized));
+
+            var auth = new UsernamePasswordAuthenticationToken(res.employeeId(), token, authorities);
+            auth.setDetails(Map.of(
+                    "realm", "EMP",
+                    "employeeId", res.employeeId(),
+                    "branchId", res.branchId(),
+                    "role", roleNormalized,
+                    "iat", res.iat(),
+                    "exp", res.exp()
+            ));
+            SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (Exception e) {
             log.debug("[JWT][ORDERING] branch introspection failed: {}", e.getMessage());
         }
