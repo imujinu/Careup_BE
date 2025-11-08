@@ -27,11 +27,10 @@ public class PurchaseOrderConsumerService {
                 
                 if (branchProductId != null) {
                     // 시스템 내부 호출이므로 Authentication 없이 처리
-                    inventoryService.adjustStock(
+                    inventoryService.commitReservation(
                         branchProductId,
                         (long) orderDetail.getQuantity(),
-                        "DECREASE",
-                        "발주 승인으로 인한 재고 차감", null // 시스템 내부 호출
+                        "발주 승인으로 인한 재고 차감"
                     );
 
                 } else {
