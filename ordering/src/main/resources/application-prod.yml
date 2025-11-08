@@ -31,7 +31,7 @@
       database-platform: org.hibernate.dialect.MariaDBDialect
       generate-ddl: true
       hibernate:
-        ddl-auto: update
+        ddl-auto: create
       show_sql: true
     servlet:
       multipart:
