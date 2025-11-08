@@ -384,7 +384,7 @@ public class BranchService {
         Optional<Employee> owner = dispatches.stream()
                 .map(DispatchStatus::getEmployee)
                 .filter(emp -> emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
-                            || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
+                        || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
                 .findFirst();
 
         if (owner.isEmpty()) {
@@ -417,7 +417,7 @@ public class BranchService {
         Optional<Employee> owner = dispatches.stream()
                 .map(DispatchStatus::getEmployee)
                 .filter(emp -> emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
-                            || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
+                        || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
                 .findFirst();
 
         if (owner.isEmpty()) {
@@ -464,5 +464,58 @@ public class BranchService {
         public boolean isBranchOrFranchiseAdmin() {
             return "BRANCH_ADMIN".equals(role) || "FRANCHISE_OWNER".equals(role);
         }
+    }
+
+    // ==================== [ADD] 내 소속 지점 지오펜스 조회 ====================
+
+    /**
+     * 내 소속 지점의 지오펜스(위치/반경) 조회
+     *
+     * - 소속 지점이 없거나 지오펜스가 미설정이면 Optional.empty() 반환
+     * - 설정이 유효하면 BranchGeofenceDto 반환
+     */
+    @Transactional(readOnly = true)
+    public Optional<BranchGeofenceDto> getMyGeofence() {
+        Auth auth = readAuth();
+
+        // 직원 조회
+        Optional<Employee> employeeOpt = employeeRepository.findById(auth.employeeId());
+        if (employeeOpt.isEmpty()) {
+            log.warn("지오펜스 조회: 직원 없음 (employeeId={})", auth.employeeId());
+            return Optional.empty();
+        }
+
+        // 현재 배치된 지점
+        LocalDate today = LocalDate.now();
+        Optional<DispatchStatus> currentDispatch = dispatchStatusRepository
+                .findFirstByEmployeeAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqualOrderByAssignedFromDesc(
+                        employeeOpt.get(), "N", today, today
+                );
+
+        if (currentDispatch.isEmpty()) {
+            log.info("지오펜스 조회: 현재 배치된 지점 없음 (employeeId={})", auth.employeeId());
+            return Optional.empty();
+        }
+
+        Branch branch = currentDispatch.get().getBranch();
+        Double lat = branch.getLatitude();
+        Double lng = branch.getLongitude();
+        Integer radius = branch.getGeofenceRadius();
+        boolean enabled = lat != null && lng != null && radius != null && radius > 0;
+
+        if (!enabled) {
+            log.info("지오펜스 미설정 또는 무효 (branchId={}, lat={}, lng={}, radius={})",
+                    branch.getId(), lat, lng, radius);
+            return Optional.empty();
+        }
+
+        return Optional.of(
+                BranchGeofenceDto.builder()
+                        .latitude(lat)
+                        .longitude(lng)
+                        .radius(radius)
+                        .enabled(true)
+                        .build()
+        );
     }
 }

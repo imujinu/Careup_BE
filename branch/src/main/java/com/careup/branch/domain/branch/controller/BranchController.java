@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+// ✅ [ADD] Optional 사용 (지오펜스 조회 응답 처리)
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/branch")
@@ -302,6 +304,40 @@ public class BranchController {
                     CommonErrorDto.builder()
                             .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
                             .status_message("인근 지점 조회 실패: " + e.getMessage())
+                            .build()
+            );
+        }
+    }
+
+    // ==================== [ADD] 내 소속 지점 지오펜스 조회 ====================
+
+    /**
+     * 내 소속 지점의 지오펜스(위치/반경) 조회
+     * GET /branch/my/geofence
+     *
+     * - 설정 없음(소속 없음 포함): 204 No Content
+     * - 설정 있음: 200 OK + { latitude, longitude, radius, enabled:true }
+     */
+    @PreAuthorize("hasAnyRole('HQ_ADMIN','BRANCH_ADMIN','FRANCHISE_OWNER','STAFF')")
+    @GetMapping("/my/geofence")
+    public ResponseEntity<?> getMyGeofence() {
+        try {
+            Optional<BranchGeofenceDto> opt = branchService.getMyGeofence();
+            if (opt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            }
+            return ResponseEntity.ok(
+                    CommonSuccessDto.builder()
+                            .result(opt.get())
+                            .status_code(HttpStatus.OK.value())
+                            .status_message("지오펜스 조회 성공")
+                            .build()
+            );
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    CommonErrorDto.builder()
+                            .status_code(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                            .status_message("지오펜스 조회 실패: " + e.getMessage())
                             .build()
             );
         }
