@@ -5,7 +5,7 @@ eureka:
     enabled: false
 feign:
   ordering-service:
-    url: https://server.careup.store/ordering-service
+    url: http://ordering-service
 spring:
   application:
     name: branch-service
