@@ -3,6 +3,9 @@ package com.careup.branch.domain.employee.service;
 import com.careup.branch.common.file.AwsS3Uploader;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
+import com.careup.branch.domain.chat.dto.UploadFileDto;
+import com.careup.branch.domain.chat.service.DocumentProcessingService;
+import com.careup.branch.domain.chat.service.RagService;
 import com.careup.branch.domain.employee.dto.request.DocumentsCreateReqDto;
 import com.careup.branch.domain.employee.dto.response.DocumentsDto;
 import com.careup.branch.domain.employee.dto.response.DocumentsListResDto;
@@ -28,6 +31,8 @@ public class DocumentsService {
     private final EmployeeRepository employeeRepository;
     private final BranchRepository branchRepository;
     private final AwsS3Uploader awsS3Uploader;
+    private final DocumentProcessingService documentProcessingService;
+    private final RagService ragService;
 
     private static final String TABLE_NAME = "documents";
 
@@ -58,7 +63,8 @@ public class DocumentsService {
         document.updateStatus();
 
         Documents savedDocument = documentsRepository.save(document);
-
+        UploadFileDto uploadFileDto = documentProcessingService.uploadPdfFile(document.getId(), requestDto.getDocumentUrl());
+        ragService.uploadPdfFile(uploadFileDto.getDocumentId(), uploadFileDto.getFile(), uploadFileDto.getFileName());
         return DocumentsDto.fromEntity(savedDocument);
     }
 

@@ -124,6 +124,9 @@ public class ChatService {
               case "ORDER" -> {
                 return chatUserService.handleOrderAction(intent, action, parameters, dto.getBranchId());
               }
+              case "DOCUMENT" -> {
+                    return chatUserService.handleDocumentAction(intent,action, parameters, dto.getBranchId());
+              }
             default -> {
                 return ResponseEntity.ok("죄송합니다 관련 정보를 찾을 수 없습니다.");
             }

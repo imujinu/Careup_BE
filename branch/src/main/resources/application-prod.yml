@@ -5,7 +5,7 @@ eureka:
     enabled: false
 feign:
   ordering-service:
-    url: http://ordering-service
+    url: https://server.careup.store/ordering-service
 spring:
   application:
     name: branch-service
@@ -74,8 +74,7 @@ spring:
           model: text-embedding-3-small
 qdrant:
   host: qdrant-service
-  port: 6333
-  api-key: careup-qdrant
+  port: 6334
 
 cloud:
   aws:

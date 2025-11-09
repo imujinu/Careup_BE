@@ -5,6 +5,7 @@ import com.careup.branch.common.client.OrderingInventoryClient;
 import com.careup.branch.common.dto.CommonSuccessDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.repository.BranchRepository;
+import com.careup.branch.domain.chat.dto.DocumentSearchResultDto;
 import com.careup.branch.domain.chat.dto.SalesStatisticsDto;
 import com.careup.branch.domain.chat.dto.attendance.*;
 import com.careup.branch.domain.chat.dto.purchase.PurchaseResDto;
@@ -65,6 +66,8 @@ public class ChatUserService {
     private final LeaveTypeRepository leaveTypeRepository;
     private final WorkTypeRepository workTypeRepository;
     private final ChatFeignClient chatFeignClient;
+    private final RagService ragService;
+
     @Autowired
     @Qualifier("attendanceSuggestionClient")
     private ChatClient attendanceSuggestionClient;
@@ -111,10 +114,40 @@ public class ChatUserService {
         switch (action) {
             case "GET" -> {
                 //금일 근태 조회
-                if("DAY".equals(periodType)){
-                    LocalDate today = LocalDate.parse(date);
-                    List<ScheduleListDto> dto = scheduleService.listAll(today,today);
-                    TodayAttendanceResDto resultDto = TodayAttendanceResDto.makeDto(intent,"get",dto, branch.getName());
+                if("WEEK".equals(periodType)){
+                    ZoneId zoneId = ZoneId.of("Asia/Seoul");
+                    LocalDate today = LocalDate.now(zoneId);
+
+                    // 저번주 월요일 ~ 일요일 계산
+                    LocalDate startOfLastWeek = today.minusWeeks(1).with(DayOfWeek.MONDAY);
+                    LocalDate endOfLastWeek = startOfLastWeek.with(DayOfWeek.SUNDAY);
+
+                    List<ScheduleListDto> dto = scheduleService.listAll(startOfLastWeek,endOfLastWeek);
+                    TodayAttendanceResDto resultDto = TodayAttendanceResDto.makeDto(intent,"get", periodType, startOfLastWeek, endOfLastWeek, dto, branch.getName());
+                    System.out.println(resultDto);
+                    return ResponseEntity.ok(resultDto);
+                }
+                else if("MONTH".equals(periodType)){
+                    ZoneId zoneId = ZoneId.of("Asia/Seoul");
+                    LocalDate today = LocalDate.now(zoneId);
+
+                    // 저번달 1일 ~ 말일 계산
+                    LocalDate startOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
+                    LocalDate endOfLastMonth = startOfLastMonth.withDayOfMonth(startOfLastMonth.lengthOfMonth());
+
+                    List<ScheduleListDto> dto = scheduleService.listAll(startOfLastMonth,endOfLastMonth);
+                    System.out.println("=========응답 결과 ======" + dto);
+                    List<ScheduleListDto> dtos = scheduleService.listAll(LocalDate.parse("2025-10-01"), LocalDate.parse("2025-10-30"));
+                    System.out.println("=========응답 결과2 ======" + dtos);
+                    TodayAttendanceResDto resultDto = TodayAttendanceResDto.makeDto(intent,"get",periodType, startOfLastMonth, endOfLastMonth, dto, branch.getName());
+                    System.out.println(resultDto);
+                    return ResponseEntity.ok(resultDto);
+                }
+                else if("DAY".equals(periodType)){
+                    LocalDate day = LocalDate.parse(date);
+
+                    List<ScheduleListDto> dto = scheduleService.listAll(day,day);
+                    TodayAttendanceResDto resultDto = TodayAttendanceResDto.makeDto(intent,"get",periodType, day, day ,dto, branch.getName());
                     System.out.println(resultDto);
                     return ResponseEntity.ok(resultDto);
                 }
@@ -129,6 +162,8 @@ public class ChatUserService {
                     List<WorkTypeDetailDto> workDtos = workTypeRepository.findAll().stream().map(WorkTypeDetailDto::fromEntity).collect(Collectors.toList());
                     AttendanceAllResDto response = AttendanceAllResDto.builder()
                             .intent(intent)
+                            .startDate(startDate)
+                            .endDate(endDate)
                             .action("all")
                             .attendance(resultDto)
                             .templates(template)
@@ -236,7 +271,9 @@ public class ChatUserService {
                     String product = item.getString("product");
                     Long quantity = item.getLong("quantity");
                     String type = quantity>=0 ? "INCREASE" : "DECREASE";
+                    quantity = Math.abs(quantity);
                     String reason = item.getString("reason");
+                    System.out.println("재고 변경 type " + type);
                     OrderingInventoryClient.StockAdjustRequest requestDto = OrderingInventoryClient.StockAdjustRequest.makeDto(productId,quantity, type,reason);
                     orderingInventoryClient.adjustStock(requestDto);
                 }
@@ -412,8 +449,38 @@ public class ChatUserService {
             case "GET" -> {
                     CommonSuccessDto response = null;
                     // 당일 매출
+                if("WEEK".equals(periodType)){
+                    // 저번주 월요일 ~ 일요일 계산
+                    // 저번달 1일 ~ 말일 계산
+                    LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+                    LocalDate startOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
+                    LocalDate endOfLastMonth = startOfLastMonth.withDayOfMonth(startOfLastMonth.lengthOfMonth());
 
-                    if(periodType!=null &&periodType.equals("DAY")){
+
+                    response = client.getSalesStatistics(branch.getId(), startOfLastMonth, endOfLastMonth, "HOUR");
+
+                    SalesStatisticsResponseDto dto = objectMapper.convertValue(
+                            response.getResult(),
+                            SalesStatisticsResponseDto.class);
+                    return ResponseEntity.ok(dto);
+                }
+                else if("MONTH".equals(periodType)){
+
+
+                    // 저번달 1일 ~ 말일 계산
+                    LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+                    LocalDate startOfLastMonth = today.minusMonths(1).withDayOfMonth(1);
+                    LocalDate endOfLastMonth = startOfLastMonth.withDayOfMonth(startOfLastMonth.lengthOfMonth());
+
+
+                    response = client.getSalesStatistics(branch.getId(), startOfLastMonth, endOfLastMonth, "HOUR");
+
+                    SalesStatisticsResponseDto dto = objectMapper.convertValue(
+                            response.getResult(),
+                            SalesStatisticsResponseDto.class);
+                    return ResponseEntity.ok(dto);
+                }
+                else if(periodType!=null &&periodType.equals("DAY")){
                         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
                         startDate = today;
                         endDate = today;
@@ -615,6 +682,26 @@ public class ChatUserService {
                 return ResponseEntity.ok(reportDto);
 
               }
+            default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
+        }
+    }
+
+    // [문서 서비스 ]
+    public ResponseEntity<?> handleDocumentAction(String intent, String action, JSONObject params, Long branchId) {
+
+        if(branchId==null){
+
+            branchId = getBranchIdFromToken();
+        }
+        Branch branch = branchRepository.findById(branchId).orElseThrow(()->new EntityNotFoundException("존재하지 않는 지점입니다."));
+
+        switch (action) {
+            case "QUERY" -> {
+                Long documentId = params.getLong("documentId");
+                String question = params.getString("question");
+                String result = ragService.retrieve(documentId, question, 10);
+                return ResponseEntity.ok(result);
+            }
             default -> throw new IllegalArgumentException("지원하지 않는 action: " + action);
         }
     }
