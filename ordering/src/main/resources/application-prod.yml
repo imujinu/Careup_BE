@@ -163,8 +163,7 @@
   # Qdrant 설정
   qdrant:
     host: qdrant-service
-    port: 6333
-    api-key: careup-qdrant  # Docker Compose에서 설정한 API 키
+    port: 6334
 
   logging:
     level:

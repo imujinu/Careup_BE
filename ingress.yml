@@ -9,11 +9,21 @@ metadata:
 
     nginx.ingress.kubernetes.io/enable-cors: "true"
     nginx.ingress.kubernetes.io/cors-allow-origin: "https://www.careup.store"
-    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
-    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type, Accept, Origin"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "Authorization, Content-Type, Accept, Origin, X-Requested-With, x-idempotency-key, X-Idempotency-Key"
     nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+    nginx.ingress.kubernetes.io/cors-max-age: "86400"
 
     nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($request_method = 'OPTIONS') {
+        add_header Access-Control-Allow-Origin "https://www.careup.store" always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type, Accept, Origin, X-Requested-With, x-idempotency-key, X-Idempotency-Key" always;
+        add_header Access-Control-Allow-Credentials "true" always;
+        add_header Access-Control-Max-Age "86400" always;
+        return 204;
+      }
+
       proxy_set_header Authorization $http_authorization;
       proxy_set_header X-Real-IP $remote_addr;
       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -21,7 +31,7 @@ metadata:
 
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-      
+
 spec:
   ingressClassName: nginx
   tls:
@@ -32,6 +42,14 @@ spec:
     - host: server.careup.store
       http:
         paths:
+          - path: /ordering-service(/|$)(api/auto-order.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: branch-service
+                port:
+                  number: 80
+
           - path: /ordering-service(/|$)(.*)
             pathType: ImplementationSpecific
             backend:
