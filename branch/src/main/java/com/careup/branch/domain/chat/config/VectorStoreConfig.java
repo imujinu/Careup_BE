@@ -43,7 +43,7 @@ public class VectorStoreConfig {
     @Bean
     public QdrantClient qdrantClient() {
         return new QdrantClient(
-                QdrantGrpcClient.newBuilder("localhost", 6334, false).build()
+                QdrantGrpcClient.newBuilder(qdrantHost, qdrantPort, false).build()
         );
     }
 }

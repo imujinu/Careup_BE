@@ -89,8 +89,7 @@ spring:
           model: text-embedding-3-small
 qdrant:
   host: localhost
-  port: 6333
-
+  port: 6334
 
 cloud:
   aws:
