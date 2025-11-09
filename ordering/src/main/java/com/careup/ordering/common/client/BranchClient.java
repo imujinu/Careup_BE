@@ -20,6 +20,12 @@ public interface BranchClient {
     Map<String, Object> getBranchesByIds(@RequestParam("branchIds") List<Long> branchIds);
 
     /**
+     * 단일 Branch ID로 지점 정보 조회
+     */
+    @GetMapping("/branch/{branchId}")
+    Map<String, Object> getBranchById(@PathVariable("branchId") Long branchId);
+
+    /**
      * 특정 지점의 인근 지점 조회 (위치 기반)
      */
     @GetMapping("/branch/{branchId}/nearby")

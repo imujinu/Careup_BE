@@ -5,6 +5,7 @@ import com.careup.ordering.domain.order.dto.AllBranchesSalesDto;
 import com.careup.ordering.domain.order.dto.BranchSalesDetailDto;
 import com.careup.ordering.domain.order.dto.ProductSalesDto;
 import com.careup.ordering.domain.order.dto.CategorySalesDto;
+import com.careup.ordering.domain.order.dto.GrowthRateDto;
 import com.careup.ordering.domain.order.dto.request.HqSalesRequestDto;
 import com.careup.ordering.domain.order.dto.response.AllBranchesSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.BranchComparisonResponseDto;
@@ -76,12 +77,19 @@ public class HqSalesService {
         Integer totalBranchCount = orderRepository.countActiveBranches(
                 OrderStatus.CONFIRMED, startDateTime, endDateTime);
 
+        // 전일 대비 증가율 계산
+        GrowthRateDto growthRate = calculateGrowthRate(request.getStartDate(), request.getEndDate(),
+                                                        totalSales, totalOrders, periodType);
+
         return AllBranchesSalesResponseDto.builder()
                 .periodType(periodType)
                 .totalSales(totalSales)
                 .totalOrders(totalOrders)
                 .totalBranchCount(totalBranchCount)
                 .salesData(salesData)
+                .totalSalesGrowth(growthRate.getTotalSalesGrowth())
+                .monthlySalesGrowth(growthRate.getMonthlySalesGrowth())
+                .totalOrdersGrowth(growthRate.getTotalOrdersGrowth())
                 .build();
     }
 
@@ -294,19 +302,22 @@ public class HqSalesService {
         Long totalAllSales = orderRepository.calculateTotalSalesAllBranches(
                 OrderStatus.CONFIRMED, startDateTime, endDateTime);
 
+        // 지점명 조회
+        String branchName = getBranchName(branchId);
+
         // 기간별 상세 데이터
         List<BranchSalesDetailDto> salesData;
         String periodType = request.getPeriodType() != null ? request.getPeriodType() : "DAY";
 
         switch (periodType.toUpperCase()) {
             case "WEEK":
-                salesData = calculateBranchWeeklySales(branchId, branchOrders);
+                salesData = calculateBranchWeeklySales(branchId, branchName, branchOrders);
                 break;
             case "MONTH":
-                salesData = calculateBranchMonthlySales(branchId, branchOrders);
+                salesData = calculateBranchMonthlySales(branchId, branchName, branchOrders);
                 break;
             default:
-                salesData = calculateBranchDailySales(branchId, branchOrders);
+                salesData = calculateBranchDailySales(branchId, branchName, branchOrders);
         }
 
         // 전체 통계
@@ -322,7 +333,7 @@ public class HqSalesService {
 
         return BranchSalesDetailResponseDto.builder()
                 .branchId(branchId)
-                .branchName("Branch-" + branchId) // 실제로는 Branch 서비스에서 조회
+                .branchName(branchName)
                 .periodType(periodType)
                 .totalSales(totalSales)
                 .totalOrders(totalOrders)
@@ -335,7 +346,7 @@ public class HqSalesService {
     /**
      * 일별 지점 매출 상세
      */
-    private List<BranchSalesDetailDto> calculateBranchDailySales(Long branchId, List<Order> orders) {
+    private List<BranchSalesDetailDto> calculateBranchDailySales(Long branchId, String branchName, List<Order> orders) {
         Map<LocalDate, List<Order>> dailyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order -> order.getCreatedAt().toLocalDate()));
 
@@ -346,7 +357,7 @@ public class HqSalesService {
 
                     return BranchSalesDetailDto.builder()
                             .branchId(branchId)
-                            .branchName("Branch-" + branchId)
+                            .branchName(branchName)
                             .date(entry.getKey())
                             .period("DAY")
                             .totalSales(totalSales)
@@ -361,7 +372,7 @@ public class HqSalesService {
     /**
      * 주별 지점 매출 상세
      */
-    private List<BranchSalesDetailDto> calculateBranchWeeklySales(Long branchId, List<Order> orders) {
+    private List<BranchSalesDetailDto> calculateBranchWeeklySales(Long branchId, String branchName, List<Order> orders) {
         Map<String, List<Order>> weeklyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order -> {
                     LocalDate date = order.getCreatedAt().toLocalDate();
@@ -380,7 +391,7 @@ public class HqSalesService {
 
                     return BranchSalesDetailDto.builder()
                             .branchId(branchId)
-                            .branchName("Branch-" + branchId)
+                            .branchName(branchName)
                             .date(firstDate)
                             .period("WEEK")
                             .totalSales(totalSales)
@@ -395,7 +406,7 @@ public class HqSalesService {
     /**
      * 월별 지점 매출 상세
      */
-    private List<BranchSalesDetailDto> calculateBranchMonthlySales(Long branchId, List<Order> orders) {
+    private List<BranchSalesDetailDto> calculateBranchMonthlySales(Long branchId, String branchName, List<Order> orders) {
         Map<String, List<Order>> monthlyOrders = orders.stream()
                 .collect(Collectors.groupingBy(order ->
                         order.getCreatedAt().getYear() + "-" +
@@ -412,7 +423,7 @@ public class HqSalesService {
 
                     return BranchSalesDetailDto.builder()
                             .branchId(branchId)
-                            .branchName("Branch-" + branchId)
+                            .branchName(branchName)
                             .date(firstDate)
                             .period("MONTH")
                             .totalSales(totalSales)
@@ -446,9 +457,12 @@ public class HqSalesService {
                 .mapToLong(stat -> ((Number) stat[1]).longValue())
                 .sum();
 
+        // 실제 지점명 조회 (Branch 서비스에서)
+        Map<Long, String> branchNames = getBranchNamesMap(branchIds);
+        log.info("지점명 조회 결과 - branchIds: {}, branchNames: {}", branchIds, branchNames);
+
         // 비교 데이터 생성
         List<BranchSalesDetailDto> comparisonData = new ArrayList<>();
-        Map<Long, String> branchNames = new HashMap<>();
 
         int ranking = 1;
         for (Object[] stat : comparisonStats) {
@@ -456,8 +470,8 @@ public class HqSalesService {
             Long sales = ((Number) stat[1]).longValue();
             Long orders = ((Number) stat[2]).longValue();
 
-            String branchName = "Branch-" + branchId; // 실제로는 Branch 서비스에서 조회
-            branchNames.put(branchId, branchName);
+            // 실제 지점명 사용, 조회 실패 시 기본값
+            String branchName = branchNames.getOrDefault(branchId, "Branch-" + branchId);
 
             Double marketShare = totalSales > 0 ? (sales.doubleValue() / totalSales) * 100 : 0.0;
 
@@ -1141,5 +1155,122 @@ public class HqSalesService {
                 .totalBranchCount(totalBranchCount)
                 .branches(allBranches)
                 .build();
+    }
+
+    /**
+     * 전일 대비 증가율 계산
+     * @param startDate 시작일
+     * @param endDate 종료일
+     * @param currentTotalSales 현재 기간 총 매출
+     * @param currentTotalOrders 현재 기간 총 주문 수
+     * @param periodType 기간 타입
+     * @return 증가율 정보
+     */
+    private GrowthRateDto calculateGrowthRate(LocalDate startDate, LocalDate endDate,
+                                               Long currentTotalSales, Long currentTotalOrders,
+                                               String periodType) {
+        try {
+            // 기간 길이 계산
+            long periodDays = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+
+            // 이전 기간 계산 (같은 길이의 이전 기간)
+            LocalDate prevStartDate = startDate.minusDays(periodDays);
+            LocalDate prevEndDate = startDate.minusDays(1);
+
+            LocalDateTime prevStartDateTime = prevStartDate.atStartOfDay();
+            LocalDateTime prevEndDateTime = prevEndDate.atTime(LocalTime.MAX);
+
+            // 이전 기간 데이터 조회
+            List<Order> prevOrders = orderRepository.findAllByOrderStatusAndCreatedAtBetween(
+                    OrderStatus.CONFIRMED, prevStartDateTime, prevEndDateTime);
+
+            Long prevTotalSales = prevOrders.stream().mapToLong(Order::getTotalAmount).sum();
+            Long prevTotalOrders = (long) prevOrders.size();
+
+            // 증가율 계산 (전일 대비)
+            Double totalSalesGrowth = calculatePercentageGrowth(prevTotalSales, currentTotalSales);
+            Double totalOrdersGrowth = calculatePercentageGrowth(prevTotalOrders, currentTotalOrders);
+
+            // 월간 매출 증가율 계산 (이번 달 vs 지난 달)
+            Double monthlySalesGrowth = calculateMonthlySalesGrowth(endDate);
+
+            log.info("증가율 계산 완료 - 매출: {}%, 주문: {}%, 월간: {}%",
+                    totalSalesGrowth, totalOrdersGrowth, monthlySalesGrowth);
+
+            return GrowthRateDto.builder()
+                    .totalSalesGrowth(totalSalesGrowth)
+                    .monthlySalesGrowth(monthlySalesGrowth)
+                    .totalOrdersGrowth(totalOrdersGrowth)
+                    .build();
+
+        } catch (Exception e) {
+            log.error("증가율 계산 중 오류 발생: {}", e.getMessage());
+            // 오류 발생 시 0% 반환
+            return GrowthRateDto.builder()
+                    .totalSalesGrowth(0.0)
+                    .monthlySalesGrowth(0.0)
+                    .totalOrdersGrowth(0.0)
+                    .build();
+        }
+    }
+
+    /**
+     * 증가율 계산 헬퍼 메서드
+     * @param previousValue 이전 값
+     * @param currentValue 현재 값
+     * @return 증가율 (%)
+     */
+    private Double calculatePercentageGrowth(Long previousValue, Long currentValue) {
+        if (previousValue == null || previousValue == 0) {
+            // 이전 값이 0이면 현재 값이 있을 때만 100% 증가로 표시
+            return currentValue > 0 ? 100.0 : 0.0;
+        }
+
+        double growth = ((currentValue.doubleValue() - previousValue.doubleValue()) / previousValue.doubleValue()) * 100;
+        // 소수점 둘째 자리까지 반올림
+        return Math.round(growth * 100.0) / 100.0;
+    }
+
+    /**
+     * 월간 매출 증가율 계산 (이번 달 vs 지난 달)
+     * @param endDate 기준 날짜
+     * @return 월간 증가율 (%)
+     */
+    private Double calculateMonthlySalesGrowth(LocalDate endDate) {
+        try {
+            // 이번 달 첫날부터 endDate까지
+            LocalDate currentMonthStart = endDate.withDayOfMonth(1);
+            LocalDateTime currentMonthStartDateTime = currentMonthStart.atStartOfDay();
+            LocalDateTime currentMonthEndDateTime = endDate.atTime(LocalTime.MAX);
+
+            // 이번 달 매출 조회
+            List<Order> currentMonthOrders = orderRepository.findAllByOrderStatusAndCreatedAtBetween(
+                    OrderStatus.CONFIRMED, currentMonthStartDateTime, currentMonthEndDateTime);
+            Long currentMonthSales = currentMonthOrders.stream().mapToLong(Order::getTotalAmount).sum();
+
+            // 지난 달 같은 기간 (1일부터 같은 일자까지)
+            LocalDate prevMonthStart = currentMonthStart.minusMonths(1);
+            LocalDate prevMonthEnd = prevMonthStart.plusDays(
+                    java.time.temporal.ChronoUnit.DAYS.between(currentMonthStart, endDate));
+
+            // 만약 지난 달이 해당 일자가 없으면 (예: 3월 31일 -> 2월 28일) 마지막 날로 조정
+            if (prevMonthEnd.getMonthValue() != prevMonthStart.getMonthValue()) {
+                prevMonthEnd = prevMonthStart.withDayOfMonth(prevMonthStart.lengthOfMonth());
+            }
+
+            LocalDateTime prevMonthStartDateTime = prevMonthStart.atStartOfDay();
+            LocalDateTime prevMonthEndDateTime = prevMonthEnd.atTime(LocalTime.MAX);
+
+            // 지난 달 매출 조회
+            List<Order> prevMonthOrders = orderRepository.findAllByOrderStatusAndCreatedAtBetween(
+                    OrderStatus.CONFIRMED, prevMonthStartDateTime, prevMonthEndDateTime);
+            Long prevMonthSales = prevMonthOrders.stream().mapToLong(Order::getTotalAmount).sum();
+
+            return calculatePercentageGrowth(prevMonthSales, currentMonthSales);
+
+        } catch (Exception e) {
+            log.error("월간 증가율 계산 중 오류 발생: {}", e.getMessage());
+            return 0.0;
+        }
     }
 }

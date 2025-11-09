@@ -16,10 +16,11 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AttendanceSummaryCardDto {
-    private Map<LocalDate, AttendanceDayDto> weeklyAttendance;  // 주간 출근 현황 (7일)
-    private Double averageAttendanceRate;  // 평균 출근률 (%)
-    private Long totalWorkDays;            // 총 출근일
-    private Long lateCount;                // 지각 횟수
+    private String period;                         // 조회 기간 (WEEKLY, MONTHLY, YEARLY)
+    private Map<LocalDate, AttendanceDayDto> attendanceData;  // 기간별 출근 현황
+    private Double averageAttendanceRate;          // 평균 출근률 (%)
+    private Long totalWorkDays;                    // 총 출근일
+    private Long lateCount;                        // 지각 횟수
 
     @Data
     @Builder

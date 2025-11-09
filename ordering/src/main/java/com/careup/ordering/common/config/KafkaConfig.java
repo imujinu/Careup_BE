@@ -1,5 +1,6 @@
 package com.careup.ordering.common.config;
 
+import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
 import com.careup.ordering.domain.product.dto.PurchaseOrderEventDto;
 import com.careup.ordering.domain.product.event.ProductEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -116,6 +117,56 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, PurchaseOrderEventDto> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(purchaseOrderConsumerFactory());
+        return factory;
+    }
+
+    // ========== OrderStatisticsEvent Producer & Consumer Configuration ==========
+
+    /**
+     * OrderStatisticsEvent용 Producer Factory
+     */
+    @Bean
+    public ProducerFactory<String, OrderStatisticsEvent> orderStatisticsProducerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(config);
+    }
+
+    /**
+     * OrderStatisticsEvent용 KafkaTemplate
+     */
+    @Bean
+    public KafkaTemplate<String, OrderStatisticsEvent> orderStatisticsKafkaTemplate() {
+        return new KafkaTemplate<>(orderStatisticsProducerFactory());
+    }
+
+    /**
+     * OrderStatisticsEvent용 Consumer Factory
+     */
+    @Bean
+    public ConsumerFactory<String, OrderStatisticsEvent> orderStatisticsConsumerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "ordering-dashboard-group");
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.careup.ordering.domain.order.event");
+        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, OrderStatisticsEvent.class.getName());
+        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(),
+                new JsonDeserializer<>(OrderStatisticsEvent.class, false));
+    }
+
+    /**
+     * OrderStatisticsEvent용 Listener Container Factory
+     */
+    @Bean("orderStatisticsKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, OrderStatisticsEvent> orderStatisticsKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, OrderStatisticsEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(orderStatisticsConsumerFactory());
         return factory;
     }
 }

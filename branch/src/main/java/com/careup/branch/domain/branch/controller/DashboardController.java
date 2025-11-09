@@ -34,10 +34,25 @@ public class DashboardController {
             @PathVariable Long branchId,
             @RequestParam(value = "period", defaultValue = "MONTHLY") String period) {
 
-        log.info("대시보드 조회 요청: branchId={}, period={}", branchId, period);
+        log.info("=== 대시보드 조회 요청 시작 === branchId={}, period={}", branchId, period);
 
         try {
             DashboardResponseDto dashboard = dashboardService.getDashboard(branchId, period);
+
+            log.info("=== 대시보드 조회 성공 ===");
+            log.info("매출 현황: totalSales={}, monthlySales={}, totalOrders={}",
+                    dashboard.getSalesSummary() != null ? dashboard.getSalesSummary().getTotalSales() : "null",
+                    dashboard.getSalesSummary() != null ? dashboard.getSalesSummary().getMonthlySales() : "null",
+                    dashboard.getSalesSummary() != null ? dashboard.getSalesSummary().getTotalOrders() : "null");
+            log.info("재고 현황: totalProducts={}, lowStockProducts={}",
+                    dashboard.getInventorySummary() != null ? dashboard.getInventorySummary().getTotalProducts() : "null",
+                    dashboard.getInventorySummary() != null ? dashboard.getInventorySummary().getLowStockProducts() : "null");
+            log.info("직원 현황: totalEmployees={}, presentEmployees={}",
+                    dashboard.getEmployeeSummary() != null ? dashboard.getEmployeeSummary().getTotalEmployees() : "null",
+                    dashboard.getEmployeeSummary() != null ? dashboard.getEmployeeSummary().getPresentEmployees() : "null");
+            log.info("주문 현황: totalOrders={}, completedOrders={}",
+                    dashboard.getOrderSummary() != null ? dashboard.getOrderSummary().getTotalOrders() : "null",
+                    dashboard.getOrderSummary() != null ? dashboard.getOrderSummary().getCompletedOrders() : "null");
 
             CommonSuccessDto response = CommonSuccessDto.builder()
                     .result(dashboard)
@@ -45,9 +60,10 @@ public class DashboardController {
                     .status_message("대시보드 데이터를 성공적으로 조회했습니다.")
                     .build();
 
+            log.info("=== 대시보드 조회 완료 === branchId={}", branchId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("대시보드 조회 실패: branchId={}, period={}", branchId, period, e);
+            log.error("=== 대시보드 조회 실패 === branchId={}, period={}, 오류: {}", branchId, period, e.getMessage(), e);
 
             CommonSuccessDto response = CommonSuccessDto.builder()
                     .result(null)
@@ -154,14 +170,20 @@ public class DashboardController {
 
     /**
      * 출근 현황만 조회 (개별 카드 조회)
+     *
+     * @param branchId 지점 ID
+     * @param period 조회 기간 (WEEKLY, MONTHLY, YEARLY) - 기본값: WEEKLY
+     * @return 출근 현황 데이터
      */
     @GetMapping("/branch/{branchId}/attendance-summary")
     @PreAuthorize("hasAnyRole('HQ_ADMIN', 'BRANCH_MANAGER', 'BRANCH_OWNER')")
-    public ResponseEntity<CommonSuccessDto> getAttendanceSummary(@PathVariable Long branchId) {
-        log.info("출근 현황 조회 요청: branchId={}", branchId);
+    public ResponseEntity<CommonSuccessDto> getAttendanceSummary(
+            @PathVariable Long branchId,
+            @RequestParam(value = "period", defaultValue = "WEEKLY") String period) {
+        log.info("출근 현황 조회 요청: branchId={}, period={}", branchId, period);
 
         try {
-            DashboardResponseDto dashboard = dashboardService.getDashboard(branchId, "MONTHLY");
+            DashboardResponseDto dashboard = dashboardService.getDashboard(branchId, period);
 
             CommonSuccessDto response = CommonSuccessDto.builder()
                     .result(dashboard.getAttendanceSummary())
@@ -171,7 +193,7 @@ public class DashboardController {
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("출근 현황 조회 실패: branchId={}", branchId, e);
+            log.error("출근 현황 조회 실패: branchId={}, period={}", branchId, period, e);
 
             CommonSuccessDto response = CommonSuccessDto.builder()
                     .result(null)
