@@ -92,10 +92,16 @@ public class SecurityConfig {
     }
 
     // ✅ 명시적 Bean + 도메인 변형(https/http, www 유무) 모두 허용
-
-    private CorsConfigurationSource corsConfigurationSource() {
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://www.careup.store"));
+        configuration.setAllowedOrigins(Arrays.asList(
+                "http://localhost:5173",
+                "https://www.careup.store",
+                "https://careup.store",
+                "http://www.careup.store",
+                "http://careup.store"
+        ));
         configuration.setAllowedMethods(Arrays.asList("*"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
