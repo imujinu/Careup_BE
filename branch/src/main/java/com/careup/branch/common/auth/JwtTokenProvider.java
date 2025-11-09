@@ -86,11 +86,13 @@ public class JwtTokenProvider {
                 .compact();
     }
 
+    // ✅ 항상 RT 발급. rememberMe에 따라 TTL 차등
     public String createRefreshToken(Long employeeId, boolean rememberMe) {
-        if (!rememberMe) return null;
+        int days = rememberMe
+                ? props.getRefreshTokenExpiryDaysPersistent()
+                : props.getRefreshTokenExpiryDaysNonPersistent();
 
         Date now = new Date();
-        int days = props.getRefreshTokenExpiryDaysPersistent();
         long rtMillis = Duration.ofDays(days).toMillis();
 
         Claims claims = Jwts.claims().setSubject(String.valueOf(employeeId));

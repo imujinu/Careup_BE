@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -18,6 +19,8 @@ import java.util.List;
 @SuperBuilder
 public class AttendanceAllResDto extends BaseResponseDto {
     private AttendanceCompareResDto attendance;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private List<AttendanceTemplateListDto> templates;
     private List<LeaveTypeDetailDto> leaveTypes;
     private List<WorkTypeDetailDto> workTypes;

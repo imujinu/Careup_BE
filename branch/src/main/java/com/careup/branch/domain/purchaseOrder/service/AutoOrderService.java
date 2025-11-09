@@ -134,11 +134,41 @@ public class AutoOrderService {
         return null;
     }
 
+    private Long toLong(Object value, Long defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        try {
+            return Long.valueOf(value.toString());
+        } catch (NumberFormatException e) {
+            log.warn("Long 변환 실패: value={}", value);
+            return defaultValue;
+        }
+    }
+
+    private boolean toBoolean(Object value) {
+        if (value == null) {
+            return false;
+        }
+        if (value instanceof Boolean) {
+            return (Boolean) value;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        return Boolean.parseBoolean(value.toString());
+    }
+
     /**
      * 매일 지정 시각에 모든 지점의 재고를 체크하여 자동 발주 실행
      */
     // @Scheduled(cron = "0 0 0 * * *")
-    @Scheduled(cron = "0 37 4 * * *")
+
+    @Scheduled(cron = "0 30 1 * * *")
+
     public void checkAllBranchesInventory() {
         try {
             log.info("일일 자동 발주 체크 시작");
@@ -433,6 +463,9 @@ public class AutoOrderService {
                 Boolean autoOrderEnabled = (Boolean) cachedSettings.get("autoOrderEnabled");
                 @SuppressWarnings("unchecked")
                 List<Map<String, Object>> products = (List<Map<String, Object>>) cachedSettings.get("products");
+                if (products == null) {
+                    products = Collections.emptyList();
+                }
                 
                 List<FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto> productSettings = 
                     products.stream()
@@ -441,13 +474,32 @@ public class AutoOrderService {
                             if (product.get("branchProductId") != null) {
                                 branchProductId = Long.valueOf(product.get("branchProductId").toString());
                             }
+                            Object productIdObj = product.get("productId") != null ? 
+                                product.get("productId") : 
+                                product.get("id");
+                            Long productId = toLong(productIdObj, null);
+                            
+                            Object productNameObj = product.get("productName") != null ? 
+                                product.get("productName") : 
+                                product.get("name");
+                            String productName = productNameObj != null ? productNameObj.toString() : "";
+                            
+                            Long safetyStock = toLong(product.get("safetyStock"), 0L);
+                            
+                            Object currentStockObj = product.get("currentStock") != null ? 
+                                product.get("currentStock") : 
+                                product.get("stockQuantity");
+                            Long currentStock = toLong(currentStockObj, 0L);
+                            
+                            Boolean productAutoOrderEnabled = toBoolean(product.get("autoOrderEnabled"));
+                            
                             return FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto.builder()
-                                .productId(Long.valueOf(product.get("productId").toString()))
+                                .productId(productId)
                                 .branchProductId(branchProductId)
-                                .productName(product.get("productName").toString())
-                                .autoOrderEnabled((Boolean) product.get("autoOrderEnabled"))
-                                .safetyStock(Long.valueOf(product.get("safetyStock").toString()))
-                                .currentStock(Long.valueOf(product.get("currentStock").toString()))
+                                .productName(productName)
+                                .autoOrderEnabled(productAutoOrderEnabled)
+                                .safetyStock(safetyStock)
+                                .currentStock(currentStock)
                                 .build();
                         })
                         .collect(Collectors.toList());
@@ -488,11 +540,48 @@ public class AutoOrderService {
             Boolean autoOrderEnabled = (Boolean) settings.get("autoOrderEnabled");
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> products = (List<Map<String, Object>>) settings.get("products");
+            if (products == null) {
+                products = Collections.emptyList();
+            }
+            
+            List<Map<String, Object>> normalizedProducts = products.stream()
+                .map(product -> {
+                    Map<String, Object> normalized = new HashMap<>();
+                    
+                    Object productIdObj = product.get("productId") != null ? 
+                        product.get("productId") : 
+                        product.get("id");
+                    normalized.put("productId", productIdObj);
+                    normalized.put("branchProductId", product.get("branchProductId"));
+                    
+                    Object productNameObj = product.get("productName") != null ? 
+                        product.get("productName") : 
+                        product.get("name");
+                    normalized.put("productName", productNameObj);
+                    
+                    normalized.put("autoOrderEnabled", toBoolean(product.get("autoOrderEnabled")));
+                    
+                    Long safetyStock = toLong(product.get("safetyStock"), null);
+                    if (safetyStock != null) {
+                        normalized.put("safetyStock", safetyStock);
+                    }
+                    
+                    Object currentStockObj = product.get("currentStock") != null ? 
+                        product.get("currentStock") : 
+                        product.get("stockQuantity");
+                    Long currentStock = toLong(currentStockObj, null);
+                    if (currentStock != null) {
+                        normalized.put("currentStock", currentStock);
+                    }
+                    
+                    return normalized;
+                })
+                .collect(Collectors.toList());
             
             // Redis에 저장할 설정 데이터 구성
             Map<String, Object> settingsToSave = new HashMap<>();
             settingsToSave.put("autoOrderEnabled", autoOrderEnabled);
-            settingsToSave.put("products", products);
+            settingsToSave.put("products", normalizedProducts);
             settingsToSave.put("updatedAt", LocalDateTime.now().toString());
             
             // Redis에 저장 (30일 만료)
@@ -503,25 +592,18 @@ public class AutoOrderService {
             
             // 응답 DTO 생성
             List<FranchiseAutoOrderSettingsDto.ProductAutoOrderSettingDto> productSettings = 
-                products.stream()
+                normalizedProducts.stream()
                     .map(product -> {
-                        Long productId = product.get("productId") != null ? 
-                            Long.valueOf(product.get("productId").toString()) : 
-                            Long.valueOf(product.get("id").toString());
+                        Long productId = toLong(product.get("productId"), null);
                         
-                        String productName = product.get("productName") != null ? 
-                            product.get("productName").toString() : 
-                            product.get("name").toString();
+                        Object productNameObj = product.get("productName");
+                        String productName = productNameObj != null ? productNameObj.toString() : "";
                         
-                        Boolean productAutoOrderEnabled = product.get("autoOrderEnabled") != null ? 
-                            (Boolean) product.get("autoOrderEnabled") : false;
+                        Boolean productAutoOrderEnabled = toBoolean(product.get("autoOrderEnabled"));
                         
-                        Long safetyStock = product.get("safetyStock") != null ? 
-                            Long.valueOf(product.get("safetyStock").toString()) : 0L;
+                        Long safetyStock = toLong(product.get("safetyStock"), 0L);
                         
-                        Long currentStock = product.get("currentStock") != null ? 
-                            Long.valueOf(product.get("currentStock").toString()) : 
-                            Long.valueOf(product.get("stockQuantity").toString());
+                        Long currentStock = toLong(product.get("currentStock"), 0L);
                         
                         Long branchProductId = null;
                         if (product.get("branchProductId") != null) {

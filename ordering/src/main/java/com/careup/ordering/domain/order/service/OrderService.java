@@ -5,6 +5,7 @@ import com.careup.ordering.common.service.DistributedLockService;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
 import com.careup.ordering.domain.member.service.LoyalCustomerService;
+import com.careup.ordering.domain.member.service.MemberQueryService;
 import com.careup.ordering.domain.notification.NotificationService;
 import com.careup.ordering.domain.notification.SseNotificationResDto;
 import com.careup.ordering.domain.order.dto.*;
@@ -17,13 +18,16 @@ import com.careup.ordering.domain.payment.entity.PaymentStatus;
 import com.careup.ordering.domain.payment.repository.PaymentRepository;
 import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.InventoryFlowDetail;
+import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
+import com.careup.ordering.domain.product.repository.ProductRepository;
 import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
 import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
 import com.careup.ordering.domain.order.kafka.OrderStatisticsProducer;
 import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
 import com.careup.ordering.domain.order.kafka.OrderStatisticsProducer;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +61,9 @@ public class OrderService {
     private final PaymentRepository paymentRepository;
     private final CoPurchaseService coPurchaseService;
     private final OrderStatisticsProducer orderStatisticsProducer;
+
+    private final MemberQueryService memberQueryService;
+    private final ProductRepository productRepository;
 
     @Autowired(required = false)
     private BranchClient branchClient;
@@ -196,6 +203,9 @@ public class OrderService {
         SseNotificationResDto dto = SseNotificationResDto.orderPlaced(savedOrder.getBranchId(), savedOrder.getId());
         notificationService.publishNotification(dto);
 
+        //마지막 주문 상품 업데이트
+        lastBuyProduct(sortedItems, member);
+
         // 주문 통계 이벤트 발행 (Redis 캐시 업데이트용)
         publishOrderStatisticsEvent(savedOrder, "CREATE", null);
 
@@ -204,6 +214,38 @@ public class OrderService {
         coPurchaseService.updateCoPurchaseByOrder(updateItems);
 
         return convertToResponseDto(savedOrder, orderedItems);
+    }
+
+    private void lastBuyProduct(List<OrderItemRequestDto> sortedItems, Member member) {
+        Long recentBuyProductId = null;
+        Long maxViewCount = -1L;
+        LocalDateTime latestUpdatedAt = null;
+
+        for (OrderItemRequestDto order : sortedItems) {
+            BranchProduct bp = branchProductRepository.findById(order.getBranchProductId())
+                    .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 지점별 상품입니다."));
+
+            Product product = productRepository.findById(bp.getProduct().getId())
+                    .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 상품입니다."));
+
+            Long currentViewCount = product.getViewCount();
+            LocalDateTime currentUpdatedAt = product.getUpdatedAt();
+
+            if (currentViewCount > maxViewCount) {
+                maxViewCount = currentViewCount;
+                latestUpdatedAt = currentUpdatedAt;
+                recentBuyProductId = product.getId();
+            }
+            else if (currentViewCount.equals(maxViewCount)
+                    && (latestUpdatedAt == null || currentUpdatedAt.isAfter(latestUpdatedAt))) {
+                latestUpdatedAt = currentUpdatedAt;
+                recentBuyProductId = product.getId();
+            }
+        }
+
+        if (recentBuyProductId != null) {
+            memberQueryService.buyProduct(recentBuyProductId, member.getId());
+        }
     }
 
     /**

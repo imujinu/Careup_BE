@@ -1,7 +1,6 @@
 package com.careup.ordering.domain.product.repository;
 
 import com.careup.ordering.domain.member.entity.Member;
-import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.ProductViewLog;
 import org.springframework.data.jpa.repository.JpaRepository;
 
