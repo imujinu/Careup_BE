@@ -69,22 +69,21 @@ public class SseAlarmService {
                 }
 
             }else{
-//                for(DispatchStatus ds : dispatchStatus){
-//            SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(ds.getEmployee().getEmail());
-//            Notification notification = new Notification().toEntity(dto, ds.getEmployee().getEmail());
-//            saveNotificationTransactional(dto, ds);
-//            if (sseEmitter != null) {
-//                try {
-//                    sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
-//
-//                } catch (IOException e) {
-//                    log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
-//                    sseEmitter.complete(); // ✅ 정상 종료로 처리
-//                    sseEmitterRegistry.removeSseEmitter(ds.getEmployee().getEmail());
-//                }
-//            }
-//                }
-                return;
+                for(DispatchStatus ds : dispatchStatus){
+            SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(ds.getEmployee().getEmail());
+            Notification notification = new Notification().toEntity(dto, ds.getEmployee().getEmail());
+            saveNotificationTransactional(dto, ds);
+            if (sseEmitter != null) {
+                try {
+                    sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
+
+                } catch (IOException e) {
+                    log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
+                    sseEmitter.complete(); // ✅ 정상 종료로 처리
+                    sseEmitterRegistry.removeSseEmitter(ds.getEmployee().getEmail());
+                }
+            }
+                }
             }
 
         } catch (IOException e) {
