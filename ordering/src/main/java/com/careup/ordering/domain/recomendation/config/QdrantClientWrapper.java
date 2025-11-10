@@ -14,25 +14,26 @@ public class QdrantClientWrapper {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
-    private final String apiKey;
+//    private final String apiKey;
 
     public QdrantClientWrapper(
             ObjectMapper objectMapper,
             @Value("${qdrant.host}") String host,
-            @Value("${qdrant.port}") int port,
-            @Value("${qdrant.api-key:}") String apiKey) {
+            @Value("${qdrant.port}") int port
+//            @Value("${qdrant.api-key:}") String apiKey
+    ) {
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
+//        this.apiKey = apiKey;
         
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(String.format("http://%s:%d", host, port));
         
         // API 키가 있으면 기본 헤더에 추가 (api-key 또는 Authorization Bearer 형식 지원)
-        if (apiKey != null && !apiKey.trim().isEmpty()) {
-            builder.defaultHeader("api-key", apiKey);
-            // Authorization Bearer 형식도 지원 (Qdrant가 둘 다 지원)
-            builder.defaultHeader("Authorization", "Bearer " + apiKey);
-        }
+//        if (apiKey != null && !apiKey.trim().isEmpty()) {
+//            builder.defaultHeader("api-key", apiKey);
+//            // Authorization Bearer 형식도 지원 (Qdrant가 둘 다 지원)
+////            builder.defaultHeader("Authorization", "Bearer " + apiKey);
+//        }
         
         this.webClient = builder.build();
     }

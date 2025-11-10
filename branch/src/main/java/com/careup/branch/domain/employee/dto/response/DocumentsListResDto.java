@@ -13,7 +13,6 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class DocumentsListResDto {
-
     private List<DocumentsDto> data;
     private int currentPage;
     private int totalPages;

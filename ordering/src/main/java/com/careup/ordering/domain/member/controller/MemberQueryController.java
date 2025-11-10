@@ -31,12 +31,20 @@ public class MemberQueryController {
         );
     }
 
-    // 최근 조회 상품 업데이트
-    @PostMapping("/product/{productId}")
+    // 상품 조회 수 업데이트
+    @PostMapping("/product/view/{productId}")
     public ResponseEntity<?> viewProduct(@PathVariable Long productId, @RequestParam Long memberId) {
-        memberQueryService.viewProduct(productId, memberId);
+        memberQueryService.viewProduct(productId);
         return new ResponseEntity<>(new CommonSuccessDto("최근 조회 상품 업데이트 성공", HttpStatus.OK.value(), "최근 조회 상품 업데이트 성공"), HttpStatus.OK);
     }
+
+    // 최근 구매 상품 업데이트
+    @PostMapping("/product/{productId}")
+    public ResponseEntity<?> buyProduct(@PathVariable Long productId, @RequestParam Long memberId) {
+        memberQueryService.buyProduct(productId, memberId);
+        return new ResponseEntity<>(new CommonSuccessDto("최근 조회 상품 업데이트 성공", HttpStatus.OK.value(), "최근 조회 상품 업데이트 성공"), HttpStatus.OK);
+    }
+
 
     // 가장 최근 조회 상품 조회
     @GetMapping("/product/view/{memberId}")
