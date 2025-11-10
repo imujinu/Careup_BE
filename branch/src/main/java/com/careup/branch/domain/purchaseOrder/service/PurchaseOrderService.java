@@ -29,11 +29,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -59,6 +58,7 @@ public class PurchaseOrderService {
     private final SseAlarmService sseAlarmService;
 
     private final BranchRepository branchRepository;
+    private final PlatformTransactionManager transactionManager;
 
     // 발주 생성 (가맹점용)
     @Transactional
@@ -120,53 +120,66 @@ public class PurchaseOrderService {
     }
 
     // 자동 발주 생성
-    @Transactional
     public PurchaseOrderResponseDto createAutoPurchaseOrder(PurchaseOrderRequestDto requestDto) {
         try {
-            // 1) 기본 검증
             validatePurchaseOrderRequestWithoutAuth(requestDto);
 
-            // 2) 중복 발주 방지
-            validateNoDuplicateOrder(requestDto);
-
-            // 3) 상품별 공급가 조회
             List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details = setSupplyPrices(requestDto.getOrderDetails());
 
-            // 4) 주문 저장
-            PurchaseOrder purchaseOrder = PurchaseOrder.builder()
-                    .branchId(requestDto.getBranchId())
-                    .orderStatus(OrderStatus.PENDING)
-                    .price(calculateTotalPrice(details))
-                    .build();
+            TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
+            txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
 
-            PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+            AutoOrderContext context = txTemplate.execute(status -> {
+                validateNoDuplicateOrder(requestDto);
 
-            // 5) 상세 저장
-            List<PurchaseOrderDetail> orderDetails = details.stream()
-                    .filter(detail -> detail.getQuantity() > 0)
-                    .map(detailDto -> {
-                        // 상품명 조회
-                        String productName = getProductName(detailDto.getProductId());
-                        return PurchaseOrderDetail.builder()
-                                .purchaseOrder(savedOrder)
-                                .productId(detailDto.getProductId())
-                                .productName(productName)
-                                .quantity(detailDto.getQuantity())
-                                .approvedQuantity(0)
-                                .unitPrice(detailDto.getSupplyPrice())
-                                .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
-                                .build();
-                    })
-                    .collect(Collectors.toList());
+                PurchaseOrder purchaseOrder = PurchaseOrder.builder()
+                        .branchId(requestDto.getBranchId())
+                        .orderStatus(OrderStatus.PENDING)
+                        .price(calculateTotalPrice(details))
+                        .build();
 
-            List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
+                PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
+                List<PurchaseOrderDetail> orderDetails = details.stream()
+                        .filter(detail -> detail.getQuantity() > 0)
+                        .map(detailDto -> {
+                            String productName = getProductName(detailDto.getProductId());
+                            return PurchaseOrderDetail.builder()
+                                    .purchaseOrder(savedOrder)
+                                    .productId(detailDto.getProductId())
+                                    .productName(productName)
+                                    .quantity(detailDto.getQuantity())
+                                    .approvedQuantity(0)
+                                    .unitPrice(detailDto.getSupplyPrice())
+                                    .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
+                                    .build();
+                        })
+                        .collect(Collectors.toList());
 
+                List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
+                return new AutoOrderContext(savedOrder, savedDetails);
+            });
 
-            // 본사 재고 예약 (자동 발주도 동일 정책)
-            reserveHqStocksOrThrow(savedOrder, savedDetails, requestDto);
+            if (context == null) {
+                throw new RuntimeException("자동 발주 생성 중 알 수 없는 오류가 발생했습니다.");
+            }
 
-            return convertToCompletedResponseDto(savedOrder, savedDetails);
+            try {
+                reserveHqStocksOrThrow(context.purchaseOrder(), context.orderDetails(), requestDto);
+            } catch (RuntimeException ex) {
+                txTemplate.execute(status -> {
+                    PurchaseOrder persisted = purchaseOrderRepository.findById(context.purchaseOrder().getId()).orElse(null);
+                    if (persisted != null) {
+                        List<PurchaseOrderDetail> persistedDetails = purchaseOrderDetailRepository.findByPurchaseOrder(persisted);
+                        purchaseOrderDetailRepository.deleteAll(persistedDetails);
+                        purchaseOrderRepository.delete(persisted);
+                    }
+                    return null;
+                });
+                throw ex;
+            }
+
+            return convertToCompletedResponseDto(context.purchaseOrder(), context.orderDetails());
 
         } catch (SecurityException e) {
             throw new RuntimeException("자동 발주 생성 실패: " + e.getMessage(), e);
@@ -955,5 +968,23 @@ public class PurchaseOrderService {
         }
         String email = auth.getName();
         return employeeRepository.findByEmail(email).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 직원입니다."));
+    }
+
+    private static class AutoOrderContext {
+        private final PurchaseOrder purchaseOrder;
+        private final List<PurchaseOrderDetail> orderDetails;
+
+        private AutoOrderContext(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
+            this.purchaseOrder = purchaseOrder;
+            this.orderDetails = orderDetails;
+        }
+
+        public PurchaseOrder purchaseOrder() {
+            return purchaseOrder;
+        }
+
+        public List<PurchaseOrderDetail> orderDetails() {
+            return orderDetails;
+        }
     }
 }
