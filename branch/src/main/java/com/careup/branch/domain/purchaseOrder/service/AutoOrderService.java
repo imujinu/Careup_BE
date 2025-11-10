@@ -167,7 +167,8 @@ public class AutoOrderService {
      */
     // @Scheduled(cron = "0 0 0 * * *")
 
-    @Scheduled(cron = "0 30 1 * * *")
+    @Scheduled(cron = "0 50 10 * * *")
+
 
     public void checkAllBranchesInventory() {
         try {
