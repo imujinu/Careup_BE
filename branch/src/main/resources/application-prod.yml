@@ -17,6 +17,8 @@ spring:
     url: jdbc:mariadb://${DB_HOST}:3306/careup
     username: admin
     password: ${DB_PW}
+    hikari:
+      maximum-pool-size: 1
   jpa:
     database: mysql
     database-platform: org.hibernate.dialect.MariaDBDialect
@@ -123,4 +125,4 @@ brand:
 
 logging:
   level:
-    root: debug
+    root: info
