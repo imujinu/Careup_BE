@@ -170,8 +170,8 @@ public class SecurityConfig {
         return http.build();
     }
 
-//    @Bean
-    private CorsConfigurationSource corsConfigurationSource() {
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList("http://localhost:5173", "https://www.careup.store"));
         configuration.setAllowedMethods(Arrays.asList("*"));
