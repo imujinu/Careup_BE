@@ -10,6 +10,7 @@ import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.ProductViewLog;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import com.careup.ordering.domain.product.repository.ProductViewLogRepository;
+import com.careup.ordering.domain.recomendation.dto.ProductViewResultDto;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,26 +57,29 @@ public class MemberQueryService {
     }
 
     @Transactional
-    public ProductViewCountResDto getProductId(Long memberId){
+    public ProductViewResultDto getProductId(Long memberId){
         Member member = memberRepository.findById(memberId).orElseThrow(()-> new EntityNotFoundException("존재 하지 않는 유저입니다."));
 
-        Optional<ProductViewLog> productViewLog = productViewLogRepository.findTopByMemberOrderByCreatedAtDesc(member);
+        Optional<ProductViewLog> viewLog = productViewLogRepository.findTopByMemberOrderByCreatedAtDesc(member);
 
-        if(productViewLog.isPresent()){
+        if(viewLog.isPresent()){
 
-            return new ProductViewCountResDto().makeDto(productViewLog.get().getProduct().getId(), true);
+            return new ProductViewResultDto().builder()
+                    .productId(viewLog.get().getProduct().getId())
+                    .isExist(true)
+                    .build();
+        }else{
+            return new ProductViewResultDto().builder()
+                    .productId(null)
+                    .isExist(false)
+                    .build();
         }
-        Product product = productRepository.findTopByOrderByViewCountDesc()
-                .orElseThrow(() -> new EntityNotFoundException("상품이 존재하지 않습니다."));
-
-        return new ProductViewCountResDto().makeDto(product.getId(), false);
     }
 
     @Transactional
     public void viewProduct(Long productId) {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new EntityNotFoundException("상품이 존재하지 않습니다."));
-        System.out.println("productId ===" + product.getId());
         product.plusCount();
         log.info("[member][viewProduct] : 최근 상품 조회수 업데이트 완료");
     }

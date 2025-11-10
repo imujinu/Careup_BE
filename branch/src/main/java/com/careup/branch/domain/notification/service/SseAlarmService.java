@@ -18,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -50,8 +51,7 @@ public class SseAlarmService {
         try {
             SseNotificationResDto dto = objectMapper.readValue(message, SseNotificationResDto.class);
             Branch branch = branchRepository.findById(dto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
-            List<DispatchStatus> dispatchStatus = dispatchStatusRepository.findAllByBranch(branch);
-            if ("ATTENDANCE".equals(dto.getEventName())){
+
                 Employee owner = getOwner(dto.getBranchId());
                 SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(owner.getEmail());
                 Notification notification = new Notification().toEntity(dto, owner.getEmail());
@@ -61,30 +61,23 @@ public class SseAlarmService {
                         sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
 
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
+                        sseEmitter.complete(); // ✅ 정상 종료로 처리
+                        sseEmitterRegistry.removeSseEmitter(owner.getEmail());
                     }
                 }
-
-            }else{
-                for(DispatchStatus ds : dispatchStatus){
-            SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(ds.getEmployee().getEmail());
-            Notification notification = new Notification().toEntity(dto, ds.getEmployee().getEmail());
-            notificationService.saveNotification(notification);
-            if (sseEmitter != null) {
-                try {
-                    sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
-
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-                }
-            }
 
         } catch (IOException e) {
             log.error("❌ Kafka listener error: {}", e.getMessage(), e);
             throw new RuntimeException(e);
         }
+    }
+
+    @Async
+    @Transactional
+    public void saveNotificationTransactional(SseNotificationResDto dto, DispatchStatus ds) {
+        Notification n = new Notification().toEntity(dto, ds.getEmployee().getEmail());
+        notificationService.saveNotification(n);
     }
 
     public Employee getOwner(Long branchId){

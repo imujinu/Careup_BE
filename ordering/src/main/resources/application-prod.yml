@@ -163,7 +163,7 @@
   # Qdrant 설정
   qdrant:
     host: qdrant-service
-    port: 6334
+    port: 6333
 
   # 상품 동기화 설정
   product:

@@ -170,7 +170,7 @@ brand:
 # Qdrant 설정
 qdrant:
   host: localhost
-  port: 6334
+  port: 6333
 
 # ========== 상품 동기화 설정 ==========
 # ⚠️ 주의: Local 환경에서는 기본적으로 자동 동기화가 비활성화되어 있습니다.
