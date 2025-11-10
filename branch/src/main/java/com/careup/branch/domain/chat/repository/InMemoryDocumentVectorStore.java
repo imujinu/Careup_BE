@@ -5,9 +5,11 @@ import com.careup.branch.domain.chat.dto.DocumentSearchResultDto;
 import com.careup.branch.domain.chat.service.DocumentProcessingService;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import io.qdrant.client.QdrantClient;
+import io.qdrant.client.grpc.Points;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.openai.OpenAiEmbeddingModel;
@@ -16,7 +18,10 @@ import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.ai.vectorstore.qdrant.QdrantVectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpEntity;
@@ -50,9 +55,11 @@ public class InMemoryDocumentVectorStore {
     private final QdrantClient qdrantClient;
     private final EmbeddingModel embeddingModel;
     private final RestTemplate restTemplate = new RestTemplate();
+    @Qualifier("ragChatClient")
+    private final ChatClient ragChatClient;
 
-    public QdrantVectorStore createVectorStore(Long userId) {
-        String collectionName = "documents_" + userId;
+    public QdrantVectorStore createVectorStore(Long branchId) {
+        String collectionName = "documents_" + branchId;
         createCollectionIfNotExists(collectionName);
 
         return QdrantVectorStore.builder(qdrantClient, embeddingModel)
@@ -117,9 +124,9 @@ public class InMemoryDocumentVectorStore {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Map<String, Object> details = (Map<String, Object>) auth.getDetails();
 
-        Long employeeId = ((Number) details.get("employeeId")).longValue();
+        Long branchId = ((Number) details.get("branchId")).longValue();
 
-        vectorStore = createVectorStore(employeeId);
+        vectorStore = createVectorStore(branchId);
     }
 
     public void addDocumentFile(String id, File file, Map<String, Object> metadata) {
@@ -146,31 +153,85 @@ public class InMemoryDocumentVectorStore {
         }
     }
 
-    public List<DocumentSearchResultDto> similaritySearch(String query, int maxResults) {
-        resetVectorStore();
-        log.info("유사도 검색 시작 - 질의: '{}', 최대 결과: {}", query, maxResults);
+    public String similaritySearch(Long documentId, String query, int maxResults) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        Map<String, Object> details = (Map<String, Object>) auth.getDetails();
+        Long branchId = ((Number) details.get("branchId")).longValue();
+
+        log.info("[ragService] branchId == {}", branchId);
+        vectorStore = createVectorStore(branchId);
+
         try {
-            SearchRequest request = SearchRequest.builder()
-                    .query(query)
-                    .topK(5)
-                    .build();
+            List<Document> docs;
 
+            if (documentId != null) {
+                log.info("📄 지정된 문서 기반 검색 모드 - documentId: {}", documentId);
+                docs = getAllChunksByDocumentId(documentId);
+            } else {
+                log.info("🔍 유사도 검색 모드 - 질의: '{}', 최대 결과: {}", query, maxResults);
 
-            List<Document> results = vectorStore.similaritySearch(request);
-            log.info("유사도 검색 완료 - 결과 수: {}", results.size());
+                SearchRequest request = SearchRequest.builder()
+                        .query(query)
+                        .topK(maxResults)
+                        .build();
 
-            return results.stream().map(result -> new DocumentSearchResultDto(
-                    result.getMetadata().getOrDefault("id", "unknown").toString(),
-                    result.getText(),
-                    result.getMetadata().entrySet().stream()
-                            .filter(e -> !"id".equals(e.getKey()))
-                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
-                    result.getScore() != null ? result.getScore() : 0.0
-            )).collect(Collectors.toList());
+                docs = vectorStore.similaritySearch(request);
+            }
+
+            if (docs.isEmpty()) {
+                return "관련 정보를 찾을 수 없습니다.";
+            }
+
+            // 컨텍스트 조합
+            String context = docs.stream()
+                    .map(Document::getText)
+                    .collect(Collectors.joining("\n\n"));
+
+            // 프롬프트 구성
+            String systemPrompt = """
+            당신은 프랜차이즈 매뉴얼과 계약서 내용을 기반으로 질의에 답변하는 어시스턴트입니다.
+            주어진 문서 내용만을 근거로 답변하세요.
+            모르는 내용은 '해당 문서에는 관련 정보가 없습니다'라고 답하세요.
+            """;
+
+            String userPrompt = "문서 내용:\n" + context + "\n\n사용자 질문: " + query;
+
+            String answer = ragChatClient.prompt()
+                    .system(systemPrompt)
+                    .user(userPrompt)
+                    .call()
+                    .content();
+
+            log.info("pdf 질의 결과 == " + answer);
+            return answer;
+
         } catch (Exception e) {
-            log.error("유사도 검색 실패 - 질의: '{}'", query, e);
-            throw new IllegalArgumentException("유사도 검색 중 오류 발생: " + e.getMessage(), e);
+            log.error("RAG 검색 실패 - 질의: '{}'", query, e);
+            return "RAG 처리 중 오류가 발생했습니다: " + e.getMessage();
         }
     }
+
+
+    private List<Document> getAllChunksByDocumentId(Long documentId) {
+        try {
+            FilterExpressionBuilder b = new FilterExpressionBuilder();
+            Filter.Expression exp = b.eq("id", String.valueOf(documentId)).build();
+
+            SearchRequest request = SearchRequest.builder()
+                    .query(" ") // 의미 없는 빈 질의 (유사도 계산 안함)
+                    .topK(1000) // 충분히 큰 값으로 모든 chunk 가져오기
+                    .filterExpression(exp)
+                    .build();
+
+            List<Document> results = vectorStore.similaritySearch(request);
+            log.info("문서 ID {}의 chunk 개수: {}", documentId, results.size());
+            return results;
+
+        } catch (Exception e) {
+            log.error("문서 ID {} chunk 조회 실패", documentId, e);
+            return List.of();
+        }
+    }
+
 
 }

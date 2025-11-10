@@ -20,7 +20,9 @@ import java.util.stream.Collectors;
 @SuperBuilder
 public class TodayAttendanceResDto extends BaseResponseDto {
     private String branchName;
-    private LocalDate date;
+    private String dateType;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private List<EmployeeTodayAttendanceDto> employees;
 
     @Data
@@ -48,12 +50,10 @@ public class TodayAttendanceResDto extends BaseResponseDto {
         private LocalDateTime actualClockOut;
     }
 
-    public static TodayAttendanceResDto makeDto(String intent, String action, List<ScheduleListDto> schedules, String branchName) {
+    public static TodayAttendanceResDto makeDto(String intent, String action, String type, LocalDate start, LocalDate end, List<ScheduleListDto> schedules, String branchName) {
         LocalDate today = LocalDate.now();
 
         List<EmployeeTodayAttendanceDto> employeeDtos = schedules.stream()
-                .filter(s -> s.getRegisteredDate() != null &&
-                        s.getRegisteredDate().isEqual(LocalDate.now(ZoneId.of("Asia/Seoul")))) // 오늘만 필터링
                 .map(s -> {
                     String status = resolveStatus(s);
                     return EmployeeTodayAttendanceDto.builder()
@@ -77,7 +77,9 @@ public class TodayAttendanceResDto extends BaseResponseDto {
                 .intent(intent)
                 .action(action)
                 .branchName(branchName)
-                .date(today)
+                .dateType(type)
+                .startDate(start)
+                .endDate(end)
                 .employees(employeeDtos)
                 .build();
     }

@@ -15,65 +15,46 @@ spec:
     spec:
       containers:
         - name: debezium-connect
-          image: quay.io/debezium/connect:2.7
+          image: debezium/connect:2.6
           ports:
             - containerPort: 8083
           env:
-            - name: CONNECT_BOOTSTRAP_SERVERS
-              value: "kafka-service:9092"       # ✅ Kafka 주소 수정
-            - name: CONNECT_GROUP_ID
+            - name: BOOTSTRAP_SERVERS
+              value: "kafka-service:9092"
+            - name: GROUP_ID
               value: "connect-cluster"
-
-            # 필수 상태 토픽
-            - name: CONNECT_CONFIG_STORAGE_TOPIC
+            - name: CONFIG_STORAGE_TOPIC
               value: "connect-configs"
-            - name: CONNECT_OFFSET_STORAGE_TOPIC
+            - name: OFFSET_STORAGE_TOPIC
               value: "connect-offsets"
-            - name: CONNECT_STATUS_STORAGE_TOPIC
+            - name: STATUS_STORAGE_TOPIC
               value: "connect-status"
-
-            # JSON 변환 설정
-            - name: CONNECT_KEY_CONVERTER
+            - name: KEY_CONVERTER
               value: "org.apache.kafka.connect.json.JsonConverter"
-            - name: CONNECT_VALUE_CONVERTER
+            - name: VALUE_CONVERTER
               value: "org.apache.kafka.connect.json.JsonConverter"
-            - name: CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE
+            - name: KEY_CONVERTER_SCHEMAS_ENABLE
               value: "false"
-            - name: CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE
+            - name: VALUE_CONVERTER_SCHEMAS_ENABLE
               value: "false"
-
-            # 내부 변환기
-            - name: CONNECT_INTERNAL_KEY_CONVERTER
-              value: "org.apache.kafka.connect.json.JsonConverter"
-            - name: CONNECT_INTERNAL_VALUE_CONVERTER
-              value: "org.apache.kafka.connect.json.JsonConverter"
-
-            - name: CONNECT_PLUGIN_PATH
+            - name: PLUGIN_PATH
               value: "/kafka/connect"
-
-            - name: CONNECT_REST_ADVERTISED_HOST_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
           volumeMounts:
             - name: connector-config
-              mountPath: /kafka/connectors/mysql-connector-careup.json
-              subPath: mysql-connector-careup.json
+              mountPath: /kafka/connectors/mysql-connector.json
+              subPath: mysql-connector.json
           command:
             - /bin/bash
             - -c
             - |
               /docker-entrypoint.sh start &
 
-              echo "⏳ Waiting for Debezium Connect REST API..."
-              until curl -sf http://localhost:8083/connectors; do
-                echo "Still waiting..."
-                sleep 30
-              done
+              echo "⏳ Waiting 60s for Debezium Connect to initialize..."
+              sleep 60
 
-              echo "✅ REST API ready, registering MySQL connector..."
+              echo "✅ Registering MySQL connector..."
               curl -X POST -H 'Content-Type: application/json' \
-                   --data @/kafka/connectors/mysql-connector-careup.json \
+                   --data @/kafka/connectors/mysql-connector.json \
                    http://localhost:8083/connectors || echo "Connector may already exist"
 
               wait

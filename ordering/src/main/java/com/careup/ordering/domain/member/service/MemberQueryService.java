@@ -6,14 +6,13 @@ import com.careup.ordering.domain.member.dto.response.MemberMyPageDto;
 import com.careup.ordering.domain.member.entity.Member;
 import com.careup.ordering.domain.member.repository.MemberRepository;
 import com.careup.ordering.domain.order.dto.response.ProductViewCountResDto;
-import com.careup.ordering.domain.product.entity.BranchProduct;
 import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.ProductViewLog;
-import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import com.careup.ordering.domain.product.repository.ProductViewLogRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -24,6 +23,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class MemberQueryService {
 
     private final MemberRepository memberRepository;
@@ -47,11 +47,10 @@ public class MemberQueryService {
     }
 
     @Transactional
-    public void viewProduct(Long productId, Long memberId){
+    public void buyProduct(Long productId, Long memberId){
         Product product = productRepository.findById(productId).orElseThrow(()-> new EntityNotFoundException("존재 하지 않는 상품입니다."));
         Member member = memberRepository.findById(memberId).orElseThrow(()-> new EntityNotFoundException("존재 하지 않는 유저입니다."));
         ProductViewLog productViewLog = ProductViewLog.toEntity(product,member);
-        product.plusCount();
         productViewLogRepository.save(productViewLog);
 
     }
@@ -72,4 +71,12 @@ public class MemberQueryService {
         return new ProductViewCountResDto().makeDto(product.getId(), false);
     }
 
+    @Transactional
+    public void viewProduct(Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new EntityNotFoundException("상품이 존재하지 않습니다."));
+        System.out.println("productId ===" + product.getId());
+        product.plusCount();
+        log.info("[member][viewProduct] : 최근 상품 조회수 업데이트 완료");
+    }
 }
