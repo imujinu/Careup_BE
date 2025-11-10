@@ -1,20 +1,17 @@
 package com.careup.branch.domain.purchaseOrder.controller;
 
-import com.careup.branch.domain.purchaseOrder.dto.HQStatisticsResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderResponseDto;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderExcelService;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderService;
-import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderStatisticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -26,7 +23,6 @@ public class PurchaseOrderController {
     
     private final PurchaseOrderService purchaseOrderService;
     private final PurchaseOrderExcelService excelService;
-    private final PurchaseOrderStatisticsService statisticsService;
 
      // 발주 생성 (가맹점용)
     @PostMapping
@@ -42,7 +38,7 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(purchaseOrders);
     }
 
-     // 발주 상세 조회
+    // 발주 상세 조회
     @GetMapping("/{purchaseOrderId}")
     public ResponseEntity<PurchaseOrderResponseDto> getPurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto purchaseOrder = purchaseOrderService.getPurchaseOrder(purchaseOrderId);
@@ -136,6 +132,7 @@ public class PurchaseOrderController {
                 .body(excelBytes);
     }
 
+    /*
     // 본사용 발주 통계 조회 (전체)
     @GetMapping("/statistics/hq")
     public ResponseEntity<HQStatisticsResponseDto> getHQStatistics(
@@ -228,5 +225,6 @@ public class PurchaseOrderController {
         List<HQStatisticsResponseDto.ProductStatistics> statistics = statisticsService.getFranchiseProductStatistics(branchId, start, end);
         return ResponseEntity.ok(statistics);
     }
+    */
 
 }
