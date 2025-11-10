@@ -1,5 +1,6 @@
 package com.careup.branch.domain.purchaseOrder.controller;
 
+import com.careup.branch.domain.purchaseOrder.dto.*;
 import com.careup.branch.domain.purchaseOrder.dto.HQStatisticsResponseDto;
 import com.careup.branch.domain.purchaseOrder.dto.PartialApproveRequestDto;
 import com.careup.branch.domain.purchaseOrder.dto.PurchaseOrderListResponseDto;
@@ -9,6 +10,10 @@ import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderExcelService;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderService;
 import com.careup.branch.domain.purchaseOrder.service.PurchaseOrderStatisticsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,78 +28,74 @@ import java.util.List;
 @RequestMapping("/purchase-orders")
 @RequiredArgsConstructor
 public class PurchaseOrderController {
-    
+
     private final PurchaseOrderService purchaseOrderService;
     private final PurchaseOrderExcelService excelService;
     private final PurchaseOrderStatisticsService statisticsService;
 
-     // 발주 생성 (가맹점용)
     @PostMapping
     public ResponseEntity<PurchaseOrderResponseDto> createPurchaseOrder(@RequestBody PurchaseOrderRequestDto requestDto) {
         PurchaseOrderResponseDto createdOrder = purchaseOrderService.createPurchaseOrder(requestDto);
         return ResponseEntity.ok(createdOrder);
     }
 
-    // 발주 목록 조회 (본사/가맹점 구분)
     @GetMapping("/branch/{branchId}")
-    public ResponseEntity<List<PurchaseOrderListResponseDto>> getPurchaseOrders(@PathVariable Long branchId) {
-        List<PurchaseOrderListResponseDto> purchaseOrders = purchaseOrderService.getPurchaseOrders(branchId);
+    public ResponseEntity<Page<PurchaseOrderListResponseDto>> getPurchaseOrders(
+            @PathVariable Long branchId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "createdAt,DESC") String sort
+    ) {
+        Pageable pageable = toPageable(page, size, sort);
+        Page<PurchaseOrderListResponseDto> purchaseOrders = purchaseOrderService.getPurchaseOrders(branchId, pageable);
         return ResponseEntity.ok(purchaseOrders);
     }
 
-    // 발주 상세 조회
     @GetMapping("/{purchaseOrderId}")
     public ResponseEntity<PurchaseOrderResponseDto> getPurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto purchaseOrder = purchaseOrderService.getPurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(purchaseOrder);
     }
 
-    // 발주 승인 (본사용)
     @PostMapping("/{purchaseOrderId}/approve")
     public ResponseEntity<PurchaseOrderResponseDto> approvePurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto approvedOrder = purchaseOrderService.approvePurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(approvedOrder);
     }
 
-    // 발주 반려 (본사용)
     @PostMapping("/{purchaseOrderId}/reject")
     public ResponseEntity<PurchaseOrderResponseDto> rejectPurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto rejectedOrder = purchaseOrderService.rejectPurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(rejectedOrder);
     }
- 
-    // 발주 부분 승인 (본사용)
+
     @PostMapping("/{purchaseOrderId}/partial-approve")
     public ResponseEntity<PurchaseOrderResponseDto> partialApprovePurchaseOrder(
-            @PathVariable Long purchaseOrderId, 
-            @RequestBody PartialApproveRequestDto requestDto) {
+            @PathVariable Long purchaseOrderId,
+            @RequestBody PartialApproveRequestDto requestDto
+    ) {
         PurchaseOrderResponseDto partialApprovedOrder = purchaseOrderService.partialApprovePurchaseOrder(purchaseOrderId, requestDto);
         return ResponseEntity.ok(partialApprovedOrder);
     }
 
-    // 발주 배송 시작 (본사용)
     @PostMapping("/{purchaseOrderId}/ship")
     public ResponseEntity<PurchaseOrderResponseDto> shipPurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto shippedOrder = purchaseOrderService.shipPurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(shippedOrder);
     }
 
-    // 발주 입고 완료 (가맹점용)
     @PostMapping("/{purchaseOrderId}/complete")
     public ResponseEntity<PurchaseOrderResponseDto> completePurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto completedOrder = purchaseOrderService.completePurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(completedOrder);
     }
 
-    // 발주 취소 (가맹점용)
     @PostMapping("/{purchaseOrderId}/cancel")
     public ResponseEntity<PurchaseOrderResponseDto> cancelPurchaseOrder(@PathVariable Long purchaseOrderId) {
         PurchaseOrderResponseDto cancelledOrder = purchaseOrderService.cancelPurchaseOrder(purchaseOrderId);
         return ResponseEntity.ok(cancelledOrder);
     }
 
-
-    // 발주 내역 엑셀 다운로드 (본사/가맹점)
     @GetMapping("/export/excel")
     public ResponseEntity<byte[]> exportToExcel(
             @RequestParam Long branchId,
@@ -102,39 +103,42 @@ public class PurchaseOrderController {
             @RequestParam(required = false) String endDate
     ) {
         byte[] excelBytes = excelService.exportToExcel(branchId, startDate, endDate);
-        
-        // 파일명 생성
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String filename = "purchase_orders_" + timestamp + ".xlsx";
-        
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDispositionFormData("attachment", filename);
         headers.setContentLength(excelBytes.length);
-        
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(excelBytes);
+
+        return ResponseEntity.ok().headers(headers).body(excelBytes);
     }
 
-    // 특정 발주 내역 엑셀 다운로드
     @GetMapping("/{purchaseOrderId}/export/excel")
     public ResponseEntity<byte[]> exportSingleOrderToExcel(@PathVariable Long purchaseOrderId) {
         byte[] excelBytes = excelService.exportSingleOrderToExcel(purchaseOrderId);
-        
-        // 파일명 생성
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String filename = "purchase_order_" + purchaseOrderId + "_" + timestamp + ".xlsx";
-        
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         headers.setContentDispositionFormData("attachment", filename);
         headers.setContentLength(excelBytes.length);
-        
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(excelBytes);
+
+        return ResponseEntity.ok().headers(headers).body(excelBytes);
     }
+
+    private Pageable toPageable(int page, int size, String sortParam) {
+        try {
+            String[] parts = sortParam.split(",");
+            String prop = parts[0].trim();
+            Sort.Direction dir = (parts.length > 1 ? Sort.Direction.fromString(parts[1].trim()) : Sort.Direction.DESC);
+            return PageRequest.of(page, size, Sort.by(new Sort.Order(dir, prop)));
+        } catch (Exception e) {
+            return PageRequest.of(page, size, Sort.by(Sort.Order.desc("createdAt")));
+        }
+    }
+
 
     // 본사용 발주 통계 조회 (전체)
     @GetMapping("/statistics/hq")
@@ -228,6 +232,4 @@ public class PurchaseOrderController {
         List<HQStatisticsResponseDto.ProductStatistics> statistics = statisticsService.getFranchiseProductStatistics(branchId, start, end);
         return ResponseEntity.ok(statistics);
     }
-
-
 }

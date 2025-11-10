@@ -37,6 +37,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -380,8 +382,11 @@ public class ChatUserService {
 
         switch (action) {
             case "GET" -> {
-                List<PurchaseOrderListResponseDto> list = purchaseOrderController.getPurchaseOrders(branch.getId()).getBody();
-                PurchaseResDto dto = new PurchaseResDto().makeDto(intent, action, list);
+                Page<PurchaseOrderListResponseDto> page = purchaseOrderService.getPurchaseOrders(
+                        branch.getId(),
+                        Pageable.unpaged()
+                );
+                PurchaseResDto dto = new PurchaseResDto().makeDto(intent, action, page.getContent());
                 return ResponseEntity.ok(dto);
             }
             case "CREATE" -> {
