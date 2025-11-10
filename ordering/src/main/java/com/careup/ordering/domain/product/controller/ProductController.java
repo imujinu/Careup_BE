@@ -207,8 +207,8 @@ public class ProductController {
     }
 
     @GetMapping("/rank")
-    public ResponseEntity<?> getProductsRank(@PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        List<ProductsResDto> result = queryService.getProducts(pageable);
+    public ResponseEntity<?> getProductsRank(@PageableDefault(size = 5) Pageable pageable) {
+        Page<ProductsResDto> result = queryService.getProducts(pageable);
         return new ResponseEntity<>(new CommonSuccessDto(result, HttpStatus.OK.value(), "상품 함께 구매 횟수 조회 성공"), HttpStatus.OK);
     }
 }

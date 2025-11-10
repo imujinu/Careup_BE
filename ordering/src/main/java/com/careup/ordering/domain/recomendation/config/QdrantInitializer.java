@@ -33,7 +33,7 @@ public class QdrantInitializer {
                         "distance", "Cosine"
                 )
                         );
-HttpHeaders headers = new HttpHeaders();
+        HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
 //        System.out.println("api key ====" + apiKey);

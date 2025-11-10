@@ -28,14 +28,14 @@ public class CoPurchaseController {
     @GetMapping("/{memberId}")
     public ResponseEntity<?> getCoPurchaseList(@PathVariable Long memberId,
                                                @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        ProductCoPurchaseResDto result = queryService.getCoPurchaseList(memberId, pageable);
+        Object result = queryService.getCoPurchaseList(memberId, pageable);
         return new ResponseEntity<>(new CommonSuccessDto(result, HttpStatus.OK.value(), "상품 함께 구매 횟수 조회 성공"), HttpStatus.OK);
     }
 
     @GetMapping("/products")
     public ResponseEntity<?> getProducts(@PathVariable Long memberId,
                                                @PageableDefault(size = 12, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
-        List<ProductsResDto> result = queryService.getProducts(pageable);
+        Page<ProductsResDto> result = queryService.getProducts(pageable);
         return new ResponseEntity<>(new CommonSuccessDto(result, HttpStatus.OK.value(), "상품 함께 구매 횟수 조회 성공"), HttpStatus.OK);
     }
 

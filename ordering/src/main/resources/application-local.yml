@@ -170,7 +170,7 @@ brand:
 # Qdrant 설정
 qdrant:
   host: localhost
-  port: 6334
+  port: 6333
 
 logging:
   level:

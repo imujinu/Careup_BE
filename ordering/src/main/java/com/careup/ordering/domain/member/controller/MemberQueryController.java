@@ -4,6 +4,7 @@ import com.careup.ordering.common.dto.CommonSuccessDto;
 import com.careup.ordering.domain.member.dto.response.MemberMyPageDto;
 import com.careup.ordering.domain.member.service.MemberQueryService;
 import com.careup.ordering.domain.order.dto.response.ProductViewCountResDto;
+import com.careup.ordering.domain.recomendation.dto.ProductViewResultDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,7 +34,7 @@ public class MemberQueryController {
 
     // 상품 조회 수 업데이트
     @PostMapping("/product/view/{productId}")
-    public ResponseEntity<?> viewProduct(@PathVariable Long productId, @RequestParam Long memberId) {
+    public ResponseEntity<?> viewProduct(@PathVariable Long productId) {
         memberQueryService.viewProduct(productId);
         return new ResponseEntity<>(new CommonSuccessDto("최근 조회 상품 업데이트 성공", HttpStatus.OK.value(), "최근 조회 상품 업데이트 성공"), HttpStatus.OK);
     }
@@ -49,7 +50,7 @@ public class MemberQueryController {
     // 가장 최근 조회 상품 조회
     @GetMapping("/product/view/{memberId}")
     public ResponseEntity<?> getProductId(@PathVariable Long memberId) {
-       ProductViewCountResDto productId =  memberQueryService.getProductId(memberId);
+        ProductViewResultDto productId =  memberQueryService.getProductId(memberId);
         return new ResponseEntity<>(new CommonSuccessDto(productId, HttpStatus.OK.value(), "최근 조회 상품 ID 조회 완료"), HttpStatus.OK);
     }
 }

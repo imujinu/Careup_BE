@@ -5,10 +5,7 @@ import com.careup.ordering.domain.order.dto.response.ProductViewCountResDto;
 import com.careup.ordering.domain.product.dto.ProductResponseDto;
 import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.repository.ProductRepository;
-import com.careup.ordering.domain.recomendation.dto.ProductCoPurchaseResDto;
-import com.careup.ordering.domain.recomendation.dto.ProductWithScore;
-import com.careup.ordering.domain.recomendation.dto.ProductWithSimilarity;
-import com.careup.ordering.domain.recomendation.dto.ProductsResDto;
+import com.careup.ordering.domain.recomendation.dto.*;
 import com.careup.ordering.domain.recomendation.entity.ProductCoPurchase;
 import com.careup.ordering.domain.recomendation.repository.ProductCoPurchaseRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -24,6 +21,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.kafka.config.StreamsBuilderFactoryBean;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +45,6 @@ public class CoPurchaseService {
     private final StreamsBuilderFactoryBean factoryBean;
     private final QdrantService qdrantService;
     private final ProductRepository productRepository;
-
     public void updateCoPurchaseByOrder(List<Long> productIds) {
         if (productIds == null || productIds.size() < 2) return;
 
@@ -89,11 +87,18 @@ public class CoPurchaseService {
 
 
 
-    public ProductCoPurchaseResDto getCoPurchaseList(Long memberId, Pageable pageable) {
-        ProductViewCountResDto dto = memberQueryService.getProductId(memberId);
+    public Object getCoPurchaseList(Long memberId, Pageable pageable) {
+
+        ProductViewResultDto dto = memberQueryService.getProductId(memberId);
+
+        if(!dto.isExist()){
+            return getProducts(pageable);
+
+        }
+
         Long productId = dto.getProductId();
         Product lastViewProduct = productRepository.findById(productId).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 상품입니다."));
-        List<ProductWithSimilarity> similarProducts = qdrantService.searchSimilarProducts(productId, 50);
+        List<ProductWithSimilarity> similarProducts = qdrantService.searchSimilarProducts(productId, 30);
         List<Map.Entry<String, Long>> purchasedProducts = getCoPurchasedProducts(productId);
         Map<Long, Long> coPurchaseMap = purchasedProducts.stream()
                 .collect(Collectors.toMap(
@@ -132,7 +137,7 @@ public class CoPurchaseService {
 
         return ProductCoPurchaseResDto.builder()
                 .products(page)
-                .hasRecentView(dto.isHasRecentView())
+                .hasRecentView(true)
                 .lastViewProductName(lastViewProduct.getName())
                 .build();
     }
@@ -187,7 +192,8 @@ public class CoPurchaseService {
     }
 
 
-    public List<ProductsResDto> getProducts(Pageable pageable) {
-        return productRepository.findAll().stream().map(p -> ProductsResDto.makeDto(p)).collect(Collectors.toList());
+    public Page<ProductsResDto> getProducts(Pageable pageable) {
+        return productRepository.findAllByOrderByViewCountDesc(pageable)
+                .map(ProductsResDto::makeDto);
     }
 }
