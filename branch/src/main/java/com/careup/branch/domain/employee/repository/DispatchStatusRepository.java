@@ -33,6 +33,12 @@ public interface DispatchStatusRepository extends JpaRepository<DispatchStatus, 
             Collection<Branch> branches, String placementYn, LocalDate fromInclusive, LocalDate toInclusive
     );
 
+    // placementYn 조건 없이 기간만으로 조회 (점주 조회용 대체 메서드)
+    @EntityGraph(attributePaths = {"employee", "employee.jobGrade", "branch"})
+    List<DispatchStatus> findByBranchInAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+            Collection<Branch> branches, LocalDate fromInclusive, LocalDate toInclusive
+    );
+
     @EntityGraph(attributePaths = {"employee", "employee.jobGrade", "branch"})
     List<DispatchStatus> findByEmployeeInAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
             Collection<Employee> employees, String placementYn, LocalDate fromInclusive, LocalDate toInclusive
