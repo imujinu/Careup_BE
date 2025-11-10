@@ -51,8 +51,7 @@ public class SseAlarmService {
         try {
             SseNotificationResDto dto = objectMapper.readValue(message, SseNotificationResDto.class);
             Branch branch = branchRepository.findById(dto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
-            List<DispatchStatus> dispatchStatus = dispatchStatusRepository.findAllByBranch(branch);
-            if ("ATTENDANCE".equals(dto.getEventName())){
+
                 Employee owner = getOwner(dto.getBranchId());
                 SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(owner.getEmail());
                 Notification notification = new Notification().toEntity(dto, owner.getEmail());
@@ -67,24 +66,6 @@ public class SseAlarmService {
                         sseEmitterRegistry.removeSseEmitter(owner.getEmail());
                     }
                 }
-
-            }else{
-                for(DispatchStatus ds : dispatchStatus){
-            SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(ds.getEmployee().getEmail());
-            Notification notification = new Notification().toEntity(dto, ds.getEmployee().getEmail());
-            saveNotificationTransactional(dto, ds);
-            if (sseEmitter != null) {
-                try {
-                    sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
-
-                } catch (IOException e) {
-                    log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
-                    sseEmitter.complete(); // ✅ 정상 종료로 처리
-                    sseEmitterRegistry.removeSseEmitter(ds.getEmployee().getEmail());
-                }
-            }
-                }
-            }
 
         } catch (IOException e) {
             log.error("❌ Kafka listener error: {}", e.getMessage(), e);
