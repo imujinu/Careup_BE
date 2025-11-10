@@ -374,136 +374,299 @@ public class DashboardService {
      *
      * @param branchId 지점 ID
      * @param today 기준 날짜
-     * @param period 조회 기간 (WEEKLY, MONTHLY, YEARLY)
+     * @param period 조회 기간 (WEEKLY: 최근 7일, MONTHLY: 최근 7개월, YEARLY: 최근 7년)
      */
     private AttendanceSummaryCardDto getAttendanceSummary(Long branchId, LocalDate today, String period) {
         log.debug("[출근 현황 조회] branchId={}, today={}, period={}", branchId, today, period);
         try {
-            // 기간에 따른 시작/종료 날짜 계산
-            LocalDate startDate;
-            LocalDate endDate = today;
+            String normalizedPeriod = period.toUpperCase();
 
-            switch (period.toUpperCase()) {
+            switch (normalizedPeriod) {
                 case "WEEKLY":
-                    // 최근 7일
-                    startDate = today.minusDays(6);
-                    break;
+                    return getWeeklyAttendance(branchId, today);
                 case "MONTHLY":
-                    // 이번 달 1일부터 오늘까지
-                    startDate = today.withDayOfMonth(1);
-                    break;
+                    return getMonthlyAttendance(branchId, today);
                 case "YEARLY":
-                    // 올해 1월 1일부터 오늘까지
-                    startDate = today.withDayOfYear(1);
-                    break;
+                    return getYearlyAttendance(branchId, today);
                 default:
                     log.warn("[출근 현황] 알 수 없는 기간: {}. 기본값(WEEKLY) 사용", period);
-                    startDate = today.minusDays(6);
-                    period = "WEEKLY";
+                    return getWeeklyAttendance(branchId, today);
             }
-
-            log.debug("[출근 현황] startDate={}, endDate={}", startDate, endDate);
-
-            // 현재 지점에 배치된 총 직원 수
-            long totalEmployees = dispatchStatusRepository.findActiveDispatchesByBranchId(branchId, today).size();
-            log.debug("[출근 현황] 전체 직원 수={}", totalEmployees);
-
-            // 기간별 스케줄 조회
-            List<Schedule> periodSchedules = scheduleRepository.findByBranch_IdInAndRegisteredDateBetween(
-                    Collections.singletonList(branchId), startDate, endDate);
-            log.debug("[출근 현황] 기간별 스케줄 수={}", periodSchedules.size());
-
-            // 날짜별로 그룹화
-            Map<LocalDate, List<Schedule>> schedulesByDate = periodSchedules.stream()
-                    .collect(Collectors.groupingBy(Schedule::getRegisteredDate));
-
-            // 기간별 출근 현황 데이터 생성
-            Map<LocalDate, AttendanceSummaryCardDto.AttendanceDayDto> attendanceData = new LinkedHashMap<>();
-            long totalWorkDays = 0;
-            long lateCount = 0;
-            double totalRate = 0.0;
-
-            for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
-                List<Schedule> daySchedules = schedulesByDate.getOrDefault(date, Collections.emptyList());
-
-                long presentCount = daySchedules.stream()
-                        .filter(s -> {
-                            ScheduleEvent lastEvent = getLastEvent(s);
-                            if (lastEvent == null) return false;
-                            AttendanceStatus status = lastEvent.getAttendanceStatus();
-                            return status == AttendanceStatus.CLOCKED_IN ||
-                                   status == AttendanceStatus.ON_BREAK ||
-                                   status == AttendanceStatus.OVERTIME ||
-                                   status == AttendanceStatus.CLOCKED_OUT ||
-                                   status == AttendanceStatus.LATE;
-                        })
-                        .count();
-
-                long absentCount = daySchedules.stream()
-                        .filter(s -> {
-                            ScheduleEvent lastEvent = getLastEvent(s);
-                            if (lastEvent == null) return false;
-                            AttendanceStatus status = lastEvent.getAttendanceStatus();
-                            return status == AttendanceStatus.LEAVE ||
-                                   status == AttendanceStatus.ABSENT;
-                        })
-                        .count();
-
-                // 지각 횟수 계산
-                long dayLateCount = daySchedules.stream()
-                        .filter(s -> {
-                            ScheduleEvent lastEvent = getLastEvent(s);
-                            if (lastEvent == null) return false;
-                            return lastEvent.getAttendanceStatus() == AttendanceStatus.LATE;
-                        })
-                        .count();
-
-                lateCount += dayLateCount;
-
-                double attendanceRate = totalEmployees > 0
-                        ? (double) presentCount / totalEmployees * 100
-                        : 0.0;
-
-                log.debug("[출근 현황 일별] date={}, present={}, absent={}, late={}, rate={}%",
-                        date, presentCount, absentCount, dayLateCount, attendanceRate);
-
-                attendanceData.put(date, AttendanceSummaryCardDto.AttendanceDayDto.builder()
-                        .presentCount(presentCount)
-                        .absentCount(absentCount)
-                        .totalCount(totalEmployees)
-                        .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
-                        .build());
-
-                if (presentCount > 0 || absentCount > 0) {
-                    totalWorkDays++;
-                    totalRate += attendanceRate;
-                }
-            }
-
-            double averageAttendanceRate = totalWorkDays > 0
-                    ? totalRate / totalWorkDays
-                    : 0.0;
-
-            log.debug("[출근 현황 결과] period={}, averageAttendanceRate={}, totalWorkDays={}, lateCount={}",
-                    period, averageAttendanceRate, totalWorkDays, lateCount);
-
-            return AttendanceSummaryCardDto.builder()
-                    .period(period)
-                    .attendanceData(attendanceData)
-                    .averageAttendanceRate(Math.round(averageAttendanceRate * 100.0) / 100.0)
-                    .totalWorkDays(totalWorkDays)
-                    .lateCount(lateCount)
-                    .build();
         } catch (Exception e) {
             log.error("[출근 현황 조회 실패] branchId={}, period={}, 오류: {}", branchId, period, e.getMessage(), e);
             return AttendanceSummaryCardDto.builder()
                     .period(period)
-                    .attendanceData(Collections.emptyMap())
+                    .chartData(Collections.emptyList())
                     .averageAttendanceRate(0.0)
                     .totalWorkDays(0L)
                     .lateCount(0L)
                     .build();
         }
+    }
+
+    /**
+     * 주간 출근 현황 (최근 7일)
+     */
+    private AttendanceSummaryCardDto getWeeklyAttendance(Long branchId, LocalDate today) {
+        log.debug("[주간 출근 현황] branchId={}, today={}", branchId, today);
+
+        List<AttendanceSummaryCardDto.ChartDataDto> chartData = new ArrayList<>();
+
+        long totalWorkDays = 0;
+        long lateCount = 0;
+        double totalRate = 0.0;
+
+        // 최근 7일간 일별 데이터 생성
+        for (int i = 6; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
+
+            // 해당 날짜의 스케줄 조회
+            List<Schedule> daySchedules = scheduleRepository.findByBranch_IdInAndRegisteredDateBetween(
+                    Collections.singletonList(branchId), date, date);
+
+            long totalEmployees = dispatchStatusRepository.findActiveDispatchesByBranchId(branchId, date).size();
+
+            long presentCount = countPresentEmployees(daySchedules);
+            long absentCount = countAbsentEmployees(daySchedules);
+            long dayLateCount = countLateEmployees(daySchedules);
+
+            lateCount += dayLateCount;
+
+            double attendanceRate = totalEmployees > 0
+                    ? (double) presentCount / totalEmployees * 100
+                    : 0.0;
+
+            // 라벨: "MM/dd" 형식
+            String label = String.format("%02d/%02d", date.getMonthValue(), date.getDayOfMonth());
+
+            chartData.add(AttendanceSummaryCardDto.ChartDataDto.builder()
+                    .label(label)
+                    .presentCount(presentCount)
+                    .absentCount(absentCount)
+                    .totalCount(totalEmployees)
+                    .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
+                    .build());
+
+            if (presentCount > 0 || absentCount > 0) {
+                totalWorkDays++;
+                totalRate += attendanceRate;
+            }
+        }
+
+        double averageAttendanceRate = totalWorkDays > 0
+                ? Math.round((totalRate / totalWorkDays) * 100.0) / 100.0
+                : 0.0;
+
+        log.debug("[주간 출근 현황 완료] 평균 출근률={}%, 근무일={}, 지각={}",
+                averageAttendanceRate, totalWorkDays, lateCount);
+
+        return AttendanceSummaryCardDto.builder()
+                .period("WEEKLY")
+                .chartData(chartData)
+                .averageAttendanceRate(averageAttendanceRate)
+                .totalWorkDays(totalWorkDays)
+                .lateCount(lateCount)
+                .build();
+    }
+
+    /**
+     * 월간 출근 현황 (최근 7개월)
+     */
+    private AttendanceSummaryCardDto getMonthlyAttendance(Long branchId, LocalDate today) {
+        log.debug("[월간 출근 현황] branchId={}, today={}", branchId, today);
+
+        List<AttendanceSummaryCardDto.ChartDataDto> chartData = new ArrayList<>();
+
+        long totalWorkDays = 0;
+        long lateCount = 0;
+        double totalRate = 0.0;
+
+        // 최근 7개월간 월별 데이터 생성
+        for (int i = 6; i >= 0; i--) {
+            LocalDate targetMonth = today.minusMonths(i);
+            LocalDate startOfMonth = targetMonth.withDayOfMonth(1);
+            LocalDate endOfMonth = targetMonth.withDayOfMonth(targetMonth.lengthOfMonth());
+
+            // 해당 월의 마지막 날짜가 오늘보다 미래면 오늘까지만
+            if (endOfMonth.isAfter(today)) {
+                endOfMonth = today;
+            }
+
+            // 해당 월의 스케줄 조회
+            List<Schedule> monthSchedules = scheduleRepository.findByBranch_IdInAndRegisteredDateBetween(
+                    Collections.singletonList(branchId), startOfMonth, endOfMonth);
+
+            // 해당 월의 일수
+            long daysInPeriod = startOfMonth.datesUntil(endOfMonth.plusDays(1)).count();
+
+            // 월별 평균 직원 수 계산 (간단하게 중간 날짜 기준)
+            LocalDate midMonth = startOfMonth.plusDays(daysInPeriod / 2);
+            long totalEmployees = dispatchStatusRepository.findActiveDispatchesByBranchId(branchId, midMonth).size();
+
+            long presentCount = countPresentEmployees(monthSchedules);
+            long absentCount = countAbsentEmployees(monthSchedules);
+            long monthLateCount = countLateEmployees(monthSchedules);
+
+            lateCount += monthLateCount;
+
+            double attendanceRate = totalEmployees > 0 && daysInPeriod > 0
+                    ? (double) presentCount / (totalEmployees * daysInPeriod) * 100
+                    : 0.0;
+
+            // 라벨: "YYYY-MM" 형식
+            String label = String.format("%d-%02d", targetMonth.getYear(), targetMonth.getMonthValue());
+
+            chartData.add(AttendanceSummaryCardDto.ChartDataDto.builder()
+                    .label(label)
+                    .presentCount(presentCount)
+                    .absentCount(absentCount)
+                    .totalCount(totalEmployees * daysInPeriod)
+                    .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
+                    .build());
+
+            if (presentCount > 0 || absentCount > 0) {
+                totalWorkDays++;
+                totalRate += attendanceRate;
+            }
+        }
+
+        double averageAttendanceRate = totalWorkDays > 0
+                ? Math.round((totalRate / totalWorkDays) * 100.0) / 100.0
+                : 0.0;
+
+        log.debug("[월간 출근 현황 완료] 평균 출근률={}%, 조회 월 수={}, 지각={}",
+                averageAttendanceRate, totalWorkDays, lateCount);
+
+        return AttendanceSummaryCardDto.builder()
+                .period("MONTHLY")
+                .chartData(chartData)
+                .averageAttendanceRate(averageAttendanceRate)
+                .totalWorkDays(totalWorkDays)
+                .lateCount(lateCount)
+                .build();
+    }
+
+    /**
+     * 연간 출근 현황 (최근 7년)
+     */
+    private AttendanceSummaryCardDto getYearlyAttendance(Long branchId, LocalDate today) {
+        log.debug("[연간 출근 현황] branchId={}, today={}", branchId, today);
+
+        List<AttendanceSummaryCardDto.ChartDataDto> chartData = new ArrayList<>();
+
+        long totalWorkYears = 0;
+        long lateCount = 0;
+        double totalRate = 0.0;
+
+        // 최근 7년간 연별 데이터 생성
+        for (int i = 6; i >= 0; i--) {
+            int targetYear = today.getYear() - i;
+            LocalDate startOfYear = LocalDate.of(targetYear, 1, 1);
+            LocalDate endOfYear = LocalDate.of(targetYear, 12, 31);
+
+            // 해당 년도의 마지막 날짜가 오늘보다 미래면 오늘까지만
+            if (endOfYear.isAfter(today)) {
+                endOfYear = today;
+            }
+
+            // 해당 년도의 스케줄 조회
+            List<Schedule> yearSchedules = scheduleRepository.findByBranch_IdInAndRegisteredDateBetween(
+                    Collections.singletonList(branchId), startOfYear, endOfYear);
+
+            // 해당 년도의 일수
+            long daysInYear = startOfYear.datesUntil(endOfYear.plusDays(1)).count();
+
+            // 연도 중간 날짜 기준 평균 직원 수
+            LocalDate midYear = startOfYear.plusDays(daysInYear / 2);
+            long totalEmployees = dispatchStatusRepository.findActiveDispatchesByBranchId(branchId, midYear).size();
+
+            long presentCount = countPresentEmployees(yearSchedules);
+            long absentCount = countAbsentEmployees(yearSchedules);
+            long yearLateCount = countLateEmployees(yearSchedules);
+
+            lateCount += yearLateCount;
+
+            double attendanceRate = totalEmployees > 0 && daysInYear > 0
+                    ? (double) presentCount / (totalEmployees * daysInYear) * 100
+                    : 0.0;
+
+            // 라벨: "YYYY" 형식
+            String label = String.valueOf(targetYear);
+
+            chartData.add(AttendanceSummaryCardDto.ChartDataDto.builder()
+                    .label(label)
+                    .presentCount(presentCount)
+                    .absentCount(absentCount)
+                    .totalCount(totalEmployees * daysInYear)
+                    .attendanceRate(Math.round(attendanceRate * 100.0) / 100.0)
+                    .build());
+
+            if (presentCount > 0 || absentCount > 0) {
+                totalWorkYears++;
+                totalRate += attendanceRate;
+            }
+        }
+
+        double averageAttendanceRate = totalWorkYears > 0
+                ? Math.round((totalRate / totalWorkYears) * 100.0) / 100.0
+                : 0.0;
+
+        log.debug("[연간 출근 현황 완료] 평균 출근률={}%, 조회 년 수={}, 지각={}",
+                averageAttendanceRate, totalWorkYears, lateCount);
+
+        return AttendanceSummaryCardDto.builder()
+                .period("YEARLY")
+                .chartData(chartData)
+                .averageAttendanceRate(averageAttendanceRate)
+                .totalWorkDays(totalWorkYears)
+                .lateCount(lateCount)
+                .build();
+    }
+
+    /**
+     * 출근 인원 카운트
+     */
+    private long countPresentEmployees(List<Schedule> schedules) {
+        return schedules.stream()
+                .filter(s -> {
+                    ScheduleEvent lastEvent = getLastEvent(s);
+                    if (lastEvent == null) return false;
+                    AttendanceStatus status = lastEvent.getAttendanceStatus();
+                    return status == AttendanceStatus.CLOCKED_IN ||
+                           status == AttendanceStatus.ON_BREAK ||
+                           status == AttendanceStatus.OVERTIME ||
+                           status == AttendanceStatus.CLOCKED_OUT ||
+                           status == AttendanceStatus.LATE;
+                })
+                .count();
+    }
+
+    /**
+     * 결근 인원 카운트
+     */
+    private long countAbsentEmployees(List<Schedule> schedules) {
+        return schedules.stream()
+                .filter(s -> {
+                    ScheduleEvent lastEvent = getLastEvent(s);
+                    if (lastEvent == null) return false;
+                    AttendanceStatus status = lastEvent.getAttendanceStatus();
+                    return status == AttendanceStatus.LEAVE ||
+                           status == AttendanceStatus.ABSENT;
+                })
+                .count();
+    }
+
+    /**
+     * 지각 인원 카운트
+     */
+    private long countLateEmployees(List<Schedule> schedules) {
+        return schedules.stream()
+                .filter(s -> {
+                    ScheduleEvent lastEvent = getLastEvent(s);
+                    if (lastEvent == null) return false;
+                    return lastEvent.getAttendanceStatus() == AttendanceStatus.LATE;
+                })
+                .count();
     }
 
     /**

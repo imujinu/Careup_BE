@@ -435,23 +435,23 @@ public class BranchService {
             log.warn("지점 {} ({})에 placementYn='N'인 점주가 없습니다. placementYn 조건 없이 재조회 시도",
                     branch.getName(), branch.getId());
 
-            // placementYn 조건 없이 기간만으로 조회
-            dispatches = dispatchStatusRepository
+            // placementYn 조건 없이 기간만으로 조회 (새로운 변수명 사용)
+            List<DispatchStatus> dispatchesAll = dispatchStatusRepository
                     .findByBranchInAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
                             List.of(branch), today, today
                     );
 
             log.info("지점 {} ({})의 배치 현황 조회 결과 (placementYn 무관): {}건",
-                    branch.getName(), branch.getId(), dispatches.size());
+                    branch.getName(), branch.getId(), dispatchesAll.size());
 
-            owner = dispatches.stream()
+            owner = dispatchesAll.stream()
                     .map(DispatchStatus::getEmployee)
                     .filter(emp -> {
                         boolean isOwner = emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
                                 || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER;
                         log.debug("대체 조회 - 직원 {} ({}), 권한: {}, placementYn: {}, 점주 여부: {}",
                                 emp.getName(), emp.getId(), emp.getAuthorityType(),
-                                dispatches.stream()
+                                dispatchesAll.stream()
                                     .filter(ds -> ds.getEmployee().getId().equals(emp.getId()))
                                     .findFirst()
                                     .map(DispatchStatus::getPlacementYn)

@@ -570,7 +570,7 @@ public class OrderingDataInitializer implements CommandLineRunner {
         java.util.Random random = new java.util.Random(20251109); // 고정 시드로 재현 가능하게
 
         // 각 지점별 매출 편차를 두기 위한 승수 (동작점 > 을지로점 > 보라매점 > 고양삼송점 > 본점)
-        double[] branchMultipliers = {0.3, 1.5, 1.0, 0.8, 1.3}; // 본점은 매출이 적음 (관리 위주)
+        double[] branchMultipliers = {0.2, 1.0, 0.7, 0.5, 0.9}; // 본점은 매출이 적음 (관리 위주), 전체적으로 감소
 
         for (int idx = 0; idx < branchIds.length; idx++) {
             Long branchId = branchIds[idx];
@@ -586,13 +586,21 @@ public class OrderingDataInitializer implements CommandLineRunner {
             int branchOrderCount = 0;
             long branchTotalAmount = 0L;
 
-            // 각 지점별로 최근 30일간 주문 생성 (매출 조회 기간 확대)
-            for (int day = 0; day < 30; day++) {
+            // 각 지점별로 최근 15일간 주문 생성 (30일에서 절반으로 감소)
+            for (int day = 0; day < 15; day++) {
                 LocalDateTime orderDate = today.minusDays(day);
 
-                // 하루에 1~2건만 생성 (총 주문 약 150건 이내로 제한)
-                int baseOrdersPerDay = 1 + random.nextInt(2);
-                int ordersPerDay = Math.max(1, (int) (baseOrdersPerDay * multiplier));
+                // 하루에 0~1건만 생성 (총 주문 약 50~60건 이내로 제한)
+                // 50% 확률로 주문 생성 안 함
+                if (random.nextDouble() < 0.5) {
+                    continue; // 이날은 주문 없음
+                }
+
+                int baseOrdersPerDay = random.nextInt(2); // 0 또는 1
+                int ordersPerDay = (int) (baseOrdersPerDay * multiplier);
+                if (ordersPerDay == 0 && multiplier > 0.5) {
+                    ordersPerDay = 1; // 매출 비율이 높은 지점은 최소 1건 보장
+                }
 
                 for (int i = 0; i < ordersPerDay; i++) {
                     // 랜덤 회원 선택
@@ -622,8 +630,8 @@ public class OrderingDataInitializer implements CommandLineRunner {
                         // 리플렉션 실패 시 무시
                     }
 
-                    // 주문 상세 생성 (1~2개 상품만 - 데이터 최소화)
-                    int itemCount = 1 + random.nextInt(2);
+                    // 주문 상세 생성 (1개 상품만 - 데이터 최소화)
+                    int itemCount = 1;
                     long calculatedTotalAmount = 0L;
 
                     for (int j = 0; j < itemCount; j++) {
@@ -634,7 +642,7 @@ public class OrderingDataInitializer implements CommandLineRunner {
                             continue;
                         }
                         BranchProduct branchProduct = branchProducts.get(random.nextInt(branchProducts.size()));
-                        Long quantity = (long) (1 + random.nextInt(3));
+                        Long quantity = (long) (1 + random.nextInt(2)); // 1~2개로 감소
                         Long unitPrice = branchProduct.getPrice();
 
                         OrderedItem item = OrderedItem.builder()
@@ -653,8 +661,8 @@ public class OrderingDataInitializer implements CommandLineRunner {
                     // Order의 totalAmount 업데이트
                     savedOrder.updateTotalAmount(calculatedTotalAmount);
 
-                    // 90% 확률로 승인 처리, 10%는 PENDING 상태 유지 (실제 환경 시뮬레이션)
-                    boolean shouldApprove = random.nextDouble() < 0.9;
+                    // 80% 확률로 승인 처리, 20%는 PENDING 상태 유지 (실제 환경 시뮬레이션)
+                    boolean shouldApprove = random.nextDouble() < 0.8;
                     if (shouldApprove) {
                         savedOrder.approve(1L); // CONFIRMED 상태로 변경
                     }

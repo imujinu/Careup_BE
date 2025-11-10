@@ -92,8 +92,8 @@ public class SecurityConfig {
     }
 
     // ✅ 명시적 Bean + 도메인 변형(https/http, www 유무) 모두 허용
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+//    @Bean
+    private CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5173",
