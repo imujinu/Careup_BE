@@ -233,10 +233,88 @@
     [스크린샷 이미지 삽입]
 </details>
   
-### 채팅
-<detail>
-    <summary>[채팅 기능 스크린샷 삽입]</summary>
-</detail>
+### 챗봇
+
+<details>
+    <summary>[챗봇 기능 1 - 근태 ]</summary>
+<details>
+    <summary>[근태 - 일일 근태 조회]</summary>
+    
+![Adobe Express - 챗봇 - 근태 조회](https://github.com/user-attachments/assets/5ef91538-71e2-4b23-922d-5d3ad59ef33a)
+
+</details>
+<details>
+    <summary>[근태 - 전체 직원 조회]</summary>
+  
+![Adobe Express - 챗봇 - 전체 직원 근태](https://github.com/user-attachments/assets/96016324-6bc7-4435-bac8-8cab43121f2f)
+    
+</details>
+<details>
+    <summary>[근태 - 특정 직원 조회]</summary>
+  
+![Adobe Express - 챗봇 - 상세 직원 조회](https://github.com/user-attachments/assets/8d964e35-8dbf-44f9-b643-17d8913d0c84)
+    
+</details>
+<details>
+    <summary>[근태 - 근태 수정]</summary>
+  
+![Adobe Express - 챗봇 - 근태 수정 (1)](https://github.com/user-attachments/assets/f7c7809d-2393-4612-b569-d0dd8d9e2d41)
+    
+</details>
+</details>
+
+<details>
+    <summary>[챗봇 기능 2 - 재고]</summary>
+
+<details>
+    <summary>[재고 - 전체 재고 조회 ]</summary>
+  
+![Adobe Express - 챗봇 - 재고 전체조회](https://github.com/user-attachments/assets/0029c8b8-bea3-4a76-aa2a-5338975ec4d1)
+    
+</details>
+<details>
+    <summary>[재고 - 재고 수정]</summary>
+  
+![Adobe Express - 챗봇 - 재고 수정](https://github.com/user-attachments/assets/777b712c-30e4-469d-81a1-cc5081ec1346)
+
+  
+</details>
+
+<details>
+    <summary>[재고 - 회전율 조회]</summary>
+  
+![챗봇 - 회전율 조회](https://github.com/user-attachments/assets/b89b51f7-76a5-43c9-ba50-b27bdc1733e7)
+
+</details>  
+</details>
+
+<details>
+    <summary>[챗봇 기능 3 - 발주]</summary>
+
+<details>
+    <summary>[발주 - 발주 전체 조회 ]</summary>
+  
+![Adobe Express - 챗봇 - 발주 전체조회](https://github.com/user-attachments/assets/ae38d157-0eff-4f4d-9e52-e4758a6f47cc)
+
+    
+</details>
+<details>
+    <summary>[발주 - 발주 요청]</summary>
+  
+![Adobe Express - 챗봇 - 발주 요청](https://github.com/user-attachments/assets/0b6e1c73-b042-4165-9a14-db606d8fa841)
+
+  
+</details>
+
+<details>
+    <summary>[발주 - 발주 추천]</summary>
+  
+![Adobe Express - 챗봇 - 발주 추천](https://github.com/user-attachments/assets/1fccd367-e717-47f2-b9e5-39d98a331da0)
+
+    
+</details>     
+
+</details>
 
 ### 댓글
 <detail>
