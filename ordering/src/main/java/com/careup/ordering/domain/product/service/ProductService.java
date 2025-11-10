@@ -13,6 +13,7 @@ import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.entity.Visibility;
 import com.careup.ordering.domain.product.repository.CategoryRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.careup.ordering.domain.product.elastic.service.ProductSyncService;
 import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
 import com.careup.ordering.domain.recomendation.service.QdrantService;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +42,7 @@ public class ProductService {
     private final BranchClient branchClient;
     private final QdrantService qdrantService;
     private final CoPurchaseService coPurchaseService;
+    private final ProductSyncService productSyncService;
 
     /**
      * 상품 등록 (이미지 포함)
@@ -89,6 +91,15 @@ public class ProductService {
         // 상품 저장
         Product savedProduct = productRepository.save(product);
         
+        // Elasticsearch 동기화 (Kafka 이벤트 발행)
+        try {
+            productSyncService.syncProduct(savedProduct.getId());
+            log.info("Elasticsearch 동기화 이벤트 발행 성공 - productId: {}", savedProduct.getId());
+        } catch (Exception e) {
+            log.error("Elasticsearch 동기화 실패 - productId: {}, error: {}", savedProduct.getId(), e.getMessage(), e);
+            // ES 동기화 실패해도 상품 등록은 성공 처리
+        }
+
         // Qdrant 벡터 저장 (실패해도 상품 등록은 성공하도록 처리)
         try {
             qdrantService.saveProduct(savedProduct);
@@ -175,6 +186,16 @@ public class ProductService {
         );
 
         Product updatedProduct = productRepository.save(product);
+
+        // Elasticsearch 동기화 (Kafka 이벤트 발행)
+        try {
+            productSyncService.syncProduct(updatedProduct.getId());
+            log.info("Elasticsearch 동기화 이벤트 발행 성공 - productId: {}", updatedProduct.getId());
+        } catch (Exception e) {
+            log.error("Elasticsearch 동기화 실패 - productId: {}, error: {}", updatedProduct.getId(), e.getMessage(), e);
+            // ES 동기화 실패해도 상품 수정은 성공 처리
+        }
+
         return ProductResponseDto.from(updatedProduct);
     }
 
@@ -242,6 +263,15 @@ public class ProductService {
 
         // 상품 삭제
         productRepository.delete(product);
+
+        // Elasticsearch에서 삭제 (Kafka 이벤트 발행)
+        try {
+            productSyncService.syncProduct(productId);
+            log.info("Elasticsearch 삭제 동기화 이벤트 발행 성공 - productId: {}", productId);
+        } catch (Exception e) {
+            log.error("Elasticsearch 삭제 동기화 실패 - productId: {}, error: {}", productId, e.getMessage(), e);
+            // ES 동기화 실패해도 상품 삭제는 성공 처리
+        }
     }
 
     /**

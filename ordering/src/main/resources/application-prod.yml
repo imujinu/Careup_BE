@@ -165,6 +165,15 @@
     host: qdrant-service
     port: 6333
 
+  # 상품 동기화 설정
+  product:
+    sync:
+      scheduler:
+        enabled: true  # 스케줄러 활성화 여부 (false로 설정하면 수동 동기화만 가능)
+        cron: "0 0 3 * * *"  # 매일 새벽 3시 실행 (초 분 시 일 월 요일)
+      initial:
+        enabled: true  # 애플리케이션 시작 시 초기 동기화 실행 (배포 시에만 true로 설정 권장)
+
   logging:
     level:
       root: info
