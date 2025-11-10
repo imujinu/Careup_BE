@@ -23,6 +23,10 @@ import com.careup.ordering.domain.product.repository.BranchProductRepository;
 import com.careup.ordering.domain.product.repository.InventoryFlowDetailRepository;
 import com.careup.ordering.domain.product.repository.ProductRepository;
 import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
+import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
+import com.careup.ordering.domain.order.kafka.OrderStatisticsProducer;
+import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
+import com.careup.ordering.domain.order.kafka.OrderStatisticsProducer;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +60,8 @@ public class OrderService {
     private final DistributedLockService distributedLockService;
     private final PaymentRepository paymentRepository;
     private final CoPurchaseService coPurchaseService;
+    private final OrderStatisticsProducer orderStatisticsProducer;
+
     private final MemberQueryService memberQueryService;
     private final ProductRepository productRepository;
 
@@ -191,11 +197,17 @@ public class OrderService {
 
 
         //주문 알림
+        // 주문 통계 이벤트 발행 (Redis 캐시 업데이트용)
+        publishOrderStatisticsEvent(savedOrder, "CREATE", null);
+
         SseNotificationResDto dto = SseNotificationResDto.orderPlaced(savedOrder.getBranchId(), savedOrder.getId());
         notificationService.publishNotification(dto);
 
         //마지막 주문 상품 업데이트
         lastBuyProduct(sortedItems, member);
+
+        // 주문 통계 이벤트 발행 (Redis 캐시 업데이트용)
+        publishOrderStatisticsEvent(savedOrder, "CREATE", null);
 
         // 함께 구매된 횟수 카운팅
         List<Long> updateItems = savedItems.stream().map(OrderedItem::getId).toList();
@@ -204,7 +216,6 @@ public class OrderService {
         return convertToResponseDto(savedOrder, orderedItems);
     }
 
-    @Transactional
     private void lastBuyProduct(List<OrderItemRequestDto> sortedItems, Member member) {
         Long recentBuyProductId = null;
         Long maxViewCount = -1L;
@@ -371,6 +382,7 @@ public class OrderService {
 
         // 고객이 취소하는 경우 (memberId를 cancelledBy로 저장)
         Long cancelledBy = order.getMember().getId();
+        String previousStatus = order.getOrderStatus().name();
         order.cancel(reason, cancelledBy);
 
         // 주문 취소 시 재고 복구
@@ -386,6 +398,9 @@ public class OrderService {
                     .build();
             inventoryFlowDetailRepository.save(flowDetail);
         }
+
+        // 주문 통계 이벤트 발행 (상태 변경)
+        publishOrderStatisticsEvent(order, "UPDATE", previousStatus);
 
         SseNotificationResDto dto = SseNotificationResDto.orderCanceled(order.getBranchId(), order.getId());
         notificationService.publishNotification(dto);
@@ -408,6 +423,7 @@ public class OrderService {
             }
 
             // 결제 여부 확인
+                String previousStatus = order.getOrderStatus().name();
             Optional<Payment> paymentOpt = paymentRepository.findByOrderId(order.getId());
 
             // 결제가 완료되지 않은 주문만 취소
@@ -437,11 +453,14 @@ public class OrderService {
                             branchProduct.getId(), item.getQuantity());
                 }
 
+                // 주문 통계 이벤트 발행 (상태 변경)
+                publishOrderStatisticsEvent(order, "UPDATE", previousStatus);
+
                 SseNotificationResDto dto = SseNotificationResDto.orderCanceled(order.getBranchId(), order.getId());
                 notificationService.publishNotification(dto);
 
                 cancelledCount++;
-                log.info("타임아웃 주문 취소 완료 - orderId: {}", order.getId());
+                log.info("타임아웃 주문 취소 완료 - orderId: {}", order.getId());                log.info("타임아웃 주문 취소 완료 - orderId: {}", order.getId());
             }
         }
 
@@ -604,5 +623,29 @@ public class OrderService {
             log.error("Employee 이름 조회 실패: employeeId={}, error={}", employeeId, e.getMessage(), e);
         }
         return null;
+    }
+
+    /**
+     * 주문 통계 이벤트 발행 헬퍼 메서드
+     */
+    private void publishOrderStatisticsEvent(Order order, String eventType, String previousStatus) {
+        try {
+            OrderStatisticsEvent event = OrderStatisticsEvent.builder()
+                    .orderId(order.getId())
+                    .branchId(order.getBranchId())
+                    .totalAmount(order.getTotalAmount())
+                    .orderStatus(order.getOrderStatus().name())
+                    .previousStatus(previousStatus)
+                    .orderDateTime(order.getCreatedAt())
+                    .eventType(eventType)
+                    .build();
+
+            orderStatisticsProducer.sendOrderStatisticsEvent(event);
+            log.debug("주문 통계 이벤트 발행 - orderId: {}, eventType: {}, status: {}",
+                    order.getId(), eventType, order.getOrderStatus());
+        } catch (Exception e) {
+            log.error("주문 통계 이벤트 발행 실패 - orderId: {}", order.getId(), e);
+            // 이벤트 발행 실패해도 주문 처리는 계속 진행
+        }
     }
 }

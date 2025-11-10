@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/documents")
@@ -30,8 +31,13 @@ public class DocumentsController {
     @PostMapping(value = "/branch/{branchId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createDocument(
             @PathVariable Long branchId,
-            @ModelAttribute DocumentsCreateReqDto requestDto) {
+            @RequestPart("meta") DocumentsCreateReqDto requestDto,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
         try {
+            // file이 있으면 DTO에 설정
+            if (file != null) {
+                requestDto.setDocumentUrl(file);
+            }
             DocumentsDto newDocument = documentsService.createDocuments(branchId, requestDto);
             log.info("DocumentsDto created: {}", newDocument.toString());
             return ResponseEntity.ok(
@@ -103,8 +109,13 @@ public class DocumentsController {
     @PatchMapping(value = "/{documentId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateDocument(
             @PathVariable Long documentId,
-            @ModelAttribute DocumentsCreateReqDto requestDto) {
+            @RequestPart("meta") DocumentsCreateReqDto requestDto,
+            @RequestPart(value = "file", required = false) MultipartFile file) {
         try {
+            // file이 있으면 DTO에 설정
+            if (file != null) {
+                requestDto.setDocumentUrl(file);
+            }
             DocumentsDto result = documentsService.updateDocuments(documentId, requestDto);
             return ResponseEntity.ok(
                     CommonSuccessDto.builder()

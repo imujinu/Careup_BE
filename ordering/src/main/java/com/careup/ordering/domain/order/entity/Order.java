@@ -102,6 +102,10 @@ public class Order {
         this.orderStatus = status;
     }
 
+    public void updateTotalAmount(Long totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
     public void approve(Long approvedBy) {
         if (this.orderStatus != OrderStatus.PENDING) {
             throw new IllegalStateException("대기 중인 주문만 승인할 수 있습니다.");

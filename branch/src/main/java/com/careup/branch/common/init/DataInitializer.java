@@ -3,7 +3,19 @@ package com.careup.branch.common.init;
 import com.careup.branch.domain.branch.dto.branch.BranchRegisterReqDto;
 import com.careup.branch.domain.branch.entity.Branch;
 import com.careup.branch.domain.branch.entity.OwnershipType;
+import com.careup.branch.domain.branch.entity.Royalty;
+import com.careup.branch.domain.branch.entity.SalesForecast;
+import com.careup.branch.domain.branch.entity.CalculationMethod;
+import com.careup.branch.domain.branch.entity.SettlementStatus;
+import com.careup.branch.domain.branch.entity.Royalty;
+import com.careup.branch.domain.branch.repository.RoyaltyRepository;
+import com.careup.branch.domain.branch.repository.SalesForecastRepository;
+import com.careup.branch.domain.branch.entity.SalesForecast;
+import com.careup.branch.domain.branch.entity.CalculationMethod;
+import com.careup.branch.domain.branch.entity.SettlementStatus;
 import com.careup.branch.domain.branch.repository.BranchRepository;
+import com.careup.branch.domain.branch.repository.RoyaltyRepository;
+import com.careup.branch.domain.branch.repository.SalesForecastRepository;
 import com.careup.branch.domain.branch.service.BranchService;
 import com.careup.branch.domain.employee.dto.request.DispatchAssignmentDto;
 import com.careup.branch.domain.employee.dto.request.EmployeeCreateDto;
@@ -21,11 +33,18 @@ import com.careup.branch.domain.employee.entity.EmploymentStatus;
 import com.careup.branch.domain.employee.entity.EmploymentType;
 import com.careup.branch.domain.employee.entity.Gender;
 import com.careup.branch.domain.employee.entity.Relationship;
+import com.careup.branch.domain.employee.entity.Schedule;
+import com.careup.branch.domain.employee.entity.ScheduleEvent;
+import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
+import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.repository.AttendanceTemplateRepository;
 import com.careup.branch.domain.employee.repository.EmployeeRepository;
 import com.careup.branch.domain.employee.repository.JobGradeRepository;
 import com.careup.branch.domain.employee.repository.WorkTypeRepository;
 import com.careup.branch.domain.employee.repository.LeaveTypeRepository;
+import com.careup.branch.domain.employee.repository.ScheduleRepository;
+import com.careup.branch.domain.employee.repository.ScheduleEventRepository;
+import com.careup.branch.domain.employee.repository.DispatchStatusRepository;
 import com.careup.branch.domain.employee.service.EmployeeService;
 import com.careup.branch.domain.employee.service.JobGradeService;
 import com.careup.branch.domain.employee.service.LeaveTypeService;
@@ -33,6 +52,7 @@ import com.careup.branch.domain.employee.service.WorkTypeService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -42,15 +62,19 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 
 @Component
 @RequiredArgsConstructor
+@Slf4j
 public class DataInitializer implements CommandLineRunner {
 
     private final BranchService branchService;
     private final BranchRepository branchRepository;
+    private final RoyaltyRepository royaltyRepository;
+    private final SalesForecastRepository salesForecastRepository;
     private final EmployeeService employeeService;
     private final EmployeeRepository employeeRepository;
     private final JobGradeService jobGradeService;
@@ -60,6 +84,9 @@ public class DataInitializer implements CommandLineRunner {
     private final WorkTypeRepository workTypeRepository;
     private final LeaveTypeRepository leaveTypeRepository;
     private final AttendanceTemplateRepository attendanceTemplateRepository;
+    private final ScheduleRepository scheduleRepository;
+    private final ScheduleEventRepository scheduleEventRepository;
+    private final DispatchStatusRepository dispatchStatusRepository;
 
     private static final String DEFAULT_PROFILE_URL =
             "https://beyond-16-care-up.s3.ap-northeast-2.amazonaws.com/image/employee/profile/default/default_user.png";
@@ -162,8 +189,43 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        if (employeeRepository.count() > 0L) return;
+        boolean hasEmployees = employeeRepository.count() > 0L;
+
         runAsSystem(() -> {
+            if (hasEmployees) {
+                // 직원 데이터가 이미 있는 경우, 근태 데이터만 생성
+                log.info("=== 기존 데이터 발견: 근태 데이터만 생성합니다 ===");
+                Long dongjakId = branchRepository.findAll().stream()
+                        .filter(b -> "동작점".equals(b.getName()))
+                        .map(Branch::getId)
+                        .findFirst().orElse(null);
+                Long boramaeId = branchRepository.findAll().stream()
+                        .filter(b -> "보라매점".equals(b.getName()))
+                        .map(Branch::getId)
+                        .findFirst().orElse(null);
+                Long samsongId = branchRepository.findAll().stream()
+                        .filter(b -> "고양삼송점".equals(b.getName()))
+                        .map(Branch::getId)
+                        .findFirst().orElse(null);
+                Long euljiroId = branchRepository.findAll().stream()
+                        .filter(b -> "을지로점".equals(b.getName()))
+                        .map(Branch::getId)
+                        .findFirst().orElse(null);
+
+                if (dongjakId != null && boramaeId != null && samsongId != null && euljiroId != null) {
+                    // 기존 스케줄 데이터가 없는 경우에만 생성
+                    if (scheduleRepository.count() == 0) {
+                        log.info("=== 스케줄 데이터 생성 시작 ===");
+                        createDashboardTestData(dongjakId, boramaeId, samsongId, euljiroId);
+                        log.info("=== 스케줄 데이터 생성 완료 ===");
+                    } else {
+                        log.info("=== 스케줄 데이터가 이미 존재합니다 ===");
+                    }
+                }
+                return;
+            }
+
+            log.info("=== 초기 데이터 생성 시작 ===");
             Long hqId = ensureBranch(
                     "본점", OwnershipType.NO, "101-10-00001", "110101-1000001",
                     "서울특별시 중구 을지로 100", "본관 15층",
@@ -546,7 +608,6 @@ public class DataInitializer implements CommandLineRunner {
                             .branchId(sindaebangId).assignedFrom(LocalDate.of(2021,9,3))
                             .assignedTo(LocalDate.of(2026,9,3)).placementYn("N").build())
             );
-
             createEmployee(
                     "B2025024", "김송옥", "gupabal.mgr@careup.com", "010-4000-2424", Gender.FEMALE,
                     gradeIds.get("점장"),
@@ -755,298 +816,6 @@ public class DataInitializer implements CommandLineRunner {
             );
 
             createEmployee(
-                    "O2025039", "김민재", "jamsil.owner@careup.com", "010-5200-3939", Gender.MALE,
-                    gradeIds.get("점장"),
-                    AuthorityType.FRANCHISE_OWNER, EmploymentStatus.ACTIVE, EmploymentType.FULL_TIME,
-                    "서울특별시 송파구 올림픽로 240", "2층", "05554",
-                    "010-8200-3939", "김서연", Relationship.SPOUSE,
-                    LocalDate.of(1986, 12, 12), LocalDate.of(2022, 8, 1),
-                    DEFAULT_PROFILE_URL, "잠실점 가맹점주",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(jamsilId).assignedFrom(LocalDate.of(2022,8,1))
-                            .assignedTo(LocalDate.of(2032,8,1)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025040", "신혜선", "jamsil.staff1@careup.com", "010-5201-4040", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "서울특별시 송파구 올림픽로 250", "1201호", "05555",
-                    "010-8201-4040", "신다은", Relationship.SIBLING,
-                    LocalDate.of(1998, 1, 10), LocalDate.of(2022, 8, 3),
-                    DEFAULT_PROFILE_URL, "잠실점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(jamsilId).assignedFrom(LocalDate.of(2022,8,3))
-                            .assignedTo(LocalDate.of(2026,8,3)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025041", "채정안", "jamsil.staff2@careup.com", "010-5202-4141", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "서울특별시 송파구 올림픽로 255", "901호", "05556",
-                    "010-8202-4141", "채나래", Relationship.PARENT,
-                    LocalDate.of(1997, 3, 3), LocalDate.of(2022, 8, 5),
-                    DEFAULT_PROFILE_URL, "잠실점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(jamsilId).assignedFrom(LocalDate.of(2022,8,5))
-                            .assignedTo(LocalDate.of(2026,8,5)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025042", "류혜영", "jamsil.staff3@careup.com", "010-5203-4242", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "서울특별시 송파구 올림픽로 260", "701호", "05557",
-                    "010-8203-4242", "류세라", Relationship.FRIEND,
-                    LocalDate.of(1996, 6, 1), LocalDate.of(2022, 8, 7),
-                    DEFAULT_PROFILE_URL, "잠실점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(jamsilId).assignedFrom(LocalDate.of(2022,8,7))
-                            .assignedTo(LocalDate.of(2026,8,7)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025043", "이상윤", "jamsil.staff4@careup.com", "010-5204-4343", Gender.MALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "서울특별시 송파구 잠실로 10", "401호", "05558",
-                    "010-8204-4343", "이하늘", Relationship.NEIGHBOR,
-                    LocalDate.of(1995, 11, 1), LocalDate.of(2022, 8, 9),
-                    DEFAULT_PROFILE_URL, "잠실점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(jamsilId).assignedFrom(LocalDate.of(2022,8,9))
-                            .assignedTo(LocalDate.of(2026,8,9)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025056", "김유정", "jamsil.staff5@careup.com", "010-5205-5656", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "서울특별시 송파구 올림픽로 245", "1501호", "05555",
-                    "010-8205-5656", "김유나", Relationship.SIBLING,
-                    LocalDate.of(1994, 4, 4), LocalDate.of(2022, 8, 11),
-                    DEFAULT_PROFILE_URL, "잠실점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(jamsilId).assignedFrom(LocalDate.of(2022,8,11))
-                            .assignedTo(LocalDate.of(2026,8,11)).placementYn("N").build())
-            );
-
-            createEmployee(
-                    "O2025044", "박형식", "pangyo.owner@careup.com", "010-5300-4444", Gender.MALE,
-                    gradeIds.get("점장"),
-                    AuthorityType.FRANCHISE_OWNER, EmploymentStatus.ACTIVE, EmploymentType.FULL_TIME,
-                    "경기도 성남시 분당구 판교역로 145", "B동 101호", "13494",
-                    "010-8300-4444", "박예린", Relationship.SPOUSE,
-                    LocalDate.of(1987, 7, 7), LocalDate.of(2024, 3, 1),
-                    DEFAULT_PROFILE_URL, "판교점 가맹점주",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(pangyoId).assignedFrom(LocalDate.of(2024,3,1))
-                            .assignedTo(LocalDate.of(2034,3,1)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025045", "이세영", "pangyo.staff1@careup.com", "010-5301-4545", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 성남시 분당구 대왕판교로 660", "501호", "13487",
-                    "010-8301-4545", "이수진", Relationship.SIBLING,
-                    LocalDate.of(1998, 8, 8), LocalDate.of(2024, 3, 3),
-                    DEFAULT_PROFILE_URL, "판교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(pangyoId).assignedFrom(LocalDate.of(2024,3,3))
-                            .assignedTo(LocalDate.of(2028,3,3)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025046", "남지현", "pangyo.staff2@careup.com", "010-5302-4646", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 성남시 분당구 판교로 255", "902호", "13529",
-                    "010-8302-4646", "남윤아", Relationship.PARENT,
-                    LocalDate.of(1997, 2, 2), LocalDate.of(2024, 3, 5),
-                    DEFAULT_PROFILE_URL, "판교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(pangyoId).assignedFrom(LocalDate.of(2024,3,5))
-                            .assignedTo(LocalDate.of(2028,3,5)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025047", "박보검", "pangyo.staff3@careup.com", "010-5303-4747", Gender.MALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 성남시 분당구 판교로 235", "701호", "13524",
-                    "010-8303-4747", "박주환", Relationship.FRIEND,
-                    LocalDate.of(1996, 5, 5), LocalDate.of(2024, 3, 7),
-                    DEFAULT_PROFILE_URL, "판교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(pangyoId).assignedFrom(LocalDate.of(2024,3,7))
-                            .assignedTo(LocalDate.of(2028,3,7)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025048", "김지원", "pangyo.staff4@careup.com", "010-5304-4848", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 성남시 분당구 정자일로 95", "401호", "13560",
-                    "010-8304-4848", "김다빈", Relationship.NEIGHBOR,
-                    LocalDate.of(1995, 1, 1), LocalDate.of(2024, 3, 9),
-                    DEFAULT_PROFILE_URL, "판교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(pangyoId).assignedFrom(LocalDate.of(2024,3,9))
-                            .assignedTo(LocalDate.of(2028,3,9)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025057", "김세정", "pangyo.staff5@careup.com", "010-5305-5757", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 성남시 분당구 판교역로 191", "1203호", "13496",
-                    "010-8305-5757", "김세린", Relationship.SIBLING,
-                    LocalDate.of(1994, 7, 7), LocalDate.of(2024, 3, 11),
-                    DEFAULT_PROFILE_URL, "판교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(pangyoId).assignedFrom(LocalDate.of(2024,3,11))
-                            .assignedTo(LocalDate.of(2028,3,11)).placementYn("N").build())
-            );
-
-            createEmployee(
-                    "B2025049", "손석구", "seomyeon.mgr@careup.com", "010-5400-4949", Gender.MALE,
-                    gradeIds.get("점장"),
-                    AuthorityType.BRANCH_ADMIN, EmploymentStatus.ACTIVE, EmploymentType.FULL_TIME,
-                    "부산광역시 부산진구 중앙대로 692", "2층", "47260",
-                    "010-8400-4949", "손유정", Relationship.SPOUSE,
-                    LocalDate.of(1985, 9, 9), LocalDate.of(2023, 9, 1),
-                    DEFAULT_PROFILE_URL, "부산서면점 직영 지점장",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(seomyeonId).assignedFrom(LocalDate.of(2023,9,1))
-                            .assignedTo(LocalDate.of(2033,9,1)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025050", "이세돌", "seomyeon.staff1@careup.com", "010-5401-5050", Gender.MALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "부산광역시 부산진구 중앙대로 700", "1101호", "47261",
-                    "010-8401-5050", "이세윤", Relationship.SIBLING,
-                    LocalDate.of(1998, 10, 10), LocalDate.of(2023, 9, 3),
-                    DEFAULT_PROFILE_URL, "부산서면점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(seomyeonId).assignedFrom(LocalDate.of(2023,9,3))
-                            .assignedTo(LocalDate.of(2027,9,3)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025051", "정해인", "seomyeon.staff2@careup.com", "010-5402-5151", Gender.MALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "부산광역시 부산진구 중앙대로 710", "901호", "47262",
-                    "010-8402-5151", "정하늘", Relationship.PARENT,
-                    LocalDate.of(1997, 12, 12), LocalDate.of(2023, 9, 5),
-                    DEFAULT_PROFILE_URL, "부산서면점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(seomyeonId).assignedFrom(LocalDate.of(2023,9,5))
-                            .assignedTo(LocalDate.of(2027,9,5)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025052", "김다미", "seomyeon.staff3@careup.com", "010-5403-5252", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "부산광역시 부산진구 중앙대로 720", "701호", "47263",
-                    "010-8403-5252", "김다연", Relationship.FRIEND,
-                    LocalDate.of(1996, 2, 2), LocalDate.of(2023, 9, 7),
-                    DEFAULT_PROFILE_URL, "부산서면점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(seomyeonId).assignedFrom(LocalDate.of(2023,9,7))
-                            .assignedTo(LocalDate.of(2027,9,7)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025053", "신민아", "seomyeon.staff4@careup.com", "010-5404-5353", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "부산광역시 부산진구 중앙대로 730", "601호", "47264",
-                    "010-8404-5353", "신유리", Relationship.NEIGHBOR,
-                    LocalDate.of(1995, 3, 3), LocalDate.of(2023, 9, 9),
-                    DEFAULT_PROFILE_URL, "부산서면점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(seomyeonId).assignedFrom(LocalDate.of(2023,9,9))
-                            .assignedTo(LocalDate.of(2027,9,9)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025058", "박혜수", "seomyeon.staff5@careup.com", "010-5405-5858", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "부산광역시 부산진구 중앙대로 740", "701호", "47265",
-                    "010-8405-5858", "박혜림", Relationship.SIBLING,
-                    LocalDate.of(1994, 6, 6), LocalDate.of(2023, 9, 11),
-                    DEFAULT_PROFILE_URL, "부산서면점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(seomyeonId).assignedFrom(LocalDate.of(2023,9,11))
-                            .assignedTo(LocalDate.of(2027,9,11)).placementYn("N").build())
-            );
-
-            createEmployee(
-                    "O2025059", "이광수", "gwanggyo.owner@careup.com", "010-5500-5959", Gender.MALE,
-                    gradeIds.get("점장"),
-                    AuthorityType.FRANCHISE_OWNER, EmploymentStatus.ACTIVE, EmploymentType.FULL_TIME,
-                    "경기도 수원시 영통구 광교중앙로 248", "3층", "16514",
-                    "010-8500-5959", "이다은", Relationship.SPOUSE,
-                    LocalDate.of(1986, 5, 5), LocalDate.of(2024, 5, 1),
-                    DEFAULT_PROFILE_URL, "광교점 가맹점주",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(gwanggyoId).assignedFrom(LocalDate.of(2024,5,1))
-                            .assignedTo(LocalDate.of(2034,5,1)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025060", "정연우", "gwanggyo.staff1@careup.com", "010-5501-6060", Gender.MALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 수원시 영통구 대학3로 25", "501호", "16491",
-                    "010-8501-6060", "정가윤", Relationship.SIBLING,
-                    LocalDate.of(1998, 3, 3), LocalDate.of(2024, 5, 3),
-                    DEFAULT_PROFILE_URL, "광교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(gwanggyoId).assignedFrom(LocalDate.of(2024,5,3))
-                            .assignedTo(LocalDate.of(2028,5,3)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025061", "김보라", "gwanggyo.staff2@careup.com", "010-5502-6161", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 수원시 영통구 센트럴타운로 31", "901호", "16506",
-                    "010-8502-6161", "김보민", Relationship.PARENT,
-                    LocalDate.of(1997, 7, 7), LocalDate.of(2024, 5, 5),
-                    DEFAULT_PROFILE_URL, "광교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(gwanggyoId).assignedFrom(LocalDate.of(2024,5,5))
-                            .assignedTo(LocalDate.of(2028,5,5)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025062", "하승진", "gwanggyo.staff3@careup.com", "010-5503-6262", Gender.MALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 수원시 영통구 법조로 25", "701호", "16514",
-                    "010-8503-6262", "하승우", Relationship.FRIEND,
-                    LocalDate.of(1996, 6, 6), LocalDate.of(2024, 5, 7),
-                    DEFAULT_PROFILE_URL, "광교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(gwanggyoId).assignedFrom(LocalDate.of(2024,5,7))
-                            .assignedTo(LocalDate.of(2028,5,7)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025063", "노정의", "gwanggyo.staff4@careup.com", "010-5504-6363", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 수원시 영통구 광교로 124", "1102호", "16514",
-                    "010-8504-6363", "노지우", Relationship.NEIGHBOR,
-                    LocalDate.of(1995, 1, 1), LocalDate.of(2024, 5, 9),
-                    DEFAULT_PROFILE_URL, "광교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(gwanggyoId).assignedFrom(LocalDate.of(2024,5,9))
-                            .assignedTo(LocalDate.of(2028,5,9)).placementYn("N").build())
-            );
-            createEmployee(
-                    "S2025064", "김도연", "gwanggyo.staff5@careup.com", "010-5505-6464", Gender.FEMALE,
-                    gradeIds.get("바리스타"),
-                    AuthorityType.STAFF, EmploymentStatus.ACTIVE, EmploymentType.PART_TIME,
-                    "경기도 수원시 영통구 광교호수로 30", "601호", "16514",
-                    "010-8505-6464", "김도현", Relationship.SIBLING,
-                    LocalDate.of(1994, 9, 9), LocalDate.of(2024, 5, 11),
-                    DEFAULT_PROFILE_URL, "광교점 직원",
-                    List.of(DispatchAssignmentDto.builder()
-                            .branchId(gwanggyoId).assignedFrom(LocalDate.of(2024,5,11))
-                            .assignedTo(LocalDate.of(2028,5,11)).placementYn("N").build())
-            );
-
-            createEmployee(
                     "B2025065", "마동석", "dongseongno.mgr@careup.com", "010-5600-6565", Gender.MALE,
                     gradeIds.get("점장"),
                     AuthorityType.BRANCH_ADMIN, EmploymentStatus.ACTIVE, EmploymentType.FULL_TIME,
@@ -1119,38 +888,9 @@ public class DataInitializer implements CommandLineRunner {
                             .assignedTo(LocalDate.of(2027,10,11)).placementYn("N").build())
             );
 
-            // ===== 모든 지점에 일반 직원 5명씩 자동 생성 (비고 한글화 적용) =====
-            Long baristaGradeId = gradeIds.get("바리스타");
-
-            addFiveStaff(hqId,         "hq",          "본점",
-                    "서울특별시 중구 을지로 100", "본관 15층", "04550", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(dongjakId,    "dongjak",     "동작점",
-                    "서울특별시 동작구 상도로 22", "302호", "06970", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(boramaeId,    "boramae",     "보라매점",
-                    "서울특별시 동작구 보라매로 30", "상가동 1층", "07060", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(samsongId,    "samsong",     "고양삼송점",
-                    "경기도 고양시 덕양구 삼송로 21", "101호", "10500", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(euljiroId,    "euljiro",     "을지로점",
-                    "서울특별시 중구 을지로 160", "301호", "04549", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(sindaebangId, "sindaebang",  "신대방삼거리점",
-                    "서울특별시 동작구 보라매로 122", "2층", "07024", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(gupabalId,    "gupabal",     "구파발점",
-                    "서울특별시 은평구 진관2로 31", "2층", "03381", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(magokId,      "magok",       "마곡나루점",
-                    "서울특별시 강서구 공항대로 200", "1201호", "07551", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(seongsuId,    "seongsu",     "성수점",
-                    "서울특별시 성동구 성수이로 20", "301호", "04795", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(jamsilId,     "jamsil",      "잠실점",
-                    "서울특별시 송파구 올림픽로 250", "1201호", "05555", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(pangyoId,     "pangyo",      "판교점",
-                    "경기도 성남시 분당구 대왕판교로 660", "501호", "13487", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(seomyeonId,   "seomyeon",    "부산서면점",
-                    "부산광역시 부산진구 중앙대로 700", "1101호", "47261", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(gwanggyoId,   "gwanggyo",    "광교점",
-                    "경기도 수원시 영통구 센트럴타운로 31", "901호", "16506", LocalDate.of(2024,10,1), baristaGradeId);
-            addFiveStaff(dongseongnoId,"dongseongno", "대구동성로점",
-                    "대구광역시 중구 국채보상로 585", "901호", "41919", LocalDate.of(2024,10,1), baristaGradeId);
-            // ===== 끝 =====
+            // ===== 모든 지점에 일반 직원 자동 생성 생략 (503 에러 방지) =====
+            // 기본 직원 70명만으로 충분하며, 추가 생성 시 서버 과부하 발생
+            log.info("=== 직원 데이터 생성 완료: 기본 70명 유지 (추가 생성 생략) ===");
 
             // 사전코드(근무종류/휴가종류)만 보강
             ensureWorkTypes(List.of("일반근무", "야간근무", "재택근무", "외근"));
@@ -1158,6 +898,15 @@ public class DataInitializer implements CommandLineRunner {
 
             // 근태 템플릿 보강
             ensureAttendanceTemplates();
+
+            // ===== 대시보드 테스트용 근태 데이터 생성 =====
+            createDashboardTestData(dongjakId, boramaeId, samsongId, euljiroId);
+
+            // ===== 매출 관련 초기 데이터 생성 (로열티 및 예상 매출액) =====
+            // 주의: Royalty와 SalesForecast는 별도로 생성 필요
+            // createRoyaltyData(boramaeId, samsongId, jamsilId, pangyoId, gwanggyoId);
+            // createSalesForecastData(dongjakId, boramaeId, samsongId, euljiroId, jamsilId, pangyoId);
+            log.info("=== 초기 데이터 생성 완료 ===");
         });
     }
 
@@ -1360,12 +1109,187 @@ public class DataInitializer implements CommandLineRunner {
             attendanceTemplateRepository.save(
                     AttendanceTemplate.builder()
                             .name("야간 근무")
-                            .defaultClockIn(LocalTime.of(21, 0))
-                            .defaultBreakStart(LocalTime.of(0, 0))  // 익일 00:00
-                            .defaultBreakEnd(LocalTime.of(1, 0))    // 익일 01:00
-                            .defaultClockOut(LocalTime.of(6, 0))    // 익일 06:00
+                            .defaultClockIn(LocalTime.of(22, 0))
+                            .defaultBreakStart(LocalTime.of(2, 0))
+                            .defaultBreakEnd(LocalTime.of(3, 0))
+                            .defaultClockOut(LocalTime.of(6, 0))
                             .build()
             );
+        }
+    }
+
+    /**
+     * 대시보드 테스트용 근태 데이터 생성
+     * - 최근 7일간의 스케줄 및 이벤트 생성
+     * - 다양한 출근 상태 (정상출근, 지각, 결근, 휴가) 생성
+     */
+    private void createDashboardTestData(Long dongjakId, Long boramaeId, Long samsongId, Long euljiroId) {
+        // 오늘 날짜 (현재 날짜 사용)
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(6); // 최근 7일간
+
+        log.info("=== 대시보드 테스트 데이터 생성 시작 ===");
+        log.info("현재 날짜: {}, 데이터 생성 범위: {} ~ {} (7일)", today, startDate, today);
+
+        // 각 지점의 활성 직원 조회
+        List<Employee> dongjakEmployees = getActiveEmployeesByBranch(dongjakId);
+        List<Employee> boramaeEmployees = getActiveEmployeesByBranch(boramaeId);
+
+        log.info("지점별 활성 직원 수 - 동작점: {}, 보라매점: {}",
+                dongjakEmployees.size(), boramaeEmployees.size());
+
+        // 동작점 스케줄 생성 (대표 지점)
+        createSchedulesForBranch(dongjakId, dongjakEmployees, startDate, today);
+
+        // 보라매점 스케줄 생성 (대표 지점)
+        createSchedulesForBranch(boramaeId, boramaeEmployees, startDate, today);
+
+        // 고양삼송점, 을지로점은 생성 생략 (데이터 최소화)
+
+        long totalSchedules = scheduleRepository.count();
+        long totalEvents = scheduleEventRepository.count();
+        log.info("=== 대시보드 테스트 데이터 생성 완료 === 총 스케줄: {}, 총 이벤트: {}", totalSchedules, totalEvents);
+    }
+
+    /**
+     * 특정 지점의 활성 직원 목록 조회
+     */
+    private List<Employee> getActiveEmployeesByBranch(Long branchId) {
+        // 오늘 날짜 (현재 날짜 사용)
+        LocalDate today = LocalDate.now();
+        List<Employee> employees = dispatchStatusRepository.findActiveDispatchesByBranchId(branchId, today).stream()
+                .map(dispatch -> dispatch.getEmployee())
+                .filter(emp -> emp.getEmploymentStatus() == EmploymentStatus.ACTIVE)
+                .collect(java.util.stream.Collectors.toList());
+
+        log.debug("지점 ID {} - 활성 직원 수: {}", branchId, employees.size());
+        return employees;
+    }
+
+    /**
+     * 지점별 스케줄 및 이벤트 생성
+     */
+    private void createSchedulesForBranch(Long branchId, List<Employee> employees, LocalDate startDate, LocalDate endDate) {
+        Branch branch = branchRepository.findById(branchId).orElse(null);
+        if (branch == null) {
+            log.warn("지점을 찾을 수 없습니다: branchId={}", branchId);
+            return;
+        }
+        if (employees.isEmpty()) {
+            log.warn("활성 직원이 없습니다: branchId={}, branchName={}", branchId, branch.getName());
+            return;
+        }
+
+        log.info("=== {} 스케줄 생성 시작 === 직원 수: {}, 기간: {} ~ {}",
+                branch.getName(), employees.size(), startDate, endDate);
+
+        Random random = new Random(branchId);
+        int scheduleCount = 0;
+        int eventCount = 0;
+
+        for (LocalDate date = startDate; !date.isAfter(endDate); date = date.plusDays(1)) {
+            for (int i = 0; i < employees.size(); i++) {
+                Employee employee = employees.get(i);
+
+                // 스케줄 생성
+                Schedule schedule = Schedule.builder()
+                        .employee(employee)
+                        .branch(branch)
+                        .registeredDate(date)
+                        .category(ScheduleTypeCategory.WORK)
+                        .registeredClockIn(date.atTime(9, 0))
+                        .registeredBreakStart(date.atTime(12, 0))
+                        .registeredBreakEnd(date.atTime(13, 0))
+                        .registeredClockOut(date.atTime(18, 0))
+                        .build();
+
+                schedule = scheduleRepository.save(schedule);
+                scheduleCount++;
+
+                // 다양한 출근 패턴 생성
+                AttendanceStatus status = determineAttendanceStatus(i, date, random);
+                LocalDateTime actualClockIn = calculateActualClockInDateTime(status, date, random);
+
+                // 이벤트 생성
+                ScheduleEvent.ScheduleEventBuilder eventBuilder = ScheduleEvent.builder()
+                        .schedule(schedule)
+                        .eventDate(date)
+                        .attendanceStatus(status)
+                        .clockInAt(actualClockIn)
+                        .missedCheckout(false)
+                        .totalWorkMinutes(0)
+                        .totalBreakMinutes(0);
+
+                // 오늘 이전 날짜는 퇴근 처리
+                if (date.isBefore(endDate)) {
+                    if (status == AttendanceStatus.CLOCKED_IN || status == AttendanceStatus.LATE) {
+                        eventBuilder.attendanceStatus(AttendanceStatus.CLOCKED_OUT)
+                                .clockOutAt(date.atTime(18, 0).plusMinutes(random.nextInt(60)))
+                                .totalWorkMinutes(480 + random.nextInt(60));
+                    }
+                } else if (date.equals(endDate)) {
+                    // 오늘은 출근 중 상태 유지 (CLOCKED_IN 또는 LATE)
+                    if (status == AttendanceStatus.CLOCKED_IN || status == AttendanceStatus.LATE) {
+                        log.debug("[오늘 출근 중] 지점: {}, 직원: {}, 상태: {}", branch.getName(), employee.getName(), status);
+                    } else {
+                        log.debug("[오늘 기타 상태] 지점: {}, 직원: {}, 상태: {}", branch.getName(), employee.getName(), status);
+                    }
+                }
+
+                scheduleEventRepository.save(eventBuilder.build());
+                eventCount++;
+            }
+        }
+
+        log.info("=== {} 스케줄 생성 완료 === 생성된 스케줄: {}, 생성된 이벤트: {}",
+                branch.getName(), scheduleCount, eventCount);
+    }
+
+    /**
+     * 직원 인덱스와 날짜에 따라 출근 상태 결정
+     */
+    private AttendanceStatus determineAttendanceStatus(int employeeIndex, LocalDate date, Random random) {
+        int dayOfWeek = date.getDayOfWeek().getValue();
+
+        // 주말은 일부 직원만 출근
+        if (dayOfWeek == 6 || dayOfWeek == 7) {
+            if (employeeIndex % 3 == 0) {
+                return AttendanceStatus.CLOCKED_IN;
+            } else {
+                return random.nextInt(10) < 3 ? AttendanceStatus.LEAVE : AttendanceStatus.ABSENT;
+            }
+        }
+
+        // 평일 패턴
+        int pattern = (employeeIndex + date.getDayOfMonth()) % 10;
+
+        if (pattern == 0) {
+            return AttendanceStatus.LATE; // 10% 지각
+        } else if (pattern == 1) {
+            return AttendanceStatus.LEAVE; // 10% 휴가
+        } else if (pattern == 2) {
+            return AttendanceStatus.ABSENT; // 10% 결근
+        } else {
+            return AttendanceStatus.CLOCKED_IN; // 70% 정상 출근
+        }
+    }
+
+    /**
+     * 출근 상태에 따른 실제 출근 시간 계산 (LocalDateTime 반환)
+     */
+    private LocalDateTime calculateActualClockInDateTime(AttendanceStatus status, LocalDate date, Random random) {
+        switch (status) {
+            case CLOCKED_IN:
+                // 정상 출근: 8:50 ~ 9:10
+                return date.atTime(9, 0).minusMinutes(random.nextInt(10)).plusMinutes(random.nextInt(10));
+            case LATE:
+                // 지각: 9:10 ~ 10:30
+                return date.atTime(9, 10).plusMinutes(random.nextInt(80));
+            case LEAVE:
+            case ABSENT:
+                return null;
+            default:
+                return date.atTime(9, 0);
         }
     }
 }

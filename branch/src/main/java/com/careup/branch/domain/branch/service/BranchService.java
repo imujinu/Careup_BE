@@ -409,23 +409,74 @@ public class BranchService {
      */
     private BranchDto.OwnerInfoDto findBranchOwnerForDto(Branch branch, LocalDate today) {
         // 해당 지점에 배치된 직원 중 BRANCH_ADMIN 또는 FRANCHISE_OWNER 권한을 가진 직원 조회
+        // 먼저 placementYn = "N"만 조회 (현재 배치 중인 직원만)
         List<DispatchStatus> dispatches = dispatchStatusRepository
                 .findByBranchInAndPlacementYnAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
                         List.of(branch), "N", today, today
                 );
 
+        log.info("지점 {} ({})의 배치 현황 조회 결과 (placementYn='N'): {}건",
+                branch.getName(), branch.getId(), dispatches.size());
+
+        // 배치된 직원 중 BRANCH_ADMIN 또는 FRANCHISE_OWNER 조회
         Optional<Employee> owner = dispatches.stream()
                 .map(DispatchStatus::getEmployee)
-                .filter(emp -> emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
-                        || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER)
+                .filter(emp -> {
+                    boolean isOwner = emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
+                            || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER;
+                    log.debug("직원 {} ({}), 권한: {}, 점주 여부: {}",
+                            emp.getName(), emp.getId(), emp.getAuthorityType(), isOwner);
+                    return isOwner;
+                })
                 .findFirst();
 
+        // 점주를 찾지 못한 경우, placementYn 조건 없이 재조회 (대체 로직)
         if (owner.isEmpty()) {
-            log.warn("지점 {} ({})에 점주 정보가 없습니다.", branch.getName(), branch.getId());
-            return null;
+            log.warn("지점 {} ({})에 placementYn='N'인 점주가 없습니다. placementYn 조건 없이 재조회 시도",
+                    branch.getName(), branch.getId());
+
+            // placementYn 조건 없이 기간만으로 조회 (새로운 변수명 사용)
+            List<DispatchStatus> dispatchesAll = dispatchStatusRepository
+                    .findByBranchInAndAssignedFromLessThanEqualAndAssignedToGreaterThanEqual(
+                            List.of(branch), today, today
+                    );
+
+            log.info("지점 {} ({})의 배치 현황 조회 결과 (placementYn 무관): {}건",
+                    branch.getName(), branch.getId(), dispatchesAll.size());
+
+            owner = dispatchesAll.stream()
+                    .map(DispatchStatus::getEmployee)
+                    .filter(emp -> {
+                        boolean isOwner = emp.getAuthorityType() == AuthorityType.BRANCH_ADMIN
+                                || emp.getAuthorityType() == AuthorityType.FRANCHISE_OWNER;
+                        log.debug("대체 조회 - 직원 {} ({}), 권한: {}, placementYn: {}, 점주 여부: {}",
+                                emp.getName(), emp.getId(), emp.getAuthorityType(),
+                                dispatchesAll.stream()
+                                    .filter(ds -> ds.getEmployee().getId().equals(emp.getId()))
+                                    .findFirst()
+                                    .map(DispatchStatus::getPlacementYn)
+                                    .orElse("?"),
+                                isOwner);
+                        return isOwner;
+                    })
+                    .findFirst();
+
+            if (owner.isEmpty()) {
+                log.error("지점 {} ({})에 점주 정보를 찾을 수 없습니다. 기간 내 BRANCH_ADMIN/FRANCHISE_OWNER 없음",
+                        branch.getName(), branch.getId());
+                return null;
+            } else {
+                log.warn("지점 {} ({})의 점주를 찾았으나 placementYn이 'N'이 아닐 수 있습니다. 데이터 확인 필요",
+                        branch.getName(), branch.getId());
+            }
         }
 
         Employee ownerEmployee = owner.get();
+        log.info("지점 {} ({})의 점주 정보 찾음: {} ({}), 권한: {}",
+                branch.getName(), branch.getId(),
+                ownerEmployee.getName(), ownerEmployee.getId(),
+                ownerEmployee.getAuthorityType());
+
         return BranchDto.OwnerInfoDto.builder()
                 .employeeId(ownerEmployee.getId())
                 .employeeNumber(ownerEmployee.getEmployeeNumber())
