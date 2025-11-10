@@ -61,7 +61,9 @@ public class SseAlarmService {
                         sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
 
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
+                        sseEmitter.complete(); // ✅ 정상 종료로 처리
+                        sseEmitterRegistry.removeSseEmitter(owner.getEmail());
                     }
                 }
 
@@ -75,7 +77,9 @@ public class SseAlarmService {
                     sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
 
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
+                    sseEmitter.complete(); // ✅ 정상 종료로 처리
+                    sseEmitterRegistry.removeSseEmitter(ds.getEmployee().getEmail());
                 }
             }
                 }
