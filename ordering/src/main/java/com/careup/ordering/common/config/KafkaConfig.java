@@ -3,6 +3,7 @@ package com.careup.ordering.common.config;
 import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
 import com.careup.ordering.domain.product.dto.PurchaseOrderEventDto;
 import com.careup.ordering.domain.product.event.ProductEvent;
+import com.careup.ordering.domain.product.event.ProductSyncEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -167,6 +168,56 @@ public class KafkaConfig {
         ConcurrentKafkaListenerContainerFactory<String, OrderStatisticsEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(orderStatisticsConsumerFactory());
+        return factory;
+    }
+
+    // ========== ProductSyncEvent Producer & Consumer Configuration ==========
+
+    /**
+     * ProductSyncEvent용 Producer Factory
+     */
+    @Bean
+    public ProducerFactory<String, ProductSyncEvent> productSyncProducerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
+        return new DefaultKafkaProducerFactory<>(config);
+    }
+
+    /**
+     * ProductSyncEvent용 KafkaTemplate
+     */
+    @Bean
+    public KafkaTemplate<String, ProductSyncEvent> productSyncKafkaTemplate() {
+        return new KafkaTemplate<>(productSyncProducerFactory());
+    }
+
+    /**
+     * ProductSyncEvent용 Consumer Factory
+     */
+    @Bean
+    public ConsumerFactory<String, ProductSyncEvent> productSyncConsumerFactory() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "product-sync-group");
+        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.careup.ordering.domain.product.event");
+        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, ProductSyncEvent.class.getName());
+        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        return new DefaultKafkaConsumerFactory<>(config, new StringDeserializer(),
+                new JsonDeserializer<>(ProductSyncEvent.class, false));
+    }
+
+    /**
+     * ProductSyncEvent용 Listener Container Factory
+     */
+    @Bean("productSyncKafkaListenerContainerFactory")
+    public ConcurrentKafkaListenerContainerFactory<String, ProductSyncEvent> productSyncKafkaListenerContainerFactory() {
+        ConcurrentKafkaListenerContainerFactory<String, ProductSyncEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(productSyncConsumerFactory());
         return factory;
     }
 }

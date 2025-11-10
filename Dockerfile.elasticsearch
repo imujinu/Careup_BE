@@ -1,5 +1,5 @@
 # Elasticsearch 9.2.0 with Nori Korean Analyzer Plugin
-FROM docker.elastic.co/elasticsearch/elasticsearch:9.2.0
+FROM docker.elastic.co/elasticsearch/elasticsearch:8.15.0
 
 # Nori 플러그인 설치
 RUN elasticsearch-plugin install --batch analysis-nori

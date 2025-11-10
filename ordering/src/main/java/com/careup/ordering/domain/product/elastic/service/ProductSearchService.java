@@ -142,12 +142,28 @@ public class ProductSearchService {
     }
 
     public void saveProductDocument(ProductDocument document) {
-        productSearchRepository.save(document);
-        log.info("Product document saved: {}", document.getProductId());
+        log.info("Attempting to save product document to Elasticsearch - productId: {}, name: {}",
+                 document.getProductId(), document.getName());
+        try {
+            ProductDocument savedDoc = productSearchRepository.save(document);
+            log.info("✅ Product document saved successfully to Elasticsearch - id: {}, productId: {}",
+                     savedDoc.getId(), savedDoc.getProductId());
+        } catch (Exception e) {
+            log.error("❌ Failed to save product document to Elasticsearch - productId: {}, error: {}",
+                      document.getProductId(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     public void deleteProductDocument(Long productId) {
-        productSearchRepository.deleteById(String.valueOf(productId));
-        log.info("Product document deleted: {}", productId);
+        log.info("Attempting to delete product document from Elasticsearch - productId: {}", productId);
+        try {
+            productSearchRepository.deleteById(String.valueOf(productId));
+            log.info("✅ Product document deleted successfully from Elasticsearch - productId: {}", productId);
+        } catch (Exception e) {
+            log.error("❌ Failed to delete product document from Elasticsearch - productId: {}, error: {}",
+                      productId, e.getMessage(), e);
+            throw e;
+        }
     }
 }

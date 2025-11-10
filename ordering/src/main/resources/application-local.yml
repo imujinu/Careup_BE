@@ -172,6 +172,30 @@ qdrant:
   host: localhost
   port: 6334
 
+# ========== 상품 동기화 설정 ==========
+# ⚠️ 주의: Local 환경에서는 기본적으로 자동 동기화가 비활성화되어 있습니다.
+#
+# 동기화 실행 방법:
+#   1. API 호출 (권장): curl -X POST http://localhost:8080/admin/products/sync/all
+#   2. 초기 동기화 활성화: initial.enabled: true 후 서버 재시작
+#   3. 진단 스크립트 사용: diagnose-and-sync.bat 실행
+#
+# 동기화가 필요한 경우:
+#   - DB에 새로운 상품을 추가했을 때
+#   - Elasticsearch 데이터를 초기화했을 때
+#   - 검색 기능을 테스트하기 전에
+product:
+  sync:
+    scheduler:
+      enabled: false  # 로컬 환경에서는 스케줄러 비활성화 (수동 동기화만 사용)
+                     # true로 변경 시 주기적으로 자동 동기화 실행
+      cron: "0 0 3 * * *"  # 매일 새벽 3시 실행 (enabled: true일 때만)
+                          # 로컬 테스트용: "0 */5 * * * *" (5분마다)
+    initial:
+      enabled: false  # 서버 시작 시 자동 동기화 비활성화
+                     # true로 변경 시: 서버 시작할 때마다 DB → ES 동기화 실행
+                     # 개발 중에는 false 권장 (필요 시 API로 수동 실행)
+
 logging:
   level:
     root: info
