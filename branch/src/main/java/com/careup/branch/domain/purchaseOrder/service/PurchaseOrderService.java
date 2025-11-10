@@ -29,10 +29,11 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionDefinition;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -58,7 +59,6 @@ public class PurchaseOrderService {
     private final SseAlarmService sseAlarmService;
 
     private final BranchRepository branchRepository;
-    private final PlatformTransactionManager transactionManager;
 
     // 발주 생성 (가맹점용)
     @Transactional
@@ -120,66 +120,53 @@ public class PurchaseOrderService {
     }
 
     // 자동 발주 생성
+    @Transactional
     public PurchaseOrderResponseDto createAutoPurchaseOrder(PurchaseOrderRequestDto requestDto) {
         try {
+            // 1) 기본 검증
             validatePurchaseOrderRequestWithoutAuth(requestDto);
 
+            // 2) 중복 발주 방지
+            validateNoDuplicateOrder(requestDto);
+
+            // 3) 상품별 공급가 조회
             List<PurchaseOrderRequestDto.PurchaseOrderDetailRequestDto> details = setSupplyPrices(requestDto.getOrderDetails());
 
-            TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
-            txTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRED);
+            // 4) 주문 저장
+            PurchaseOrder purchaseOrder = PurchaseOrder.builder()
+                    .branchId(requestDto.getBranchId())
+                    .orderStatus(OrderStatus.PENDING)
+                    .price(calculateTotalPrice(details))
+                    .build();
 
-            AutoOrderContext context = txTemplate.execute(status -> {
-                validateNoDuplicateOrder(requestDto);
+            PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
 
-                PurchaseOrder purchaseOrder = PurchaseOrder.builder()
-                        .branchId(requestDto.getBranchId())
-                        .orderStatus(OrderStatus.PENDING)
-                        .price(calculateTotalPrice(details))
-                        .build();
+            // 5) 상세 저장
+            List<PurchaseOrderDetail> orderDetails = details.stream()
+                    .filter(detail -> detail.getQuantity() > 0)
+                    .map(detailDto -> {
+                        // 상품명 조회
+                        String productName = getProductName(detailDto.getProductId());
+                        return PurchaseOrderDetail.builder()
+                                .purchaseOrder(savedOrder)
+                                .productId(detailDto.getProductId())
+                                .productName(productName)
+                                .quantity(detailDto.getQuantity())
+                                .approvedQuantity(0)
+                                .unitPrice(detailDto.getSupplyPrice())
+                                .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
 
-                PurchaseOrder savedOrder = purchaseOrderRepository.save(purchaseOrder);
+            List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
 
-                List<PurchaseOrderDetail> orderDetails = details.stream()
-                        .filter(detail -> detail.getQuantity() > 0)
-                        .map(detailDto -> {
-                            String productName = getProductName(detailDto.getProductId());
-                            return PurchaseOrderDetail.builder()
-                                    .purchaseOrder(savedOrder)
-                                    .productId(detailDto.getProductId())
-                                    .productName(productName)
-                                    .quantity(detailDto.getQuantity())
-                                    .approvedQuantity(0)
-                                    .unitPrice(detailDto.getSupplyPrice())
-                                    .subtotalPrice(detailDto.getQuantity() * detailDto.getSupplyPrice())
-                                    .build();
-                        })
-                        .collect(Collectors.toList());
 
-                List<PurchaseOrderDetail> savedDetails = purchaseOrderDetailRepository.saveAll(orderDetails);
-                return new AutoOrderContext(savedOrder, savedDetails);
-            });
 
-            if (context == null) {
-                throw new RuntimeException("자동 발주 생성 중 알 수 없는 오류가 발생했습니다.");
-            }
+            // 본사 재고 예약 (자동 발주도 동일 정책)
+            reserveHqStocksOrThrow(savedOrder, savedDetails, requestDto);
 
-            try {
-                reserveHqStocksOrThrow(context.purchaseOrder(), context.orderDetails(), requestDto);
-            } catch (RuntimeException ex) {
-                txTemplate.execute(status -> {
-                    PurchaseOrder persisted = purchaseOrderRepository.findById(context.purchaseOrder().getId()).orElse(null);
-                    if (persisted != null) {
-                        List<PurchaseOrderDetail> persistedDetails = purchaseOrderDetailRepository.findByPurchaseOrder(persisted);
-                        purchaseOrderDetailRepository.deleteAll(persistedDetails);
-                        purchaseOrderRepository.delete(persisted);
-                    }
-                    return null;
-                });
-                throw ex;
-            }
-
-            return convertToCompletedResponseDto(context.purchaseOrder(), context.orderDetails());
+            return convertToCompletedResponseDto(savedOrder, savedDetails);
 
         } catch (SecurityException e) {
             throw new RuntimeException("자동 발주 생성 실패: " + e.getMessage(), e);
@@ -188,7 +175,7 @@ public class PurchaseOrderService {
 
     private void reserveHqStocksOrThrow(PurchaseOrder savedOrder, List<PurchaseOrderDetail> orderDetails, PurchaseOrderRequestDto requestDto) {
         Long hqBranchId = 1L;
-        
+
         // 요청 DTO에서 attributeValueId 가져오기 (자동발주용)
         Map<Long, Long> productIdToAttributeValueId = new HashMap<>();
         if (requestDto != null && requestDto.getOrderDetails() != null) {
@@ -198,34 +185,34 @@ public class PurchaseOrderService {
                 }
             }
         }
-        
+
         for (PurchaseOrderDetail detail : orderDetails) {
             try {
                 OrderingInventoryClient.BranchProductResponseDto hqBp = null;
-                
+
                 // attributeValueId가 있으면 해당 속성 조합으로 찾기
                 Long attributeValueId = productIdToAttributeValueId.get(detail.getProductId());
                 if (attributeValueId != null) {
                     // 본사의 모든 BranchProduct 중에서 동일한 attributeValueId를 가진 것 찾기
-                    List<OrderingInventoryClient.BranchProductResponseDto> hqProducts = 
-                        orderingInventoryClient.getBranchProducts(hqBranchId);
+                    List<OrderingInventoryClient.BranchProductResponseDto> hqProducts =
+                            orderingInventoryClient.getBranchProducts(hqBranchId);
                     hqBp = hqProducts.stream()
-                        .filter(bp -> bp.productId != null && bp.productId.equals(detail.getProductId()) 
-                                && bp.attributeValueId != null && bp.attributeValueId.equals(attributeValueId))
-                        .findFirst()
-                        .orElse(null);
-                    
+                            .filter(bp -> bp.productId != null && bp.productId.equals(detail.getProductId())
+                                    && bp.attributeValueId != null && bp.attributeValueId.equals(attributeValueId))
+                            .findFirst()
+                            .orElse(null);
+
                     if (hqBp == null) {
-                        log.warn("본사 재고를 찾을 수 없습니다 (attributeValueId로 검색): productId={}, attributeValueId={}", 
-                            detail.getProductId(), attributeValueId);
+                        log.warn("본사 재고를 찾을 수 없습니다 (attributeValueId로 검색): productId={}, attributeValueId={}",
+                                detail.getProductId(), attributeValueId);
                     }
                 }
-                
+
                 // attributeValueId로 찾지 못했거나 없는 경우, 기존 방식으로 찾기
                 if (hqBp == null) {
                     hqBp = orderingInventoryClient.getBranchProduct(hqBranchId, detail.getProductId());
                 }
-                
+
                 if (hqBp == null || hqBp.branchProductId == null) {
                     throw new IllegalStateException("본사 재고를 찾을 수 없습니다. productId=" + detail.getProductId());
                 }
@@ -490,18 +477,61 @@ public class PurchaseOrderService {
     }
 
     public List<PurchaseOrderListResponseDto> getPurchaseOrdersByBranch(Long branchId) {
-        List<PurchaseOrder> purchaseOrders = purchaseOrderRepository.findByBranchId(branchId);
+        // JOIN FETCH로 발주와 상세 정보를 한 번에 조회 (N+1 문제 해결)
+        List<PurchaseOrder> purchaseOrders = purchaseOrderRepository.findByBranchIdWithDetails(branchId);
+
+        // 지점 정보를 한 번에 조회 (추가 N+1 문제 해결)
+        Set<Long> branchIds = purchaseOrders.stream()
+                .map(PurchaseOrder::getBranchId)
+                .collect(Collectors.toSet());
+        Map<Long, String> branchNameMap = getBranchNameMap(branchIds);
+
         return purchaseOrders.stream()
-                .map(this::convertToListResponseDto)
+                .map(po -> convertToListResponseDto(po, branchNameMap))
                 .collect(Collectors.toList());
     }
 
     public List<PurchaseOrderListResponseDto> getAllPurchaseOrders() {
-        List<PurchaseOrder> purchaseOrders = purchaseOrderRepository.findAll();
+        // JOIN FETCH로 발주와 상세 정보를 한 번에 조회 (N+1 문제 해결)
+        List<PurchaseOrder> purchaseOrders = purchaseOrderRepository.findAllWithDetails(OrderStatus.CANCELLED);
+
+        // 지점 정보를 한 번에 조회 (추가 N+1 문제 해결)
+        Set<Long> branchIds = purchaseOrders.stream()
+                .map(PurchaseOrder::getBranchId)
+                .collect(Collectors.toSet());
+        Map<Long, String> branchNameMap = getBranchNameMap(branchIds);
+
         return purchaseOrders.stream()
-                .filter(order -> order.getOrderStatus() != OrderStatus.CANCELLED)
-                .map(this::convertToListResponseDto)
+                .map(po -> convertToListResponseDto(po, branchNameMap))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * 지점 ID 목록으로 지점명 Map 생성 (N+1 문제 해결 - 한 번의 쿼리로 모든 지점 조회)
+     */
+    private Map<Long, String> getBranchNameMap(Set<Long> branchIds) {
+        if (branchIds.isEmpty()) {
+            return new HashMap<>();
+        }
+
+        // 한 번의 쿼리로 모든 지점 정보 조회 (IN 쿼리 사용)
+        List<com.careup.branch.domain.branch.entity.Branch> branches =
+                branchRepository.findAllById(branchIds);
+
+        // Map으로 변환
+        Map<Long, String> branchNameMap = new HashMap<>();
+        for (com.careup.branch.domain.branch.entity.Branch branch : branches) {
+            branchNameMap.put(branch.getId(), branch.getName());
+        }
+
+        // 조회되지 않은 지점은 기본값 설정
+        for (Long branchId : branchIds) {
+            if (!branchNameMap.containsKey(branchId)) {
+                branchNameMap.put(branchId, "지점-" + branchId);
+            }
+        }
+
+        return branchNameMap;
     }
 
     public PurchaseOrderResponseDto getPurchaseOrder(Long purchaseOrderId) {
@@ -659,18 +689,21 @@ public class PurchaseOrderService {
         }
     }
 
-    private PurchaseOrderListResponseDto convertToListResponseDto(PurchaseOrder purchaseOrder) {
-        List<PurchaseOrderDetail> orderDetails = purchaseOrderDetailRepository.findByPurchaseOrder(purchaseOrder);
-        int productCount = orderDetails.size();
+    /**
+     * PurchaseOrder를 DTO로 변환 (JOIN FETCH로 이미 로드된 orderDetails 사용)
+     * @param purchaseOrder 발주 엔티티 (orderDetails가 이미 로드되어 있음)
+     * @param branchNameMap 지점 ID -> 지점명 Map (N+1 문제 해결)
+     */
+    private PurchaseOrderListResponseDto convertToListResponseDto(PurchaseOrder purchaseOrder, Map<Long, String> branchNameMap) {
+        // JOIN FETCH로 이미 로드된 orderDetails 사용 (추가 쿼리 없음!)
+        List<PurchaseOrderDetail> orderDetails = purchaseOrder.getOrderDetails();
+        int productCount = orderDetails != null ? orderDetails.size() : 0;
 
-        String branchName = "지점-" + purchaseOrder.getBranchId();
-        try {
-            branchName = branchRepository.findById(purchaseOrder.getBranchId())
-                    .map(branch -> branch.getName())
-                    .orElse("지점-" + purchaseOrder.getBranchId());
-        } catch (Exception e) {
-            log.warn("지점 정보 조회 실패: branchId={}", purchaseOrder.getBranchId(), e);
-        }
+        // Map에서 지점명 조회 (추가 쿼리 없음!)
+        String branchName = branchNameMap.getOrDefault(
+                purchaseOrder.getBranchId(),
+                "지점-" + purchaseOrder.getBranchId()
+        );
 
         return PurchaseOrderListResponseDto.builder()
                 .purchaseOrderId(purchaseOrder.getId())
@@ -701,7 +734,7 @@ public class PurchaseOrderService {
     private PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto convertToDetailResponseDto(PurchaseOrderDetail detail, OrderStatus orderStatus) {
         String productName = getProductName(detail.getProductId());
         String categoryName = getCategoryName(detail.getProductId());
-        
+
         // 속성 정보 조회
         List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes = getProductAttributes(detail.getProductId());
 
@@ -723,16 +756,16 @@ public class PurchaseOrderService {
 
     private List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> getProductAttributes(Long productId) {
         try {
-            ResponseDto<List<OrderingInventoryClient.ProductAttributeValueResponseDto>> resp = 
+            ResponseDto<List<OrderingInventoryClient.ProductAttributeValueResponseDto>> resp =
                     orderingInventoryClient.getProductAttributeValues(productId);
-            
+
             if (resp == null || resp.data == null || resp.data.isEmpty()) {
                 return new ArrayList<>();
             }
-            
+
             // 속성 타입별로 그룹화
             Map<Long, PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributeMap = new HashMap<>();
-            
+
             for (OrderingInventoryClient.ProductAttributeValueResponseDto pav : resp.data) {
                 Long typeId = pav.attributeTypeId;
                 if (typeId == null) continue;
@@ -746,7 +779,7 @@ public class PurchaseOrderService {
                             .build());
                 }
             }
-            
+
             // 최대 2개까지만 반환
             return attributeMap.values().stream()
                     .limit(2)
@@ -810,7 +843,7 @@ public class PurchaseOrderService {
                 .map(detail -> {
                     String productName = getProductName(detail.getProductId());
                     String categoryName = getCategoryName(detail.getProductId());
-                    List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes = 
+                    List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes =
                             getProductAttributes(detail.getProductId());
                     return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
                             .purchaseOrderDetailId(detail.getId())
@@ -918,7 +951,7 @@ public class PurchaseOrderService {
                 .map(detail -> {
                     String productName = getProductName(detail.getProductId());
                     String categoryName = getCategoryName(detail.getProductId());
-                    List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes = 
+                    List<PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.AttributeInfo> attributes =
                             getProductAttributes(detail.getProductId());
                     return PurchaseOrderResponseDto.PurchaseOrderDetailResponseDto.builder()
                             .purchaseOrderDetailId(detail.getId())
@@ -968,23 +1001,5 @@ public class PurchaseOrderService {
         }
         String email = auth.getName();
         return employeeRepository.findByEmail(email).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 직원입니다."));
-    }
-
-    private static class AutoOrderContext {
-        private final PurchaseOrder purchaseOrder;
-        private final List<PurchaseOrderDetail> orderDetails;
-
-        private AutoOrderContext(PurchaseOrder purchaseOrder, List<PurchaseOrderDetail> orderDetails) {
-            this.purchaseOrder = purchaseOrder;
-            this.orderDetails = orderDetails;
-        }
-
-        public PurchaseOrder purchaseOrder() {
-            return purchaseOrder;
-        }
-
-        public List<PurchaseOrderDetail> orderDetails() {
-            return orderDetails;
-        }
     }
 }
