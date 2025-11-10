@@ -113,4 +113,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     Optional<Product> findFirstByName(String name);
 
     Optional<Product> findTopByOrderByViewCountDesc();
+
+    Page<Product> findAllByOrderByViewCountDesc(Pageable pageable);
 }

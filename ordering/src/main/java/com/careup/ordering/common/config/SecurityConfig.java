@@ -59,7 +59,8 @@ public class SecurityConfig {
                         "/auth/customers/oauth/state",
                         "/auth/customers/oauth/google",
                         "/auth/customers/oauth/kakao",
-                        "/auth/customers/oauth/update"
+                        "/auth/customers/oauth/update",
+                        "customers/product/view/**"
                 ).permitAll()
 
                 .requestMatchers(HttpMethod.GET,
