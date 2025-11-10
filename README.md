@@ -316,10 +316,25 @@
 
 </details>
 
-### 댓글
-<detail>
-    <summary>[댓글 기능 스크린샷 삽입]</summary>
-</detail>
+### 알림
+<details>
+    <summary>[알림]</summary>
+
+<details>
+    <summary>[알림 기능 - 생성]</summary>
+  
+![Adobe Express - 알림 - 생성](https://github.com/user-attachments/assets/b27f267e-eeb5-4185-ab3e-3c5f550d57e4)
+
+</details>
+
+<details>
+    <summary>[알림 기능 - 읽음 및 삭제]</summary>
+  
+![Adobe Express - 알림 - 읽음 및 삭제](https://github.com/user-attachments/assets/3088d425-fe16-4968-83a3-518374a3263b)
+
+</details>
+
+</details>
 
 ## 🛠️ 트러블 슈팅
 
