@@ -152,7 +152,7 @@ public class CoPurchaseService {
 
         ReadOnlyWindowStore<String, Long> store =
                 streams.store(StoreQueryParameters.fromNameAndType(
-                        "co_purchase_count",
+                        "global_co_purchase_count",
                         QueryableStoreTypes.windowStore()
                 ));
         ZoneId zone = ZoneId.of("Asia/Seoul");
