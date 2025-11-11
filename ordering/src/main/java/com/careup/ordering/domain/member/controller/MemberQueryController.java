@@ -47,10 +47,10 @@ public class MemberQueryController {
     }
 
 
-    // 가장 최근 조회 상품 조회
-    @GetMapping("/product/view/{memberId}")
-    public ResponseEntity<?> getProductId(@PathVariable Long memberId) {
-        ProductViewResultDto productId =  memberQueryService.getProductId(memberId);
-        return new ResponseEntity<>(new CommonSuccessDto(productId, HttpStatus.OK.value(), "최근 조회 상품 ID 조회 완료"), HttpStatus.OK);
-    }
+//    // 가장 최근 조회 상품 조회
+//    @GetMapping("/product/view/{memberId}")
+//    public ResponseEntity<?> getProductId(@PathVariable Long memberId) {
+//        ProductViewResultDto productId =  memberQueryService.getProductId(memberId);
+//        return new ResponseEntity<>(new CommonSuccessDto(productId, HttpStatus.OK.value(), "최근 조회 상품 ID 조회 완료"), HttpStatus.OK);
+//    }
 }
