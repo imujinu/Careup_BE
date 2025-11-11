@@ -89,7 +89,10 @@ public class CoPurchaseService {
 
         Long productId = dto.getProductId();
         Product lastViewProduct = productRepository.findById(productId).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 상품입니다."));
-        List<ProductWithSimilarity> similarProducts = qdrantService.searchSimilarProducts(productId, 30);
+        List<ProductWithSimilarity> similarProducts = qdrantService.searchSimilarProducts(productId, 30)
+                .stream()
+                .filter(p -> !p.getProduct().getId().equals(productId))
+                .toList();
         List<Map.Entry<String, Long>> purchasedProducts = getCoPurchasedProducts(productId);
         Map<Long, Long> coPurchaseMap = purchasedProducts.stream()
                 .collect(Collectors.toMap(
