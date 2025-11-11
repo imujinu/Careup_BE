@@ -191,6 +191,7 @@ public class InMemoryDocumentVectorStore {
 
             // 컨텍스트 조합
             String context = docs.stream()
+                    .distinct()
                     .map(Document::getText)
                     .collect(Collectors.joining("\n\n"));
 

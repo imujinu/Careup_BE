@@ -97,6 +97,13 @@ public class CoPurchaseStreamConfig {
                     try {
                         // ✅ Redis에서 pairKey 기준으로 카운트 증가 (atomic)
                         Long newCount = redisTemplate.opsForValue().increment("co_purchase_count:" + pairKey, 1);
+
+                        String[] parts = pairKey.split("-");
+                        if (parts.length == 2) {
+                            String reverseKey = parts[1] + "-" + parts[0];
+                            redisTemplate.opsForValue().increment("co_purchase_count:" + reverseKey, 1);
+                        }
+
                         log.info("🟢 [rec][Redis] 상품쌍={} | 누적횟수={}", pairKey, newCount);
                     } catch (Exception e) {
                         log.error("❌ [rec][Redis] INCR 실패: {}", e.getMessage());
