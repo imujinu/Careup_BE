@@ -383,7 +383,6 @@
 ### 재고
 <details>
     <summary>[재고 기능]</summary>
-    [스크린샷 이미지 삽입]
 <details>
     <summary>[재고 기능 1: 본사 재고 등록]</summary>
     [스크린샷 이미지 삽입]
@@ -418,6 +417,34 @@
 </details>
 </details>
 
+### 발주
+<details>
+    <summary>[발주 기능]</summary>
+<details>
+    <summary>[발주 기능 1: 본사 발주 조회]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[발주 기능 2: 본사 발주 상세 조회]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[재고 기능 3: 지점 발주 요청]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[발주 기능 3: 발주 대기, 승인, 배송중, 부분승인, 반려]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+  <details>
+    <summary>[발주 기능 4: 발주 전체 엑셀 다운로드]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+  <details>
+    <summary>[발주 기능 5: 발주 단건 엑셀 다운로드]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+</details>
 
 
 
