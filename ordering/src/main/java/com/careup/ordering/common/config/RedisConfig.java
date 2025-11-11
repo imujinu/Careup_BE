@@ -64,4 +64,27 @@ public class RedisConfig {
         t.setConnectionFactory(cf);
         return t;
     }
+
+    @Bean(name = "coPurchaseConnectionFactory")
+    public RedisConnectionFactory coPurchaseConnectionFactory(
+            @Value("${spring.redis.host}") String host,
+            @Value("${spring.redis.port}") int port
+    ) {
+        RedisStandaloneConfiguration conf = new RedisStandaloneConfiguration();
+        conf.setHostName(host);
+        conf.setPort(port);
+        conf.setDatabase(3); // ✅ co-purchase용 DB index
+        return new LettuceConnectionFactory(conf);
+    }
+
+    @Bean(name = "coPurchaseRedisTemplate")
+    public RedisTemplate<String, Long> coPurchaseRedisTemplate(
+            @Qualifier("coPurchaseConnectionFactory") RedisConnectionFactory cf
+    ) {
+        RedisTemplate<String, Long> template = new RedisTemplate<>();
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        template.setConnectionFactory(cf);
+        return template;
+    }
 }
