@@ -157,6 +157,7 @@ public class CoPurchaseService {
 
                 // 특정 상품이 포함된 쌍만 필터링
                 if (left.equals(productId.toString()) || right.equals(productId.toString())) {
+                    if (left.equals(right)) continue;
                     Long value = redisTemplate.opsForValue().get(key);
                     if (value != null) {
                         String partner = left.equals(productId.toString()) ? right : left;
