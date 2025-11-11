@@ -90,6 +90,11 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
 
+                .requestMatchers(HttpMethod.GET, "/api/category-attributes/**", "/ordering-service/api/category-attributes/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/category-attributes/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.PUT, "/api/category-attributes/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+                .requestMatchers(HttpMethod.DELETE, "/api/category-attributes/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
+
                 .requestMatchers(HttpMethod.GET, "/api/promotions/**", "/ordering-service/api/promotions/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
                 .requestMatchers(HttpMethod.PUT, "/api/promotions/**").hasAnyRole("HQ_ADMIN","BRANCH_ADMIN","FRANCHISE_OWNER")
