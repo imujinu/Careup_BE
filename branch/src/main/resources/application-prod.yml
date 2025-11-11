@@ -9,6 +9,13 @@ feign:
 spring:
   application:
     name: branch-service
+  task:
+    execution:
+      pool:
+        core-size: 5
+        max-size: 10
+        queue-capacity: 50
+      thread-name-prefix: async-
   redis:
     host: redis-service
     port: 6379
@@ -38,7 +45,8 @@ spring:
     consumer:
       group-id: test-topic-group-01
       auto-offset-reset: earliest
-
+      properties:
+        partition.assignment.strategy: org.apache.kafka.clients.consumer.CooperativeStickyAssignor
   mail:
     host: smtp.gmail.com
     port: 587
