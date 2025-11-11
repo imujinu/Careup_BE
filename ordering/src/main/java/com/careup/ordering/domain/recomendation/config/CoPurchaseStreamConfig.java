@@ -36,7 +36,7 @@ public class CoPurchaseStreamConfig {
 
         // ✅ 1️⃣ Debezium 토픽(JSON String)을 수신
         KStream<String, String> orderedItemStream = builder.stream(
-                "careupdb.careup.ordered_item",
+                "careup.careup.ordered_item",
                 Consumed.with(Serdes.String(),
                         Serdes.String(),
                         new DebeziumTimestampExtractor(),
