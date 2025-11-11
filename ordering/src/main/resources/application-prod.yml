@@ -177,7 +177,12 @@
   logging:
     level:
       root: info
+      org.hibernate.SQL: OFF
+      org.hibernate.type.descriptor.sql: OFF
+      org.hibernate.orm.jdbc.bind: OFF
       org.elasticsearch.client: TRACE
       com.careup.ordering.domain.product.elastic: DEBUG
       org.springframework.data.elasticsearch: DEBUG
       org.springframework.kafka: DEBUG
+      org.apache.kafka.streams: INFO
+      org.springframework.kafka.listener.KafkaMessageListenerContainer: WARN

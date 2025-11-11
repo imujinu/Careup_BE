@@ -36,6 +36,7 @@ public class SseAlarmService {
     private final BranchRepository branchRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
     private final NotificationService notificationService;
+    private final NotificationAsyncWriter asyncWriter;
     public void publishNotification(SseNotificationResDto dto) {
 
         try {
@@ -51,26 +52,46 @@ public class SseAlarmService {
         try {
             SseNotificationResDto dto = objectMapper.readValue(message, SseNotificationResDto.class);
             Branch branch = branchRepository.findById(dto.getBranchId()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 지점입니다."));
+            List<DispatchStatus> dispatchStatus = dispatchStatusRepository.findAllByBranch(branch);
 
+            // [ 근태 알림 - 지점장에게만 알림 전송 ]
+            if ("ATTENDANCE".equals(dto.getEventName())){
                 Employee owner = getOwner(dto.getBranchId());
                 SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(owner.getEmail());
                 Notification notification = new Notification().toEntity(dto, owner.getEmail());
-                notificationService.saveNotification(notification);
+                asyncWriter.saveAsync(notification);
                 if (sseEmitter != null) {
                     try {
                         sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
 
                     } catch (IOException e) {
-                        log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
-                        sseEmitter.complete(); // ✅ 정상 종료로 처리
-                        sseEmitterRegistry.removeSseEmitter(owner.getEmail());
+                        e.printStackTrace();
                     }
                 }
+
+            }
+            // [ 재고, 발주, 주문 알림  - 각 지점의 모든 직원들에게 알림 전송]
+            else{
+                for(DispatchStatus ds : dispatchStatus){
+                    SseEmitter sseEmitter = sseEmitterRegistry.getEmitter(ds.getEmployee().getEmail());
+                    Notification notification = new Notification().toEntity(dto, ds.getEmployee().getEmail());
+                    asyncWriter.saveAsync(notification);
+                    if (sseEmitter != null) {
+                        try {
+                            sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
+
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+            }
 
         } catch (IOException e) {
             log.error("❌ Kafka listener error: {}", e.getMessage(), e);
             throw new RuntimeException(e);
         }
+
     }
 
     @Async
