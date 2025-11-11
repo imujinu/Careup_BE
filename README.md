@@ -368,15 +368,16 @@
 ### 주문
 <details>
     <summary>[주문 기능 1: 회원 상품 주문]</summary>
-    [스크린샷 이미지 삽입]
+        <img src="https://github.com/user-attachments/assets/e1687e60-c559-499a-b014-aeb7eb094e19" alt="회원 상품 주문" width="800"/>
+        <img src="https://github.com/user-attachments/assets/6e767d12-568a-45e2-af35-595f034cd2e6" alt="회원 장바구니 통한 주문" width="800"/>  
 </details>
 <details>
-    <summary>[주문 기능 2: 본점 주문 관리 상세 조회]</summary>
-    [스크린샷 이미지 삽입]
+    <summary>[주문 기능 2: 본점 주문 관리 상세 승인]</summary>
+  <img src="https://github.com/user-attachments/assets/4a90f815-0208-4603-80d9-e38988dbd461" alt="지점주문관리 상세승인" width="800"/>  
 </details>
 <details>
-    <summary>[주문 기능 3: 본점 주문 관리 상세 조회]</summary>
-    [스크린샷 이미지 삽입]
+    <summary>[주문 기능 3: 본점 주문 관리 상세 거부]</summary>
+  <img src="https://github.com/user-attachments/assets/ee4ea81d-9122-4fdc-8bcb-1f4fc5ddba27" alt="지점주문관리 상세거부" width="800"/> 
 </details>
 
 
@@ -385,35 +386,36 @@
     <summary>[재고 기능]</summary>
 <details>
     <summary>[재고 기능 1: 본사 재고 등록]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/c8f93ea5-57cb-43aa-88b3-6a7b3abdfc57" alt="본사 재고 등록" width="800"/>
 </details>
 <details>
     <summary>[재고 기능 2: 본사 재고 수정]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/042ab96b-8010-479c-a388-9ba7f5a2105e" alt="본사 재고 수정" width="800"/>
 </details>
 <details>
     <summary>[재고 기능 3: 본사 재고 상세]</summary>
+    <img src="https://github.com/user-attachments/assets/6cd94398-2544-43ab-940f-c673a9e3a76d" alt="본사 재고 상세" width="800"/>
     [스크린샷 이미지 삽입]
 </details>
 <details>
     <summary>[재고 기능 3: 본사 재고 삭제]</summary>
-    [스크린샷 이미지 삽입]
+  <img src="https://github.com/user-attachments/assets/d4e13fe6-b07b-4db8-8bf2-76b30a48c6ff" alt="본사 재고 삭제" width="800"/>
 </details>
   <details>
     <summary>[재고 기능 4: 본사 입출고 기록 등록]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/8eadb3e0-d6a5-485d-af93-22ff6fe2dc25" alt="본사 입출고 기록 등록" width="800"/>
 </details>
   <details>
     <summary>[재고 기능 5: 본사 입출고 기록 수정]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/525e3de9-5d8b-4e02-93f5-a93ef0755c3a" alt="본사 입출고 기록 수정" width="800"/>
 </details>
    <details>
     <summary>[재고 기능 6: 본사 입출고 기록 삭제]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/c310a1b1-b034-4cae-94a7-2ade76e28802" alt="본사 입출고 기록 삭제" width="800"/>
 </details>
   <details>
     <summary>[재고 기능 7: 지점 지점에 상품 추가]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/e3d59a33-d169-4837-85d8-6b3875bbf7f6" alt="지점 지점에 상품 추가" width="800"/>
 </details>
 </details>
 
@@ -422,27 +424,27 @@
     <summary>[발주 기능]</summary>
 <details>
     <summary>[발주 기능 1: 본사 발주 조회]</summary>
-    [스크린샷 이미지 삽입]
+  <img src="https://github.com/user-attachments/assets/2518425e-8fd2-4c38-aa63-19c9f1581f02" alt="본사 발주 조회" width="800"/>
 </details>
 <details>
     <summary>[발주 기능 2: 본사 발주 상세 조회]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/a8d11fed-e63e-4647-ab8c-984d4b162f18" alt="본사 발주 상세 조회" width="800"/>
 </details>
 <details>
     <summary>[재고 기능 3: 지점 발주 요청]</summary>
-    [스크린샷 이미지 삽입]
+  <img src="https://github.com/user-attachments/assets/64a6f5ce-888c-4079-9910-60938377b569" alt="본사 발주 상세 조회" width="800"/>
 </details>
 <details>
     <summary>[발주 기능 3: 발주 대기, 승인, 배송중, 부분승인, 반려]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/8fb47e1d-dacf-4a2b-b638-66ef438095c6" alt="발주 대기,승인,배송중,부분승인,반려" width="800"/>
 </details>
   <details>
     <summary>[발주 기능 4: 발주 전체 엑셀 다운로드]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/ccff59ea-73ae-4c0f-b7d3-4725756b4a29" alt="본사 발주 전체 엑셀 다운로드" width="800"/>
 </details>
   <details>
     <summary>[발주 기능 5: 발주 단건 엑셀 다운로드]</summary>
-    [스크린샷 이미지 삽입]
+    <img src="https://github.com/user-attachments/assets/f444042e-9119-4991-b2a9-10efeb2db9e3" alt="본사 발주 단걸 엑셀 다운로드" width="800"/>
 </details>
 </details>
 
