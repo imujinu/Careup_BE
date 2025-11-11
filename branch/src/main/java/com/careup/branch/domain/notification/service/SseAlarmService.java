@@ -35,7 +35,6 @@ public class SseAlarmService {
     private final ObjectMapper objectMapper;
     private final BranchRepository branchRepository;
     private final DispatchStatusRepository dispatchStatusRepository;
-    private final NotificationService notificationService;
     private final NotificationAsyncWriter asyncWriter;
     public void publishNotification(SseNotificationResDto dto) {
 
@@ -62,7 +61,9 @@ public class SseAlarmService {
                         sseEmitter.send(SseEmitter.event().name(dto.getEventName()).data(dto));
 
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log.info("SSE 연결이 닫혔습니다: {}", e.getMessage());
+                        sseEmitter.complete(); // ✅ 정상 종료로 처리
+                        sseEmitterRegistry.removeSseEmitter(owner.getEmail());
                     }
                 }
         } catch (IOException e) {
@@ -72,12 +73,6 @@ public class SseAlarmService {
 
     }
 
-    @Async
-    @Transactional
-    public void saveNotificationTransactional(SseNotificationResDto dto, DispatchStatus ds) {
-        Notification n = new Notification().toEntity(dto, ds.getEmployee().getEmail());
-        notificationService.saveNotification(n);
-    }
 
     public Employee getOwner(Long branchId){
 
