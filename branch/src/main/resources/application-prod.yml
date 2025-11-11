@@ -74,7 +74,8 @@ spring:
           model: text-embedding-3-small
 qdrant:
   host: qdrant-service
-  port: 6334
+  rest-port: 6333
+  grpc-port: 6334
 
 cloud:
   aws:

@@ -35,7 +35,7 @@ public class VectorStoreConfig {
     @Value("${qdrant.host}")
     private String qdrantHost;
 
-    @Value("${qdrant.port}")
+    @Value("${qdrant.grpc-port}")
     private int qdrantPort;
 
     private final OpenAiEmbeddingModel embeddingModel;

@@ -22,6 +22,7 @@ import org.springframework.ai.vectorstore.filter.Filter;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.ai.vectorstore.qdrant.QdrantVectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpEntity;
@@ -58,6 +59,12 @@ public class InMemoryDocumentVectorStore {
     @Qualifier("ragChatClient")
     private final ChatClient ragChatClient;
 
+    @Value("${qdrant.host}")
+    private String qdrantHost;
+
+    @Value("${qdrant.rest-port}")
+    private int qdrantPort;
+
     public QdrantVectorStore createVectorStore(Long branchId) {
         String collectionName = "documents_" + branchId;
         createCollectionIfNotExists(collectionName);
@@ -68,7 +75,7 @@ public class InMemoryDocumentVectorStore {
     }
 
     private void createCollectionIfNotExists(String collectionName) {
-        String url = "http://localhost:6333/collections/" + collectionName;
+        String url = String.format("http://%s:%d/collections/%s", qdrantHost, qdrantPort, collectionName);
         try {
             restTemplate.getForObject(url, String.class); // 존재 확인
             // 컬렉션이 있으면 그냥 리턴
