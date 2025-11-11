@@ -20,8 +20,6 @@ spec:
             - containerPort: 6333   # REST API
             - containerPort: 6334   # gRPC API
           env:
-            - name: QDRANT__SERVICE__API_KEY
-              value: "careup-qdrant"
             - name: QDRANT__STORAGE__PATH
               value: "/qdrant/storage"
           livenessProbe:

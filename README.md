@@ -76,52 +76,122 @@
   
 ### 01. 프로젝트 주제
 
-🌟 **[프로젝트의 핵심 주제를 한 문장으로 작성해 주세요.]** 
+#### 프랜차이즈 본사와 가맹점 간 투명한 상생을 위한 통합 ERP 및 이커머스 플랫폼
 
-[주제에 대한 부연 설명을 작성합니다.]
+Care Up은 프랜차이즈 본사와 가맹점주 간의 신뢰 구축을 목표로, 투명한 정산 시스템과 통합 운영 관리를 제공하는 종합 비즈니스 솔루션입니다.
 
 ### 02. 프로젝트 소개
-[프로젝트를 기획하게 된 배경이나 기존 서비스의 문제점을 작성해 주세요.]  
+프랜차이즈 시장에서 본사와 가맹점주 간의 갈등은 끊임없이 발생합니다. 불투명한 정산 구조, 일방적인 정책 변경, 과도한 로열티 부담 등이 주요 문제점으로 지적되어 왔습니다.
+Care Up은 이러한 문제를 해결하기 위해 기획된 프랜차이즈 상생 플랫폼입니다.
 
-**[프로젝트 명]** 은(는) 이러한 문제를 해결하기 위해 기획된 **[프로젝트 핵심 가치]** 입니다.  
-
-- [핵심 기능 또는 해결 방안 1]
-- [핵심 기능 또는 해결 방안 2]
-- [핵심 기능 또는 해결 방안 3]
+#### 실시간 매출 및 정산 내역 투명 공개 - 본사와 가맹점이 동일한 데이터를 실시간으로 확인
+#### 지점별 자율 운영권 보장 - 지점별 상품 가격, 재고, 가격대 자율 설정 가능
+#### 통합 이커머스 시스템 - 고객이 각 지점의 상품을 직접 주문하고 구매할 수 있는 플랫폼 제공
+#### 공정한 로열티 산정 - 투명한 KPI 기반 자동 정산 시스템
 
 ### 03. 프로젝트 배경 및 필요성
 
-**3-1. [배경 1: 예) 시장/기술 트렌드]** 
-[첫 번째 배경에 대한 구체적인 설명 (통계, 기사 인용 등)]
+**3-1. 프랜차이즈 시장의 성장과 관리 복잡성** 
+국내 프랜차이즈 시장은 지속적으로 성장하고 있습니다. 공정거래위원회의 2024년 통계에 따르면 가맹본부 수는 8,802개, 전체 가맹점 수는 36만 5천개에 달하며, 가맹점 평균 매출액은 연간 3억 5천만원으로 전년 대비 3.9% 증가했습니다.
+하지만 이러한 성장 이면에는 본사-가맹점 간 신뢰 문제가 존재합니다
 
-&nbsp;&nbsp;&nbsp;&nbsp;[관련 이미지나 차트가 있다면 삽입]
+https://www.korea.kr/briefing/pressReleaseView.do?newsId=156683272#goList
+<img width="729" height="662" alt="스크린샷 2025-11-11 오후 6 52 40" src="https://github.com/user-attachments/assets/b8707647-a0b9-4938-bb19-ba36ef944439" />
 
-&nbsp;&nbsp;&nbsp;&nbsp;출처: [출처 링크]
+
+정보 비대칭: 본사와 가맹점이 서로 다른 데이터를 보유하여 분쟁 발생
+불투명한 정산: 로열티 산정 기준과 매출 집계 방식의 불명확성
+영업지역 침해: 가맹계약 위반으로 인한 영업권 분쟁
+
+한국공정거래조정원에서 운영하는 가맹사업거래분쟁조정협의회에는 정보공개서 미제공, 허위 매출 정보 제공, 가맹금 부당 수령, 영업지역 침해 등의 분쟁이 지속적으로 접수되고 있습니다.
+    "우리 매장 매출은 나는데, 순이익은 왜 안 보이지?" - 가맹점주들의 공통된 고민
 
 
-**3-2. [배경 2: 예) 타겟 유저의 Pain Point]**
-[두 번째 배경에 대한 구체적인 설명]
+**3-2. 중소 프랜차이즈의 낮은 디지털 전환 수준**
+디지털 전환은 현대 기업 경영의 필수 요소가 되었지만, 중소기업의 ERP 도입률은 16.3%로 대기업(95.5%)과 중견기업(52.1%)에 비해 현저히 낮은 수준입니다. 
+통계청 자료에 따르면 2017년 8.6%에 불과했던 전체 기업의 ERP 도입률이 2018년 12.4%로 증가하는 등 디지털 전환에 대한 인식은 확산되고 있으나, 여전히 많은 중소 프랜차이즈는 다음과 같은 문제에 직면해 있습니다
+<img width="751" height="338" alt="스크린샷 2025-11-11 오후 7 02 13" src="https://github.com/user-attachments/assets/02c1fff0-67a4-40d8-a7e8-8b8647418277" />
 
-&nbsp;&nbsp;&nbsp;&nbsp;[관련 이미지나 차트가 있다면 삽입]
+#### 수기 또는 엑셀 기반 관리: 본사-지점 간 데이터 동기화가 실시간으로 이루어지지 않음
+#### 레거시 시스템 의존: 노후화된 시스템으로 인한 확장성 및 유지보수 어려움
+#### 데이터 분석 미흡: 고객 구매 패턴 분석 및 예측 불가
+#### 이커머스 부재: 온라인 주문 시스템 없이 오프라인 매장에만 의존
 
-&nbsp;&nbsp;&nbsp;&nbsp;출처: [출처 링크]
+### 필요성: 실시간 데이터 기반 의사결정과 고객 경험 향상을 위한 통합 디지털 플랫폼 구축 시급
+
 
 ### 04. 프로젝트 주요 기능
-- [주요 기능 1]
-- [주요 기능 2]
-- [주요 기능 3]
+#### 본사 관리 기능
 
-### 05. 서비스 차별화 전략
-- [경쟁 서비스 대비 차별점 1]
-- [경쟁 서비스 대비 차별점 2]
+통합 대시보드: 전체 지점 매출, KPI, 재고 현황 실시간 모니터링
+상품 관리: 카테고리별 상품 분류, 프로모션 설정 및 본사 승인 프로세스
+정산 관리: 자동 로열티 계산 및 투명한 정산 내역 공개
+가맹점 평가: KPI 기반 객관적 평가 시스템
+
+#### 가맹점 관리 기능
+
+지점별 자율 운영: 상품 가격 조정, 재고 관리, 로컬 프로모션 설정
+매출 분석: 시간대별/상품별/고객층별 매출 분석 및 예측
+직원 관리: 근태 관리, 스케줄 작성, 급여 계산
+발주 시스템: 원클릭 재고 발주 및 입출고 자동 기록
+
+#### 고객 이용 기능
+
+지점별 상품 조회: 위치 기반 가까운 지점 탐색 및 지점별 상품/가격 비교
+통합 장바구니: 하나의 지점에서 간편하게 주문
+결제 시스템: Toss Payments 연동으로 안전한 결제
+단골 고객 혜택: 구매 금액별 자동 등급 상향 및 맞춤형 쿠폰 제공
+
+#### 소통 기능
+
+상품 문의: 상품별 Q&A 및 실시간 답변
+채팅 시스템: 본사-가맹점, 고객-가맹점 간 실시간 소통
+리뷰 관리: 구매 후기 작성 및 평점 시스템
+
+### 05.  기술적 차별화
+
+#### MSA 아키텍처: 10개의 독립된 마이크로서비스로 구성되어 확장성과 유지보수성 극대화
+
+회원 관리, 지점 관리, 상품 관리, 재고 관리, 주문/결제, 매출/정산, 고객 관리, 소통, 근태, 알림 서비스
+실시간 데이터 동기화: Kafka 기반 이벤트 스트리밍으로 모든 서비스 간 데이터 실시간 공유
+지점별 커스터마이징: 중앙 통제(branch_id=0)와 지점 자율성(branch_id>0)의 균형 있는 아키텍처 설계
+
+본사는 전체 정책 관리, 각 지점은 가격/재고/프로모션 자율 설정
+
+#### 비즈니스 차별화
+
+투명성 우선: 모든 정산 로직과 계산 근거를 본사/가맹점 양측에 동일하게 공개
+상생 모델: 가맹점 매출 향상이 곧 본사 이익으로 연결되는 Win-Win 구조
+데이터 기반 의사결정: 실시간 매출 분석 및 AI 기반 수요 예측으로 과학적 경영 지원
+통합 이커머스: 오프라인 매장뿐만 아니라 온라인 주문 채널 확보로 매출 다각화
 
 ### 06. 기대효과
-- [기대 효과 1]
-- [기대 효과 2]
 
+
+#### 본사 측면
+관리 효율성 증대: 통합 대시보드를 통한 실시간 모니터링으로 의사결정 시간 단축
+분쟁 비용 감소: 투명한 데이터 공개로 정산 관련 분쟁 발생률 감소
+브랜드 가치 상승: 공정하고 투명한 프랜차이즈로서의 이미지 제고
+데이터 기반 전략 수립: 전체 지점 데이터 분석을 통한 최적화된 본사 정책 수립
+
+#### 가맹점 측면
+
+수익성 향상: 실시간 데이터 기반 운영 최적화 및 온라인 채널 확보로 매출 증대
+운영 자율성 확보: 지역 특성에 맞는 맞춤형 운영 전략 수립 가능
+신뢰 기반 협력: 본사와의 투명한 정산으로 장기적 파트너십 강화
+업무 효율화: 자동화된 재고 관리, 발주, 정산으로 운영 부담 경감
+
+#### 고객 측면
+
+이용 편의성: 통합 플랫폼에서 원하는 지점의 상품을 한 번에 주문
+가격 투명성: 지점별 가격 비교로 합리적 소비 가능
+개인화 혜택: 구매 이력 기반 맞춤형 프로모션 및 단골 고객 혜택
+신뢰할 수 있는 거래: 안전한 결제 시스템 및 구매 후기를 통한 정보 공유
 ### 07. 향후 계획
-- [향후 고도화 계획 1]
-- [향후 고도화 계획 2]
+
+모바일 앱 출시: 고객용 iOS/Android 네이티브 앱 개발 (React Native)
+배달 시스템 연동: 배달 파트너사 API 연동으로 배달 주문 처리 기능 추가
+고급 분석 대시보드: 예상 매출, 재고 최적화, 고객 세그먼트 분석 기능 강화
 
 <br>
 
@@ -215,22 +285,255 @@
   
 ### 관리자
 <details>
-    <summary>[관리자 기능 1]</summary>
+    <summary>[관리자 기능 1 : 대시보드 조회]</summary>
+      [본점]
+      <img src="https://github.com/user-attachments/assets/bbde03d7-a786-4bcf-9ea2-a27a95fed6ab" alt="본사 대시보드 조회" width="800"/>
+      [지점]
+      <img src="https://github.com/user-attachments/assets/876df726-1c3c-432e-a8eb-96b8f4af706b" alt="지점 대시보드 조회" width="800"/>
+</details>
+<details>
+    <summary>[관리자 기능 2: 관리자 로그인]</summary>
+     <img src="https://github.com/user-attachments/assets/d1c3fb0e-0345-4b94-8a92-93ddb492913b" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 3: 관리자 직원 등록]</summary>
+     <img src="https://github.com/user-attachments/assets/b404e61a-c9c0-4f8f-af9d-f37b4260c152" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 3: 관리자 직원 수정]</summary>
+     <img src="https://github.com/user-attachments/assets/b9e739b6-409e-4b93-817f-6d55d2b338fd" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 4: 관리자 직원 비활성화]</summary>
+     <img src="https://github.com/user-attachments/assets/8d7046e9-9eeb-4a34-b260-da5c8e99cbf0" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 5: 본사 관리자의 근무 스케줄 등록]</summary>
+    <img src="https://github.com/user-attachments/assets/a5d7a7bd-9c52-4fe9-97a2-de8edd4128d4" alt="본사 관리자의 스케쥴 등록" width="800"/>
+</details>
+<details>
+    <summary>[관리자 기능 6: 스케줄 등록된 직원의 모바일 앱 출퇴근]</summary>
+    <img src="https://github.com/user-attachments/assets/21a03296-391a-4e5d-bd1a-1d17489abedd" alt="스케줄 등록된 직원의 모바일 앱 출퇴근" width="800"/>
+</details>
+
+<details>
+    <summary><h3>[지점 관리]</h3></summary>
+  
+<details>
+  <summary><h3>지점 관리 Main</h3></summary>
+
+##### 지점 목록 조회 - 본사 관리자
+  ![20251111-0205-49 4237460](https://github.com/user-attachments/assets/a3650489-e379-4dc7-ad76-755874cc6020)
+
+##### 조회할 지점 목록 필드 지정 - 본사 관리자
+  ![20251111-0210-06 5265489](https://github.com/user-attachments/assets/922c58ac-7328-4902-b292-70cf33c760fd)
+
+##### 지점 검색 -> 이미지 다시 수정할 것 - 본사 관리자
+  ![20251111-0207-31 9757478](https://github.com/user-attachments/assets/5af03d0c-599d-4b12-aaef-02ec320627a1)
+
+##### 지점 목록 엑셀로 내보내기 - 본사 관리자
+  <img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/53f646f7-aaad-4543-9418-f0940b0ba485" />
+
+##### 특정 지점 대시보드 조회 - 관리자 전체
+![20251111-0240-40 7587398](https://github.com/user-attachments/assets/2ab06ab7-8c9f-47cb-a258-f044e5399626)
+
+##### 소속 지점 상세 정보 - 직영점/가맹점 관리자
+![20251111-0603-54 7318277](https://github.com/user-attachments/assets/1ffe9230-5639-42f4-85ba-8334dd00bc96)
+
+##### 소속 지점 수정 요청 (본사 관리자에게 요청 전달) - 직영점/가맹점 관리자
+![20251111-0608-37 4702338](https://github.com/user-attachments/assets/d61e75a6-8822-4a6f-ac32-1e25f4ead856)
+![20251111-0612-47 9606465](https://github.com/user-attachments/assets/414e8a0b-d04e-457f-95bd-56b2f35fc5a1)
+
+##### 지점 수정 요청 확인
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/ab22bca4-f906-43f9-b992-b3c13a34562b" />
+
+##### 지점 수정 요청 상세보기 - 본사 관리자
+![20251111-0835-02 6504066](https://github.com/user-attachments/assets/9a422bc7-0f08-41ef-b2ea-49d8f6c02336)
+
+##### 지점 수정 요청 승인 - 본사 관리자
+![20251111-0835-49 1766108](https://github.com/user-attachments/assets/21ac8b9c-e195-4796-a92b-38182c610c5f)
+
+</details>
+<details>
+  <summary><h3>직원 관리 - 본사 관리자, 직영점/가맹점 관리자 권한</h3></summary>
+  
+##### 소속 직원 목록 조회
+![20251111-0243-43 7609212](https://github.com/user-attachments/assets/3df2e9b6-4a2a-4f50-ae29-3da30dc00d24)
+
+##### 소속 직원 추가
+![20251111-0320-44 0507901](https://github.com/user-attachments/assets/1ea304ef-e8c0-4164-8a82-30192bb46ecb)
+
+##### 소속 직원 상세 정보 
+![20251111-0321-33 4479254](https://github.com/user-attachments/assets/9bc8151a-e294-49ed-8ff6-b9e485d06713)
+
+##### 소속 직원 정보 수정
+![20251111-0324-41 2336952](https://github.com/user-attachments/assets/1ff898d1-648a-4513-a7b1-5a7f79c6d8ab)
+<img width="1556" height="348" alt="image" src="https://github.com/user-attachments/assets/f5b74dda-49c5-4089-bad4-d6c00be2ee14" />
+<img width="660" height="443" alt="image" src="https://github.com/user-attachments/assets/5c2bf1d5-93e3-4bbe-9fa3-b15feaa9fd35" />
+
+##### 소속 직원 정보 삭제 - Soft delete
+![20251111-0326-33 6712778](https://github.com/user-attachments/assets/9b2856c2-ef17-4e63-bcfe-5bedf4d56120)
+
+##### 소속 지점 퇴사자 재입사 처리
+![20251111-0327-47 2203659](https://github.com/user-attachments/assets/50b3fb81-9d37-4f74-a6df-3c39d7cd3472)
+
+</details>
+<details>
+  <summary><h3>계약 서류 관리 - 본사 관리자, 직영점/가맹점 관리자 권한</h3></summary>
+
+#### 계약 서류 업로드
+![20251111-0331-18 0262269](https://github.com/user-attachments/assets/d711497b-53e3-4d65-b677-2d11212a327b)
+![20251111-0800-32 3592140](https://github.com/user-attachments/assets/17d49ba0-0877-4821-be10-7cae06bf46c7)
+
+#### 계약 서류 인쇄 및 다운로드
+![20251111-0801-25 2096163](https://github.com/user-attachments/assets/7d565f9c-96b3-4438-a501-5db7ea16390f)
+
+#### 계약 서류 수정
+![20251111-0801-55 2631150](https://github.com/user-attachments/assets/0e1bf113-8dd3-4b1d-92bc-7655fba4402b)
+![20251111-0802-40 0454273](https://github.com/user-attachments/assets/c44d260c-e124-41c9-87da-2ab5bcff0994)
+
+#### 계약 서류 삭제
+![20251111-0803-08 9783566](https://github.com/user-attachments/assets/3ba15899-60c0-4668-a9c0-1571cd9ace16)
+
+</details>
+<details>
+  <summary><h3>고객 관리</h3></summary>
+
+#### 단골 고객 등록 
+![20251111-0331-18 0262269](https://github.com/user-attachments/assets/d711497b-53e3-4d65-b677-2d11212a327b)
+
+</details>
+</details>
+
+<details>
+    <summary><h3>[매출 리포트]</h3></summary>
+
+#### 전체 매출 조회
+![20251111-0444-24 9868221](https://github.com/user-attachments/assets/43c012dd-3d2f-42d7-baed-99974d01caff)
+![20251111-0447-22 7226255](https://github.com/user-attachments/assets/764a5bbb-2088-4996-ba0a-796f3af934b3)
+
+#### 지점 상세 매출 조회
+![20251111-0448-35 8572284](https://github.com/user-attachments/assets/8ed43a1e-1257-4839-a3bd-d9cea93c9143)
+![20251111-0449-06 6084060](https://github.com/user-attachments/assets/8b2edcac-dc62-4b75-b807-69d2015cac25)
+
+#### 지점 매출 비교
+![20251111-0450-50 0768976](https://github.com/user-attachments/assets/45aae873-d41f-4bf8-83e6-523b862e9c50)
+
+#### 각 매출 리포트 엑셀 다운로드
+##### 전체 매출 엑셀
+![20251111-0535-42 4373400](https://github.com/user-attachments/assets/25fa8a90-7359-40c9-84cc-01f1421c4ba6)
+<img width="1423" height="732" alt="image" src="https://github.com/user-attachments/assets/0b429324-fa83-46d0-9e29-8f189dd1fffc" />
+
+##### 지점 상세 매출 엑셀
+![20251111-0551-57 5846559](https://github.com/user-attachments/assets/a57bccef-e69a-4518-9361-e4b4494dbc89)
+<img width="1423" height="732" alt="image" src="https://github.com/user-attachments/assets/8ec840c7-8ecc-4c44-a6a5-02301e05e699" />
+
+##### 지점 매출 비교 엑셀
+![20251111-0555-10 3076604](https://github.com/user-attachments/assets/ec61b46a-7643-4043-8f85-5895376a1304)
+<img width="1423" height="732" alt="image" src="https://github.com/user-attachments/assets/fb89a7b7-8008-42db-8dae-9f2d9f5f20a5" />
+
+</details>
+</details>
+
+### 주문
+<details>
+    <summary>[주문 기능 1: 회원 상품 주문]</summary>
+        <img src="https://github.com/user-attachments/assets/e1687e60-c559-499a-b014-aeb7eb094e19" alt="회원 상품 주문" width="800"/>
+        <img src="https://github.com/user-attachments/assets/6e767d12-568a-45e2-af35-595f034cd2e6" alt="회원 장바구니 통한 주문" width="800"/>  
+</details>
+<details>
+    <summary>[주문 기능 2: 본점 주문 관리 상세 승인]</summary>
+  <img src="https://github.com/user-attachments/assets/4a90f815-0208-4603-80d9-e38988dbd461" alt="지점주문관리 상세승인" width="800"/>  
+</details>
+<details>
+    <summary>[주문 기능 3: 본점 주문 관리 상세 거부]</summary>
+  <img src="https://github.com/user-attachments/assets/ee4ea81d-9122-4fdc-8bcb-1f4fc5ddba27" alt="지점주문관리 상세거부" width="800"/> 
+</details>
+
+
+### 재고
+<details>
+    <summary>[재고 기능]</summary>
+<details>
+    <summary>[재고 기능 1: 본사 재고 등록]</summary>
+    <img src="https://github.com/user-attachments/assets/c8f93ea5-57cb-43aa-88b3-6a7b3abdfc57" alt="본사 재고 등록" width="800"/>
+</details>
+<details>
+    <summary>[재고 기능 2: 본사 재고 수정]</summary>
+    <img src="https://github.com/user-attachments/assets/042ab96b-8010-479c-a388-9ba7f5a2105e" alt="본사 재고 수정" width="800"/>
+</details>
+<details>
+    <summary>[재고 기능 3: 본사 재고 상세]</summary>
+    <img src="https://github.com/user-attachments/assets/6cd94398-2544-43ab-940f-c673a9e3a76d" alt="본사 재고 상세" width="800"/>
     [스크린샷 이미지 삽입]
 </details>
 <details>
-    <summary>[관리자 기능 2]</summary>
-    [스크린샷 이미지 삽입]
+    <summary>[재고 기능 3: 본사 재고 삭제]</summary>
+  <img src="https://github.com/user-attachments/assets/d4e13fe6-b07b-4db8-8bf2-76b30a48c6ff" alt="본사 재고 삭제" width="800"/>
 </details>
-  
+  <details>
+    <summary>[재고 기능 4: 본사 입출고 기록 등록]</summary>
+    <img src="https://github.com/user-attachments/assets/8eadb3e0-d6a5-485d-af93-22ff6fe2dc25" alt="본사 입출고 기록 등록" width="800"/>
+</details>
+  <details>
+    <summary>[재고 기능 5: 본사 입출고 기록 수정]</summary>
+    <img src="https://github.com/user-attachments/assets/525e3de9-5d8b-4e02-93f5-a93ef0755c3a" alt="본사 입출고 기록 수정" width="800"/>
+</details>
+   <details>
+    <summary>[재고 기능 6: 본사 입출고 기록 삭제]</summary>
+    <img src="https://github.com/user-attachments/assets/c310a1b1-b034-4cae-94a7-2ade76e28802" alt="본사 입출고 기록 삭제" width="800"/>
+</details>
+  <details>
+    <summary>[재고 기능 7: 지점 지점에 상품 추가]</summary>
+    <img src="https://github.com/user-attachments/assets/e3d59a33-d169-4837-85d8-6b3875bbf7f6" alt="지점 지점에 상품 추가" width="800"/>
+</details>
+</details>
+
+### 발주
+<details>
+    <summary>[발주 기능]</summary>
+<details>
+    <summary>[발주 기능 1: 본사 발주 조회]</summary>
+  <img src="https://github.com/user-attachments/assets/2518425e-8fd2-4c38-aa63-19c9f1581f02" alt="본사 발주 조회" width="800"/>
+</details>
+<details>
+    <summary>[발주 기능 2: 본사 발주 상세 조회]</summary>
+    <img src="https://github.com/user-attachments/assets/a8d11fed-e63e-4647-ab8c-984d4b162f18" alt="본사 발주 상세 조회" width="800"/>
+</details>
+<details>
+    <summary>[재고 기능 3: 지점 발주 요청]</summary>
+  <img src="https://github.com/user-attachments/assets/64a6f5ce-888c-4079-9910-60938377b569" alt="본사 발주 상세 조회" width="800"/>
+</details>
+<details>
+    <summary>[발주 기능 3: 발주 대기, 승인, 배송중, 부분승인, 반려]</summary>
+    <img src="https://github.com/user-attachments/assets/8fb47e1d-dacf-4a2b-b638-66ef438095c6" alt="발주 대기,승인,배송중,부분승인,반려" width="800"/>
+</details>
+  <details>
+    <summary>[발주 기능 4: 발주 전체 엑셀 다운로드]</summary>
+    <img src="https://github.com/user-attachments/assets/ccff59ea-73ae-4c0f-b7d3-4725756b4a29" alt="본사 발주 전체 엑셀 다운로드" width="800"/>
+</details>
+  <details>
+    <summary>[발주 기능 5: 발주 단건 엑셀 다운로드]</summary>
+    <img src="https://github.com/user-attachments/assets/f444042e-9119-4991-b2a9-10efeb2db9e3" alt="본사 발주 단걸 엑셀 다운로드" width="800"/>
+</details>
+</details>
+
 ### 회원
 <details>
-    <summary>[회원 기능 1: 예) 로그인]</summary>
-    [스크린샷 이미지 삽입]
+    <summary>[회원 기능 1: 고객 회원가입]</summary>
+    <img src="https://github.com/user-attachments/assets/3f63320a-ac7c-4621-81cd-cd94253964a8" alt="고객 일반 회원가입" width="800"/>
 </details>
 <details>
-    <summary>[회원 기능 2: 예) 마이페이지]</summary>
-    [스크린샷 이미지 삽입]
+    <summary>[회원 기능 1: 고객 일반 로그인]</summary>
+  <img src="https://github.com/user-attachments/assets/55e4ae9e-daea-4f99-8f66-d3502961e312" alt="고객 일반 로그인" width="800"/>
+</details>
+<details>
+    <summary>[회원 기능 2: 고객 간편 로그인(카카오)]</summary>
+    <img src="https://github.com/user-attachments/assets/24b1f2c0-fee2-4adc-8a01-c1eeb0680e76" alt="고객 카카오 로그인" width="800"/>
+</details>
+<details>
+    <summary>[회원 기능 3: 고객 간편 로그인(구글)]</summary>
+      <img src="https://github.com/user-attachments/assets/ee02aa97-2878-44c2-aab4-c2ecd5b21a3a" alt="고객 카카오 로그인" width="800"/>
 </details>
   
 ### 챗봇
@@ -335,6 +638,8 @@
 </details>
 
 </details>
+
+
 
 ## 🛠️ 트러블 슈팅
 

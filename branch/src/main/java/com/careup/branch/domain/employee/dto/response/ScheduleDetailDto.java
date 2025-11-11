@@ -3,6 +3,7 @@ package com.careup.branch.domain.employee.dto.response;
 import com.careup.branch.domain.employee.entity.AttendanceStatus;
 import com.careup.branch.domain.employee.entity.Schedule;
 import com.careup.branch.domain.employee.entity.ScheduleEvent;
+import com.careup.branch.domain.employee.entity.WorkType;
 import com.careup.branch.domain.employee.entity.ScheduleTypeCategory;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -11,6 +12,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 @Getter
 @Builder
@@ -18,7 +20,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class ScheduleDetailDto {
     private Long id;
-    private Long eventId; // ★ 추가
+    private Long eventId;
 
     private Long employeeId;
     private String employeeName;
@@ -50,6 +52,9 @@ public class ScheduleDetailDto {
     private String badgeText;
     private boolean missedCheckout;
 
+    // ★ 추가: 근무타입 기준 지오펜스 필수 여부(미확정이면 null)
+    private Boolean workTypeGeofenceRequired;
+
     public static ScheduleDetailDto from(Schedule s, ScheduleEvent e) {
         return from(s, e, null, null);
     }
@@ -58,16 +63,21 @@ public class ScheduleDetailDto {
         Integer workMin  = e != null ? e.getTotalWorkMinutes()  : null;
         Integer breakMin = e != null ? e.getTotalBreakMinutes() : null;
 
+        WorkType wt = s.getWorkType();
+        Boolean fenceRequired = Optional.ofNullable(wt)
+                .map(WorkType::getGeofenceRequired) // WorkType에 Boolean getGeofenceRequired() 존재 가정
+                .orElse(null);
+
         return ScheduleDetailDto.builder()
                 .id(s.getId())
-                .eventId(e != null ? e.getId() : null) // ★ 추가
+                .eventId(e != null ? e.getId() : null)
                 .employeeId(s.getEmployee() != null ? s.getEmployee().getId() : null)
                 .employeeName(s.getEmployee() != null ? s.getEmployee().getName() : null)
                 .branchId(s.getBranch() != null ? s.getBranch().getId() : null)
                 .branchName(s.getBranch() != null ? s.getBranch().getName() : null)
                 .category(s.getCategory())
-                .workTypeId(s.getWorkType() != null ? s.getWorkType().getId() : null)
-                .workTypeName(s.getWorkType() != null ? s.getWorkType().getName() : null)
+                .workTypeId(wt != null ? wt.getId() : null)
+                .workTypeName(wt != null ? wt.getName() : null)
                 .leaveTypeId(s.getLeaveType() != null ? s.getLeaveType().getId() : null)
                 .leaveTypeName(s.getLeaveType() != null ? s.getLeaveType().getName() : null)
                 .attendanceTemplateId(s.getAttendanceTemplate() != null ? s.getAttendanceTemplate().getId() : null)
@@ -86,6 +96,7 @@ public class ScheduleDetailDto {
                 .status(status)
                 .badgeText(badgeText)
                 .missedCheckout(e != null && e.isMissedCheckout())
+                .workTypeGeofenceRequired(fenceRequired)
                 .build();
     }
 }

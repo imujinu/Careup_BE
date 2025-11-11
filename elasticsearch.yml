@@ -5,6 +5,8 @@ metadata:
   namespace: care-up
 spec:
   replicas: 1
+  strategy:
+    type: Recreate  # RollingUpdate 대신 Recreate 사용하여 pod 중복 방지
   selector:
     matchLabels:
       app: elasticsearch
@@ -57,14 +59,23 @@ spec:
               mountPath: /usr/share/elasticsearch/data
             - name: es-plugins
               mountPath: /usr/share/elasticsearch/plugins
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health?wait_for_status=yellow&timeout=5s
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /_cluster/health
               port: 9200
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 20
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 5
       # ✅ PVC 제거 → emptyDir로 교체
       volumes:
         - name: es-data

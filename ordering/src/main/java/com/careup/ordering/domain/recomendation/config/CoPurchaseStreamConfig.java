@@ -2,6 +2,7 @@ package com.careup.ordering.domain.recomendation.config;
 
 
 import com.careup.ordering.domain.recomendation.dto.OrderedItemEvent;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -36,7 +37,7 @@ public class CoPurchaseStreamConfig {
 
         // ✅ 1️⃣ Debezium 토픽(JSON String)을 수신
         KStream<String, String> orderedItemStream = builder.stream(
-                "careupdb.careup.ordered_item",
+                "careup.careup.ordered_item",
                 Consumed.with(Serdes.String(),
                         Serdes.String(),
                         new DebeziumTimestampExtractor(),
@@ -60,26 +61,27 @@ public class CoPurchaseStreamConfig {
                 .filter((k, v) -> v != null)
                 .peek((k, v) -> log.info("✅ [rec] OrderedItemEvent 수신됨: {}", v));
 
-        // ✅ 3️⃣ orderId(String) 기준으로 그룹핑 → 윈도우 집계
-        parsedStream
+        // ✅ 3️⃣ orderId 기준으로 그룹핑 → 윈도우 내 상품 ID 모으기
+        KTable<Windowed<String>, List<Long>> orderGrouped = parsedStream
                 .filter((k, v) -> v.getOrderId() != null && v.getBranchProductId() != null)
                 .groupBy(
                         (key, value) -> value.getOrderId().toString(),
                         Grouped.with(Serdes.String(), new JsonSerde<>(OrderedItemEvent.class))
                 )
-                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(1))) // 짧게 테스트 가능
+                .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(1)))
                 .aggregate(
-                        ArrayList::new,
+                        (Initializer<List<Long>>) ArrayList::new,  // ✅ 타입 명시
                         (orderId, newItem, aggregate) -> {
                             aggregate.add(newItem.getBranchProductId());
                             return aggregate;
                         },
-                        Materialized.with(Serdes.String(), new JsonSerde<>(ArrayList.class))
-                )
+                        Materialized.with(Serdes.String(), new JsonSerde<>(new TypeReference<List<Long>>() {}))
+                );
+
+        // ✅ 4️⃣ 윈도우 내 상품쌍 생성 및 카운팅
+        KTable<Windowed<String>, Long> coPurchaseCountTable = orderGrouped
                 .toStream()
-                // ✅ window key → String 변환
                 .map((windowedKey, items) -> KeyValue.pair(windowedKey.key(), items))
-                // ✅ 상품쌍 생성
                 .flatMap((orderId, items) -> {
                     List<KeyValue<String, String>> pairs = new ArrayList<>();
                     for (int i = 0; i < items.size(); i++) {
@@ -90,14 +92,24 @@ public class CoPurchaseStreamConfig {
                     }
                     return pairs;
                 })
-                // ✅ 상품쌍별 카운트
                 .groupByKey(Grouped.with(Serdes.String(), Serdes.String()))
                 .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofDays(30), Duration.ofDays(1)))
-                .count(Materialized.as("co_purchase_count"))
-                .toStream()
-                .peek((k, v) -> log.info("🟢 [rec] 상품쌍={} | 함께 구매된 횟수={}", k, v));
+                .count(Materialized.as("co_purchase_count_local"));
 
-        log.info("[rec] Kafka Streams 파이프라인 실행 완료 ✅");
+        // ✅ 5️⃣ 카운트 결과를 별도 토픽으로 내보내기
+        coPurchaseCountTable.toStream()
+                .map((windowedKey, v) -> KeyValue.pair(windowedKey.key(), v))
+                .peek((k, v) -> log.info("🟢 [rec] 상품쌍={} | 함께 구매된 횟수={}", k, v))
+                .to("co_purchase_count_topic", Produced.with(Serdes.String(), Serdes.Long()));
+
+        // ✅ 6️⃣ GlobalKTable 로 전역 스토어 구성
+        builder.globalTable(
+                "co_purchase_count_topic",
+                Consumed.with(Serdes.String(), Serdes.Long()),
+                Materialized.as("global_co_purchase_count")
+        );
+
+        log.info("[rec] Kafka Streams 파이프라인(GlobalTable) 실행 완료 ✅");
         return orderedItemStream;
     }
 
