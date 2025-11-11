@@ -14,8 +14,10 @@ import org.apache.kafka.streams.StreamsBuilder;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.kstream.*;
 import org.apache.kafka.streams.processor.TimestampExtractor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.EnableKafkaStreams;
 import org.springframework.kafka.support.serializer.JsonSerde;
 
@@ -30,6 +32,8 @@ import java.util.List;
 public class CoPurchaseStreamConfig {
 
     private final ObjectMapper objectMapper;
+    @Qualifier("coPurchaseRedisTemplate")
+    private final RedisTemplate<String, Long> redisTemplate; // ✅ Redis 주입
 
     @Bean
     public KStream<String, String> coPurchaseStream(StreamsBuilder builder) {
@@ -37,7 +41,7 @@ public class CoPurchaseStreamConfig {
 
         // ✅ 1️⃣ Debezium 토픽(JSON String)을 수신
         KStream<String, String> orderedItemStream = builder.stream(
-                "careup.careup.ordered_item",
+                "careupdb.careup.ordered_item",
                 Consumed.with(Serdes.String(),
                         Serdes.String(),
                         new DebeziumTimestampExtractor(),
@@ -61,8 +65,8 @@ public class CoPurchaseStreamConfig {
                 .filter((k, v) -> v != null)
                 .peek((k, v) -> log.info("✅ [rec] OrderedItemEvent 수신됨: {}", v));
 
-        // ✅ 3️⃣ orderId 기준으로 그룹핑 → 윈도우 내 상품 ID 모으기
-        KTable<Windowed<String>, List<Long>> orderGrouped = parsedStream
+        // ✅ 3️⃣ orderId 기준으로 상품쌍 집계 후 Redis에 저장
+        parsedStream
                 .filter((k, v) -> v.getOrderId() != null && v.getBranchProductId() != null)
                 .groupBy(
                         (key, value) -> value.getOrderId().toString(),
@@ -70,16 +74,13 @@ public class CoPurchaseStreamConfig {
                 )
                 .windowedBy(TimeWindows.ofSizeWithNoGrace(Duration.ofSeconds(1)))
                 .aggregate(
-                        (Initializer<List<Long>>) ArrayList::new,  // ✅ 타입 명시
+                        ArrayList::new,
                         (orderId, newItem, aggregate) -> {
                             aggregate.add(newItem.getBranchProductId());
                             return aggregate;
                         },
-                        Materialized.with(Serdes.String(), new JsonSerde<>(new TypeReference<List<Long>>() {}))
-                );
-
-        // ✅ 4️⃣ 윈도우 내 상품쌍 생성 및 카운팅
-        KTable<Windowed<String>, Long> coPurchaseCountTable = orderGrouped
+                        Materialized.with(Serdes.String(), new JsonSerde<>(ArrayList.class))
+                )
                 .toStream()
                 .map((windowedKey, items) -> KeyValue.pair(windowedKey.key(), items))
                 .flatMap((orderId, items) -> {
@@ -92,28 +93,21 @@ public class CoPurchaseStreamConfig {
                     }
                     return pairs;
                 })
-                .groupByKey(Grouped.with(Serdes.String(), Serdes.String()))
-                .windowedBy(TimeWindows.ofSizeAndGrace(Duration.ofDays(30), Duration.ofDays(1)))
-                .count(Materialized.as("co_purchase_count_local"));
+                .foreach((pairKey, one) -> {
+                    try {
+                        // ✅ Redis에서 pairKey 기준으로 카운트 증가 (atomic)
+                        Long newCount = redisTemplate.opsForValue().increment("co_purchase_count:" + pairKey, 1);
+                        log.info("🟢 [rec][Redis] 상품쌍={} | 누적횟수={}", pairKey, newCount);
+                    } catch (Exception e) {
+                        log.error("❌ [rec][Redis] INCR 실패: {}", e.getMessage());
+                    }
+                });
 
-        // ✅ 5️⃣ 카운트 결과를 별도 토픽으로 내보내기
-        coPurchaseCountTable.toStream()
-                .map((windowedKey, v) -> KeyValue.pair(windowedKey.key(), v))
-                .peek((k, v) -> log.info("🟢 [rec] 상품쌍={} | 함께 구매된 횟수={}", k, v))
-                .to("co_purchase_count_topic", Produced.with(Serdes.String(), Serdes.Long()));
-
-        // ✅ 6️⃣ GlobalKTable 로 전역 스토어 구성
-        builder.globalTable(
-                "co_purchase_count_topic",
-                Consumed.with(Serdes.String(), Serdes.Long()),
-                Materialized.as("global_co_purchase_count")
-        );
-
-        log.info("[rec] Kafka Streams 파이프라인(GlobalTable) 실행 완료 ✅");
+        log.info("[rec] Kafka Streams → Redis 파이프라인 실행 완료 ✅");
         return orderedItemStream;
     }
 
-    // ✅ Debezium 이벤트의 ts_ms를 추출해 타임스탬프로 사용
+    // ✅ Debezium 이벤트의 ts_ms를 타임스탬프로 사용
     public static class DebeziumTimestampExtractor implements TimestampExtractor {
         private final ObjectMapper mapper = new ObjectMapper();
 
@@ -126,8 +120,6 @@ public class CoPurchaseStreamConfig {
                 return partitionTime;
             }
         }
-
-
     }
 }
 

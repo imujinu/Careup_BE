@@ -17,15 +17,20 @@ import org.apache.kafka.streams.kstream.Windowed;
 import org.apache.kafka.streams.state.QueryableStoreTypes;
 import org.apache.kafka.streams.state.ReadOnlyWindowStore;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.kafka.config.StreamsBuilderFactoryBean;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -41,6 +46,8 @@ public class CoPurchaseService {
 
     private final ProductCoPurchaseRepository coPurchaseRepository;
     private final MemberQueryService memberQueryService;
+    @Qualifier("coPurchaseRedisTemplate")
+    private final RedisTemplate<String, Long> redisTemplate;
     @Autowired
     private final StreamsBuilderFactoryBean factoryBean;
     private final QdrantService qdrantService;
@@ -68,22 +75,6 @@ public class CoPurchaseService {
         }
     }
 
-    public void increaseCoPurchase(Long productAId, Long productBId) {
-        // 항상 작은 ID가 A가 되도록 정렬
-        Long a = Math.min(productAId, productBId);
-        Long b = Math.max(productAId, productBId);
-
-        ProductCoPurchase co = coPurchaseRepository
-                .findByProductAIdAndProductBId(a, b)
-                .orElseGet(() -> ProductCoPurchase.builder()
-                        .productAId(a)
-                        .productBId(b)
-                        .coPurchaseCount(0L)
-                        .build());
-
-        co.increaseCount();
-        coPurchaseRepository.save(co);
-    }
 
 
 
@@ -145,49 +136,42 @@ public class CoPurchaseService {
 
 
     public List<Map.Entry<String, Long>> getCoPurchasedProducts(Long productId) {
-        KafkaStreams streams = factoryBean.getKafkaStreams();
-        if (streams == null) throw new IllegalStateException("Kafka Streams is not ready yet");
-
-
-
-        ReadOnlyWindowStore<String, Long> store =
-                streams.store(StoreQueryParameters.fromNameAndType(
-                        "global_co_purchase_count",
-                        QueryableStoreTypes.windowStore()
-                ));
-        ZoneId zone = ZoneId.of("Asia/Seoul");
-        Instant now = ZonedDateTime.now(zone).toInstant();
-        Instant from = now.minus(Duration.ofDays(30));
-        Instant to = now;
+        String pattern = "co_purchase_count:*";
         Map<String, Long> coPurchaseMap = new HashMap<>();
-        // 전체 스토어 순회
-        store.fetchAll(from, to).forEachRemaining(record -> {
-            Windowed<String> windowedKey = record.key;
-            String pairKey = windowedKey.key(); // 예: "1-2"
-            Long count = record.value;
 
+        // Redis에서 모든 co_purchase_count key 스캔
+        ScanOptions options = ScanOptions.scanOptions().match(pattern).count(1000).build();
+        try (Cursor<byte[]> cursor = (Cursor<byte[]>) redisTemplate.getConnectionFactory()
+                .getConnection()
+                .keyCommands()
+                .scan(options)) {
 
-            String[] parts = pairKey.split("-");
-            if (parts.length != 2) return;
+            while (cursor.hasNext()) {
+                String key = new String(cursor.next(), StandardCharsets.UTF_8); // co_purchase_count:123-456
+                String pair = key.replace("co_purchase_count:", "");
+                String[] parts = pair.split("-");
+                if (parts.length != 2) continue;
 
-            String left = parts[0];
-            String right = parts[1];
+                String left = parts[0];
+                String right = parts[1];
 
-            // 특정 productId가 들어있는 쌍만 필터링
-            if (left.equals(productId.toString())) {
-                coPurchaseMap.merge(right, count, Long::sum);
-            } else if (right.equals(productId.toString())) {
-                coPurchaseMap.merge(left, count, Long::sum);
+                // 특정 상품이 포함된 쌍만 필터링
+                if (left.equals(productId.toString()) || right.equals(productId.toString())) {
+                    Long value = redisTemplate.opsForValue().get(key);
+                    if (value != null) {
+                        String partner = left.equals(productId.toString()) ? right : left;
+                        coPurchaseMap.merge(partner, value, Long::sum);
+                    }
+                }
             }
-        });
+        } catch (Exception e) {
+            log.error("❌ [rec] Redis co-purchase fetch 실패: {}", e.getMessage());
+        }
 
-
-
-
-        // 구매 횟수 높은 순으로 정렬
+        // 구매 횟수 내림차순 정렬
         return coPurchaseMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(10) // 상위 10개
+                .limit(10)
                 .collect(Collectors.toList());
     }
 
