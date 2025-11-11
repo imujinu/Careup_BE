@@ -22,31 +22,37 @@ public class VectorEncoder {
     public float[] encode(Map<String, String> features, Product product) {
         List<Float> vector = new ArrayList<>();
 
-        // [ 카테고리, 컬러, 분류, 계절, 성별 ] 순서
+        // [ 카테고리, 컬러, 분류, 계절, 성별, 가격 ] 순서
+        List<String> categories = List.of("상의", "하의", "아우터", "신발", "악세서리", "기타");
+        List<Float> categoryVec = oneHot(product.getCategory().getName(), categories);
+        scale(categoryVec, 2.0f); // ✅ 카테고리 가중치
 
-        String category = product.getCategory().getName();
-        vector.addAll(oneHot(category, List.of("상의", "하의", "아우터", "신발", "악세서리", "기타")));
+        vector.addAll(categoryVec);
 
+        // 컬러
         List<String> colorList = List.of("흰색", "회색", "검은색", "카키색", "베이직", "파란색", "기타");
-        String color = features.getOrDefault("color", randomPick(colorList));
+        String color = features.getOrDefault("color", "기타"); // ✅ random 제거
         vector.addAll(oneHot(color, colorList));
 
+        // 사이즈
         List<String> sizeList = List.of("220", "230", "240", "250", "260", "270");
-        String useType = features.getOrDefault("useType", randomPick(sizeList));
+        String useType = features.getOrDefault("useType", "260");
         vector.addAll(oneHot(useType, sizeList));
 
+        // 계절
         List<String> seasonList = List.of("봄", "여름", "가을", "겨울", "사계절");
-        String season = features.getOrDefault("season", randomPick(seasonList));
+        String season = features.getOrDefault("season", "사계절");
         vector.addAll(oneHot(season, seasonList));
 
+        // 성별
         List<String> genderList = List.of("남성", "여성", "공용");
-        String gender = features.getOrDefault("gender", randomPick(genderList));
+        String gender = features.getOrDefault("gender", "공용");
         vector.addAll(oneHot(gender, genderList));
 
-        // 6️⃣ Price normalization
+        // 가격
         if (features.containsKey("price")) {
-            float price = Float.parseFloat(features.get("price"));
-            vector.add(normalize(price, 10000, 300000)); // 예: 1만~30만 원 사이
+            float price = Float.parseFloat(String.valueOf(product.getMaxPrice()));
+            vector.add(normalize(price, 10000, 300000));
         } else {
             vector.add(0f);
         }
@@ -71,5 +77,11 @@ public class VectorEncoder {
         float[] arr = new float[list.size()];
         for (int i = 0; i < list.size(); i++) arr[i] = list.get(i);
         return arr;
+    }
+
+    private void scale(List<Float> vec, float weight) {
+        for (int i = 0; i < vec.size(); i++) {
+            vec.set(i, vec.get(i) * weight);
+        }
     }
 }
