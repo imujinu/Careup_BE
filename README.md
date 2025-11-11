@@ -215,21 +215,50 @@
   
 ### 관리자
 <details>
-    <summary>[관리자 기능 1]</summary>
+    <summary>[관리자 기능 1 : 대시보드 조회]</summary>
     [스크린샷 이미지 삽입]
 </details>
 <details>
-    <summary>[관리자 기능 2]</summary>
-    [스크린샷 이미지 삽입]
+    <summary>[관리자 기능 2: 관리자 로그인]</summary>
+     <img src="https://github.com/user-attachments/assets/d1c3fb0e-0345-4b94-8a92-93ddb492913b" width="100px;"/>
 </details>
+<details>
+    <summary>[관리자 기능 3: 관리자 직원 등록]</summary>
+     <img src="https://github.com/user-attachments/assets/b404e61a-c9c0-4f8f-af9d-f37b4260c152" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 3: 관리자 직원 수정]</summary>
+     <img src="https://github.com/user-attachments/assets/b9e739b6-409e-4b93-817f-6d55d2b338fd" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 4: 관리자 직원 비활성화]</summary>
+     <img src="https://github.com/user-attachments/assets/8d7046e9-9eeb-4a34-b260-da5c8e99cbf0" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 5: 본사 관리자의 근무 스케줄 등록]</summary>
+     <img src=https://github.com/user-attachments/assets/eb813c1b-1ff6-44ac-84a0-fc11ec0a7404"" width="100px;"/>
+</details>
+<details>
+    <summary>[관리자 기능 6: 스케줄 등록된 직원의 모바일 앱 출퇴근]</summary>
+     <img src="" width="100px;"/>
+</details>
+
   
 ### 회원
 <details>
-    <summary>[회원 기능 1: 예) 로그인]</summary>
+    <summary>[회원 기능 1: 고객 회원가입]</summary>
     [스크린샷 이미지 삽입]
 </details>
 <details>
-    <summary>[회원 기능 2: 예) 마이페이지]</summary>
+    <summary>[회원 기능 1: 고객 일반 로그인]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[회원 기능 2: 고객 간편 로그인(카카오)]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[회원 기능 3: 고객 간편 로그인(구글)]</summary>
     [스크린샷 이미지 삽입]
 </details>
   
@@ -335,6 +364,62 @@
 </details>
 
 </details>
+
+### 주문
+<details>
+    <summary>[주문 기능 1: 회원 상품 주문]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[주문 기능 2: 본점 주문 관리 상세 조회]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[주문 기능 3: 본점 주문 관리 상세 조회]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+
+
+### 재고
+<details>
+    <summary>[재고 기능]</summary>
+    [스크린샷 이미지 삽입]
+<details>
+    <summary>[재고 기능 1: 본사 재고 등록]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[재고 기능 2: 본사 재고 수정]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[재고 기능 3: 본사 재고 상세]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+<details>
+    <summary>[재고 기능 3: 본사 재고 삭제]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+  <details>
+    <summary>[재고 기능 4: 본사 입출고 기록 등록]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+  <details>
+    <summary>[재고 기능 5: 본사 입출고 기록 수정]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+   <details>
+    <summary>[재고 기능 6: 본사 입출고 기록 삭제]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+  <details>
+    <summary>[재고 기능 7: 지점 지점에 상품 추가]</summary>
+    [스크린샷 이미지 삽입]
+</details>
+</details>
+
+
+
 
 ## 🛠️ 트러블 슈팅
 
