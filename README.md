@@ -246,6 +246,125 @@
     <img src="https://github.com/user-attachments/assets/21a03296-391a-4e5d-bd1a-1d17489abedd" alt="스케줄 등록된 직원의 모바일 앱 출퇴근" width="800"/>
 </details>
 
+<details>
+    <summary><h3>[지점 관리]</h3></summary>
+  
+<details>
+  <summary><h3>지점 관리 Main</h3></summary>
+
+##### 지점 목록 조회 - 본사 관리자
+  ![20251111-0205-49 4237460](https://github.com/user-attachments/assets/a3650489-e379-4dc7-ad76-755874cc6020)
+
+##### 조회할 지점 목록 필드 지정 - 본사 관리자
+  ![20251111-0210-06 5265489](https://github.com/user-attachments/assets/922c58ac-7328-4902-b292-70cf33c760fd)
+
+##### 지점 검색 -> 이미지 다시 수정할 것 - 본사 관리자
+  ![20251111-0207-31 9757478](https://github.com/user-attachments/assets/5af03d0c-599d-4b12-aaef-02ec320627a1)
+
+##### 지점 목록 엑셀로 내보내기 - 본사 관리자
+  <img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/53f646f7-aaad-4543-9418-f0940b0ba485" />
+
+##### 특정 지점 대시보드 조회 - 관리자 전체
+![20251111-0240-40 7587398](https://github.com/user-attachments/assets/2ab06ab7-8c9f-47cb-a258-f044e5399626)
+
+##### 소속 지점 상세 정보 - 직영점/가맹점 관리자
+![20251111-0603-54 7318277](https://github.com/user-attachments/assets/1ffe9230-5639-42f4-85ba-8334dd00bc96)
+
+##### 소속 지점 수정 요청 (본사 관리자에게 요청 전달) - 직영점/가맹점 관리자
+![20251111-0608-37 4702338](https://github.com/user-attachments/assets/d61e75a6-8822-4a6f-ac32-1e25f4ead856)
+![20251111-0612-47 9606465](https://github.com/user-attachments/assets/414e8a0b-d04e-457f-95bd-56b2f35fc5a1)
+
+##### 지점 수정 요청 확인
+<img width="1920" height="1020" alt="image" src="https://github.com/user-attachments/assets/ab22bca4-f906-43f9-b992-b3c13a34562b" />
+
+##### 지점 수정 요청 상세보기 - 본사 관리자
+![20251111-0835-02 6504066](https://github.com/user-attachments/assets/9a422bc7-0f08-41ef-b2ea-49d8f6c02336)
+
+##### 지점 수정 요청 승인 - 본사 관리자
+![20251111-0835-49 1766108](https://github.com/user-attachments/assets/21ac8b9c-e195-4796-a92b-38182c610c5f)
+
+</details>
+<details>
+  <summary><h3>직원 관리 - 본사 관리자, 직영점/가맹점 관리자 권한</h3></summary>
+  
+##### 소속 직원 목록 조회
+![20251111-0243-43 7609212](https://github.com/user-attachments/assets/3df2e9b6-4a2a-4f50-ae29-3da30dc00d24)
+
+##### 소속 직원 추가
+![20251111-0320-44 0507901](https://github.com/user-attachments/assets/1ea304ef-e8c0-4164-8a82-30192bb46ecb)
+
+##### 소속 직원 상세 정보 
+![20251111-0321-33 4479254](https://github.com/user-attachments/assets/9bc8151a-e294-49ed-8ff6-b9e485d06713)
+
+##### 소속 직원 정보 수정
+![20251111-0324-41 2336952](https://github.com/user-attachments/assets/1ff898d1-648a-4513-a7b1-5a7f79c6d8ab)
+<img width="1556" height="348" alt="image" src="https://github.com/user-attachments/assets/f5b74dda-49c5-4089-bad4-d6c00be2ee14" />
+<img width="660" height="443" alt="image" src="https://github.com/user-attachments/assets/5c2bf1d5-93e3-4bbe-9fa3-b15feaa9fd35" />
+
+##### 소속 직원 정보 삭제 - Soft delete
+![20251111-0326-33 6712778](https://github.com/user-attachments/assets/9b2856c2-ef17-4e63-bcfe-5bedf4d56120)
+
+##### 소속 지점 퇴사자 재입사 처리
+![20251111-0327-47 2203659](https://github.com/user-attachments/assets/50b3fb81-9d37-4f74-a6df-3c39d7cd3472)
+
+</details>
+<details>
+  <summary><h3>계약 서류 관리 - 본사 관리자, 직영점/가맹점 관리자 권한</h3></summary>
+
+#### 계약 서류 업로드
+![20251111-0331-18 0262269](https://github.com/user-attachments/assets/d711497b-53e3-4d65-b677-2d11212a327b)
+![20251111-0800-32 3592140](https://github.com/user-attachments/assets/17d49ba0-0877-4821-be10-7cae06bf46c7)
+
+#### 계약 서류 인쇄 및 다운로드
+![20251111-0801-25 2096163](https://github.com/user-attachments/assets/7d565f9c-96b3-4438-a501-5db7ea16390f)
+
+#### 계약 서류 수정
+![20251111-0801-55 2631150](https://github.com/user-attachments/assets/0e1bf113-8dd3-4b1d-92bc-7655fba4402b)
+![20251111-0802-40 0454273](https://github.com/user-attachments/assets/c44d260c-e124-41c9-87da-2ab5bcff0994)
+
+#### 계약 서류 삭제
+![20251111-0803-08 9783566](https://github.com/user-attachments/assets/3ba15899-60c0-4668-a9c0-1571cd9ace16)
+
+</details>
+<details>
+  <summary><h3>고객 관리</h3></summary>
+
+#### 단골 고객 등록 
+![20251111-0331-18 0262269](https://github.com/user-attachments/assets/d711497b-53e3-4d65-b677-2d11212a327b)
+
+</details>
+</details>
+
+<details>
+    <summary><h3>[매출 리포트]</h3></summary>
+
+#### 전체 매출 조회
+![20251111-0444-24 9868221](https://github.com/user-attachments/assets/43c012dd-3d2f-42d7-baed-99974d01caff)
+![20251111-0447-22 7226255](https://github.com/user-attachments/assets/764a5bbb-2088-4996-ba0a-796f3af934b3)
+
+#### 지점 상세 매출 조회
+![20251111-0448-35 8572284](https://github.com/user-attachments/assets/8ed43a1e-1257-4839-a3bd-d9cea93c9143)
+![20251111-0449-06 6084060](https://github.com/user-attachments/assets/8b2edcac-dc62-4b75-b807-69d2015cac25)
+
+#### 지점 매출 비교
+![20251111-0450-50 0768976](https://github.com/user-attachments/assets/45aae873-d41f-4bf8-83e6-523b862e9c50)
+
+#### 각 매출 리포트 엑셀 다운로드
+##### 전체 매출 엑셀
+![20251111-0535-42 4373400](https://github.com/user-attachments/assets/25fa8a90-7359-40c9-84cc-01f1421c4ba6)
+<img width="1423" height="732" alt="image" src="https://github.com/user-attachments/assets/0b429324-fa83-46d0-9e29-8f189dd1fffc" />
+
+##### 지점 상세 매출 엑셀
+![20251111-0551-57 5846559](https://github.com/user-attachments/assets/a57bccef-e69a-4518-9361-e4b4494dbc89)
+<img width="1423" height="732" alt="image" src="https://github.com/user-attachments/assets/8ec840c7-8ecc-4c44-a6a5-02301e05e699" />
+
+##### 지점 매출 비교 엑셀
+![20251111-0555-10 3076604](https://github.com/user-attachments/assets/ec61b46a-7643-4043-8f85-5895376a1304)
+<img width="1423" height="732" alt="image" src="https://github.com/user-attachments/assets/fb89a7b7-8008-42db-8dae-9f2d9f5f20a5" />
+
+</details>
+</details>
+
 ### 주문
 <details>
     <summary>[주문 기능 1: 회원 상품 주문]</summary>
