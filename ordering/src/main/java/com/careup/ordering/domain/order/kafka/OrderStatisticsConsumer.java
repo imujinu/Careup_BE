@@ -80,20 +80,25 @@ public class OrderStatisticsConsumer {
      * 주문 상태 변경 이벤트 처리
      */
     private void handleOrderUpdate(Long branchId, Long amount, LocalDate orderDate, String previousStatus, String newStatus) {
+        log.info("🔄 주문 상태 변경 처리 시작 - branchId: {}, previousStatus: {}, newStatus: {}, amount: {}",
+                branchId, previousStatus, newStatus, amount);
+
         // 주문 상태 카운트 조정
         dashboardCacheService.updateOrderStatus(branchId, previousStatus, newStatus);
 
         // 이전: PENDING/CANCELLED -> 신규: CONFIRMED (매출 증가)
         if (!"CONFIRMED".equals(previousStatus) && "CONFIRMED".equals(newStatus)) {
+            log.info("✅ 주문 승인 감지 - 매출 통계 증가: branchId={}, amount={}", branchId, amount);
             dashboardCacheService.incrementSales(branchId, amount, orderDate);
         }
 
         // 이전: CONFIRMED -> 신규: CANCELLED (매출 감소)
         if ("CONFIRMED".equals(previousStatus) && "CANCELLED".equals(newStatus)) {
+            log.info("⚠️ 주문 취소 감지 - 매출 통계 감소: branchId={}, amount={}", branchId, amount);
             dashboardCacheService.decrementSales(branchId, amount, orderDate);
         }
 
-        log.debug("주문 상태 변경 캐시 업데이트 완료 - branchId: {}, {} -> {}", branchId, previousStatus, newStatus);
+        log.info("✅ 주문 상태 변경 캐시 업데이트 완료 - branchId: {}, {} -> {}", branchId, previousStatus, newStatus);
     }
 
     /**

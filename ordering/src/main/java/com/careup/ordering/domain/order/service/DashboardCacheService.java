@@ -149,19 +149,23 @@ public class DashboardCacheService {
         try {
             String key = getOrderKey(branchId);
 
+            log.info("📊 주문 상태 변경 캐시 업데이트 - branchId: {}, {} -> {}", branchId, previousStatus, newStatus);
+
             // 이전 상태 감소
             if (previousStatus != null) {
                 String prevKey = "status:" + previousStatus;
-                redisTemplate.opsForHash().increment(key, prevKey, -1);
+                Long prevCount = redisTemplate.opsForHash().increment(key, prevKey, -1);
+                log.debug("  - {} 감소: {}", prevKey, prevCount);
             }
 
             // 새 상태 증가
             String newKey = "status:" + newStatus;
-            redisTemplate.opsForHash().increment(key, newKey, 1);
+            Long newCount = redisTemplate.opsForHash().increment(key, newKey, 1);
+            log.debug("  - {} 증가: {}", newKey, newCount);
 
-            log.debug("주문 상태 변경 - branchId: {}, {} -> {}", branchId, previousStatus, newStatus);
+            log.info("✅ 주문 상태 변경 완료 - branchId: {}, {} -> {}", branchId, previousStatus, newStatus);
         } catch (Exception e) {
-            log.error("주문 상태 변경 캐시 업데이트 실패 - branchId: {}", branchId, e);
+            log.error("❌ 주문 상태 변경 캐시 업데이트 실패 - branchId: {}", branchId, e);
         }
     }
 
