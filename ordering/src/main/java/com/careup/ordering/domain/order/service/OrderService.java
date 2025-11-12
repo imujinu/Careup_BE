@@ -25,8 +25,6 @@ import com.careup.ordering.domain.product.repository.ProductRepository;
 import com.careup.ordering.domain.recomendation.service.CoPurchaseService;
 import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
 import com.careup.ordering.domain.order.kafka.OrderStatisticsProducer;
-import com.careup.ordering.domain.order.event.OrderStatisticsEvent;
-import com.careup.ordering.domain.order.kafka.OrderStatisticsProducer;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -194,11 +192,7 @@ public class OrderService {
 
         log.info("주문 상품 생성 완료 - 총 {}개", orderedItems.size());
 
-
-
         //주문 알림
-        // 주문 통계 이벤트 발행 (Redis 캐시 업데이트용)
-        publishOrderStatisticsEvent(savedOrder, "CREATE", null);
 
         SseNotificationResDto dto = SseNotificationResDto.orderPlaced(savedOrder.getBranchId(), savedOrder.getId());
         notificationService.publishNotification(dto);
@@ -316,8 +310,14 @@ public class OrderService {
             throw new IllegalStateException("결제가 완료되지 않은 주문은 승인할 수 없습니다. orderId: " + orderId);
         }
 
+        // 주문 승인 전 이전 상태 저장
+        String previousStatus = order.getOrderStatus().name();
+
         order.approve(approvedBy);
         log.info("주문 승인 완료 - orderId: {}, approvedBy: {}, 결제 완료 확인됨", orderId, approvedBy);
+
+        // 주문 통계 이벤트 발행 (Redis 캐시 업데이트용) - PENDING -> CONFIRMED 상태 변경
+        publishOrderStatisticsEvent(order, "UPDATE", previousStatus);
 
         // 단골 고객 정보 자동 업데이트
         try {
@@ -347,6 +347,9 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 주문입니다. ID: " + orderId));
 
+        // 거부 전 이전 상태 저장
+        String previousStatus = order.getOrderStatus().name();
+
         order.reject(reason, rejectedBy);
 
         // 주문 거부 시 재고 복구
@@ -365,6 +368,9 @@ public class OrderService {
             log.info("재고 복구 - branchProductId: {}, 복구량: {}", 
                     branchProduct.getId(), item.getQuantity());
         }
+
+        // 주문 통계 이벤트 발행 (상태 변경)
+        publishOrderStatisticsEvent(order, "UPDATE", previousStatus);
 
         SseNotificationResDto dto = SseNotificationResDto.orderRejected(order.getBranchId(), order.getId(), reason);
         notificationService.publishNotification(dto);
