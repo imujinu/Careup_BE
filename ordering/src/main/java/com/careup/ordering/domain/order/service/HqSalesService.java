@@ -1,11 +1,7 @@
 package com.careup.ordering.domain.order.service;
 
 import com.careup.ordering.common.client.BranchClient;
-import com.careup.ordering.domain.order.dto.AllBranchesSalesDto;
-import com.careup.ordering.domain.order.dto.BranchSalesDetailDto;
-import com.careup.ordering.domain.order.dto.ProductSalesDto;
-import com.careup.ordering.domain.order.dto.CategorySalesDto;
-import com.careup.ordering.domain.order.dto.GrowthRateDto;
+import com.careup.ordering.domain.order.dto.*;
 import com.careup.ordering.domain.order.dto.request.HqSalesRequestDto;
 import com.careup.ordering.domain.order.dto.response.AllBranchesSalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.BranchComparisonResponseDto;
@@ -13,17 +9,23 @@ import com.careup.ordering.domain.order.dto.response.BranchSalesDetailResponseDt
 import com.careup.ordering.domain.order.dto.response.TopBranchResponseDto;
 import com.careup.ordering.domain.order.dto.response.CategorySalesResponseDto;
 import com.careup.ordering.domain.order.dto.response.BranchSalesSummaryResponseDto;
-import com.careup.ordering.domain.order.dto.BranchSalesSummaryDto;
 import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.entity.OrderStatus;
 import com.careup.ordering.domain.order.repository.OrderRepository;
 import com.careup.ordering.domain.order.repository.OrderedItemRepository;
 import com.careup.ordering.domain.product.entity.Product;
 import com.careup.ordering.domain.product.repository.ProductRepository;
+import com.querydsl.core.annotations.QueryProjection;
+import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.DateTemplate;
+import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.StringTemplate;
+import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -31,6 +33,8 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.AbstractMap;
 import java.util.stream.Collectors;
+import static com.careup.ordering.domain.order.entity.QOrder.order;
+import com.careup.ordering.domain.order.dto.QAllBranchesSalesDto;
 
 @Slf4j
 @Service
@@ -42,44 +46,79 @@ public class HqSalesService {
     private final OrderedItemRepository orderedItemRepository;
     private final ProductRepository productRepository;
     private final BranchClient branchClient;
+    private final JPAQueryFactory queryFactory;
 
     /**
      * 전체 지점 매출 내역 기간별 조회
      */
     public AllBranchesSalesResponseDto getAllBranchesSales(HqSalesRequestDto request) {
+        System.out.println("매출내역 조회 시작===========");
+        StopWatch stopWatch = new StopWatch("Sales Statistics Task");
+        stopWatch.start("Monthly Calculation");
+
+        // 측정 전 메모리 사용량
+        Runtime runtime = Runtime.getRuntime();
+        long beforeMemory = runtime.totalMemory() - runtime.freeMemory();
+
+
+
+
         LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
         LocalDateTime endDateTime = request.getEndDate().atTime(LocalTime.MAX);
 
         // 정해진 기간 내 전체 지점 주문 조회
-        List<Order> orders = orderRepository.findAllByOrderStatusAndCreatedAtBetween(
-                OrderStatus.CONFIRMED, startDateTime, endDateTime);
+//        List<Order> orders = orderRepository.findAllByOrderStatusAndCreatedAtBetween(
+//                OrderStatus.CONFIRMED, startDateTime, endDateTime);
+
 
         // 기간별 통계 계산 -> 일별(DAY), 주별(WEEK), 월별(MONTH)
         List<AllBranchesSalesDto> salesData;
         String periodType = request.getPeriodType() != null ? request.getPeriodType() : "DAY";
 
-        switch (periodType.toUpperCase()) {
-            case "WEEK":
-                salesData = calculateAllBranchesWeeklySales(orders);
-                break;
-            case "MONTH":
-                salesData = calculateAllBranchesMonthlySales(orders);
-                break;
-            default:
-                salesData = calculateAllBranchesDailySales(orders);
+        try{
+            switch (periodType.toUpperCase()) {
+                case "WEEK":
+                    salesData = calculateAllBranchesWeeklySales(startDateTime, endDateTime);
+                    break;
+                case "MONTH":
+                    salesData = calculateAllBranchesMonthlySales(startDateTime, endDateTime);
+                    break;
+                default:
+                    salesData = calculateAllBranchesDailySales(startDateTime, endDateTime);
+            }
+        }catch(Exception e){
+            System.out.println("==에러 발생 지점 ==");
+            e.printStackTrace();
+            throw e;
         }
 
-        // 전체 통계
-        Long totalSales = orders.stream().mapToLong(Order::getTotalAmount).sum();
-        Long totalOrders = (long) orders.size();
 
-        // 총 지점 수 (활성 지점)
-        Integer totalBranchCount = orderRepository.countActiveBranches(
-                OrderStatus.CONFIRMED, startDateTime, endDateTime);
+        // 1. 전체 통계 데이터 가져오기 (DB에서 한 줄로 끝)
+        System.out.println("3. 전체 통계(calculateTotalSalesStats) 쿼리 시작");
+        AllBranchesSalesDto totalStats = orderRepository.calculateTotalSalesStats(startDateTime, endDateTime);
+        System.out.println("4. 전체 통계 쿼리 완료: " + totalStats);
 
-        // 전일 대비 증가율 계산
-        GrowthRateDto growthRate = calculateGrowthRate(request.getStartDate(), request.getEndDate(),
-                                                        totalSales, totalOrders, periodType);
+// 2. 값 꺼내기 (이제 orders.stream() 필요 없음)
+        Long totalSales = totalStats.getTotalSales();
+        Long totalOrders = totalStats.getTotalOrders();
+        Long totalBranchCount = totalStats.getActiveBranchCount();
+
+        System.out.println("5. 성장률(calculateGrowthRate) 계산 시작");
+
+// 3. 전일 대비 증가율 계산 (기존 로직 그대로 활용)
+        GrowthRateDto growthRate = calculateGrowthRate(
+                request.getStartDate(), request.getEndDate(),
+                totalSales, totalOrders, periodType
+        );
+
+        System.out.println("6. 모든 계산 완료. 응답 조립 시작");
+
+
+        //시간 및 메모리 측정
+        stopWatch.stop();
+        System.out.println("소요 시간 "  + stopWatch.prettyPrint());
+        long afterMemory = runtime.totalMemory() - runtime.freeMemory();
+        System.out.println("사용된 메모리: " + (afterMemory - beforeMemory) / 1024 / 1024 + " MB");
 
         return AllBranchesSalesResponseDto.builder()
                 .periodType(periodType)
@@ -175,117 +214,192 @@ public class HqSalesService {
     /**
      * 일별(DAY) 전체 지점 매출 통계
      */
-    private List<AllBranchesSalesDto> calculateAllBranchesDailySales(List<Order> orders) {
-        // 일자별 주문 그룹화
-        Map<LocalDate, List<Order>> dailyOrders = orders.stream()
-                .collect(Collectors.groupingBy(order -> order.getCreatedAt().toLocalDate()));
+    public List<AllBranchesSalesDto> calculateAllBranchesDailySales(LocalDateTime start, LocalDateTime end) {
+        // 1. 그룹화와 정렬을 위한 기준 (문자열 포맷)
+        StringTemplate dateStrPath = Expressions.stringTemplate(
+                "DATE_FORMAT({0}, '%Y-%m-%d')",
+                order.createdAt
+        );
 
-        return dailyOrders.entrySet().stream()
-                .map(entry -> {
-                    List<Order> dayOrders = entry.getValue();
-                    Long totalSales = dayOrders.stream().mapToLong(Order::getTotalAmount).sum();
-                    Long totalOrders = (long) dayOrders.size();
-
-                    // 해당 일의 활성 지점 수
-                    int activeBranchCount = (int) dayOrders.stream()
-                            .map(Order::getBranchId)
-                            .distinct()
-                            .count();
-
-                    return AllBranchesSalesDto.builder()
-                            .date(entry.getKey())
-                            .period("DAY")
-                            .totalSales(totalSales)
-                            .totalOrders(totalOrders)
-                            .averageOrderAmount(totalOrders > 0 ? totalSales / totalOrders : 0L)
-                            .activeBranchCount(activeBranchCount)
-                            .averageSalesPerBranch(activeBranchCount > 0 ? totalSales / activeBranchCount : 0L)
-                            .build();
-                })
-                .sorted(Comparator.comparing(AllBranchesSalesDto::getDate))
-                .collect(Collectors.toList());
+        return queryFactory
+                .select(new QAllBranchesSalesDto(
+                        dateStrPath,                        // 1. String으로 DTO에 전달 (Mismatch 방지)
+                        Expressions.asString("DAY"),
+                        order.totalAmount.sum().coalesce(0L),
+                        order.count(),
+                        order.totalAmount.sum().divide(order.count().nullif(0L)).longValue().coalesce(0L),
+                        order.branchId.countDistinct(),
+                        order.totalAmount.sum().divide(order.branchId.countDistinct().nullif(0L)).longValue().coalesce(0L)
+                ))
+                .from(order)
+                .where(order.createdAt.between(start, end))
+                .groupBy(dateStrPath)  // ✅ 문자열 기준으로 그룹화 (문제 없음)
+                .orderBy(dateStrPath.asc())  // ✅ 문자열 기준으로 정렬 (문제 없음)
+                .fetch();
     }
+//    private List<AllBranchesSalesDto> calculateAllBranchesDailySales(List<Order> orders) {
+//        // 일자별 주문 그룹화
+//        Map<LocalDate, List<Order>> dailyOrders = orders.stream()
+//                .collect(Collectors.groupingBy(order -> order.getCreatedAt().toLocalDate()));
+//
+//        return dailyOrders.entrySet().stream()
+//                .map(entry -> {
+//                    List<Order> dayOrders = entry.getValue();
+//                    Long totalSales = dayOrders.stream().mapToLong(Order::getTotalAmount).sum();
+//                    Long totalOrders = (long) dayOrders.size();
+//
+//                    // 해당 일의 활성 지점 수
+//                    int activeBranchCount = (int) dayOrders.stream()
+//                            .map(Order::getBranchId)
+//                            .distinct()
+//                            .count();
+//
+//                    return AllBranchesSalesDto.builder()
+//                            .date(entry.getKey())
+//                            .period("DAY")
+//                            .totalSales(totalSales)
+//                            .totalOrders(totalOrders)
+//                            .averageOrderAmount(totalOrders > 0 ? totalSales / totalOrders : 0L)
+//                            .activeBranchCount(activeBranchCount)
+//                            .averageSalesPerBranch(activeBranchCount > 0 ? totalSales / activeBranchCount : 0L)
+//                            .build();
+//                })
+//                .sorted(Comparator.comparing(AllBranchesSalesDto::getDate))
+//                .collect(Collectors.toList());
+//    }
 
     /**
      * 주별 전체 지점 매출 통계
      */
-    private List<AllBranchesSalesDto> calculateAllBranchesWeeklySales(List<Order> orders) {
-        Map<String, List<Order>> weeklyOrders = orders.stream()
-                .collect(Collectors.groupingBy(order -> {
-                    LocalDate date = order.getCreatedAt().toLocalDate();
-                    int weekOfYear = date.getDayOfYear() / 7 + 1;
-                    return date.getYear() + "-W" + weekOfYear;
-                }));
+    public List<AllBranchesSalesDto> calculateAllBranchesWeeklySales(LocalDateTime start, LocalDateTime end) {
+        // 1. 그룹화 기준 (2026-09 형태의 문자열)
+        StringTemplate weekFormat = Expressions.stringTemplate(
+                "DATE_FORMAT({0}, '%Y-%u')",
+                order.createdAt
+        );
 
-        return weeklyOrders.entrySet().stream()
-                .map(entry -> {
-                    List<Order> weekOrders = entry.getValue();
-                    Long totalSales = weekOrders.stream().mapToLong(Order::getTotalAmount).sum();
-                    Long totalOrders = (long) weekOrders.size();
+        // 2. DTO에 담을 '대표 날짜'를 String으로 추출 (Mismatch 방지)
+        StringTemplate dateStrPath = Expressions.stringTemplate(
+                "DATE_FORMAT(MIN({0}), '%Y-%m-%d')",
+                order.createdAt
+        );
 
-                    int activeBranchCount = (int) weekOrders.stream()
-                            .map(Order::getBranchId)
-                            .distinct()
-                            .count();
-
-                    LocalDate firstDate = weekOrders.stream()
-                            .map(order -> order.getCreatedAt().toLocalDate())
-                            .min(LocalDate::compareTo)
-                            .orElse(LocalDate.now());
-
-                    return AllBranchesSalesDto.builder()
-                            .date(firstDate)
-                            .period("WEEK")
-                            .totalSales(totalSales)
-                            .totalOrders(totalOrders)
-                            .averageOrderAmount(totalOrders > 0 ? totalSales / totalOrders : 0L)
-                            .activeBranchCount(activeBranchCount)
-                            .averageSalesPerBranch(activeBranchCount > 0 ? totalSales / activeBranchCount : 0L)
-                            .build();
-                })
-                .sorted(Comparator.comparing(AllBranchesSalesDto::getDate))
-                .collect(Collectors.toList());
+        return queryFactory
+                .select(new QAllBranchesSalesDto(
+                        dateStrPath,                        // 1. String 전달
+                        Expressions.asString("WEEK"),       // 2. String
+                        order.totalAmount.sum().coalesce(0L),
+                        order.count(),
+                        order.totalAmount.sum().divide(order.count().nullif(0L)).longValue().coalesce(0L),
+                        order.branchId.countDistinct(),
+                        order.totalAmount.sum().divide(order.branchId.countDistinct().nullif(0L)).longValue().coalesce(0L)
+                ))
+                .from(order)
+                .where(order.createdAt.between(start, end))
+                .groupBy(weekFormat)
+                .orderBy(weekFormat.asc())
+                .fetch();
     }
+//    private List<AllBranchesSalesDto> calculateAllBranchesWeeklySales(List<Order> orders) {
+//        Map<String, List<Order>> weeklyOrders = orders.stream()
+//                .collect(Collectors.groupingBy(order -> {
+//                    LocalDate date = order.getCreatedAt().toLocalDate();
+//                    int weekOfYear = date.getDayOfYear() / 7 + 1;
+//                    return date.getYear() + "-W" + weekOfYear;
+//                }));
+//
+//        return weeklyOrders.entrySet().stream()
+//                .map(entry -> {
+//                    List<Order> weekOrders = entry.getValue();
+//                    Long totalSales = weekOrders.stream().mapToLong(Order::getTotalAmount).sum();
+//                    Long totalOrders = (long) weekOrders.size();
+//
+//                    int activeBranchCount = (int) weekOrders.stream()
+//                            .map(Order::getBranchId)
+//                            .distinct()
+//                            .count();
+//
+//                    LocalDate firstDate = weekOrders.stream()
+//                            .map(order -> order.getCreatedAt().toLocalDate())
+//                            .min(LocalDate::compareTo)
+//                            .orElse(LocalDate.now());
+//
+//                    return AllBranchesSalesDto.builder()
+//                            .date(firstDate)
+//                            .period("WEEK")
+//                            .totalSales(totalSales)
+//                            .totalOrders(totalOrders)
+//                            .averageOrderAmount(totalOrders > 0 ? totalSales / totalOrders : 0L)
+//                            .activeBranchCount(activeBranchCount)
+//                            .averageSalesPerBranch(activeBranchCount > 0 ? totalSales / activeBranchCount : 0L)
+//                            .build();
+//                })
+//                .sorted(Comparator.comparing(AllBranchesSalesDto::getDate))
+//                .collect(Collectors.toList());
+//    }
 
     /**
      * 월별(MONTH) 전체 지점 매출 통계
      */
-    private List<AllBranchesSalesDto> calculateAllBranchesMonthlySales(List<Order> orders) {
-        // 월별 주문 그룹화
-        Map<String, List<Order>> monthlyOrders = orders.stream()
-                .collect(Collectors.groupingBy(order ->
-                        order.getCreatedAt().getYear() + "-" +
-                        String.format("%02d", order.getCreatedAt().getMonthValue())));
+    public List<AllBranchesSalesDto> calculateAllBranchesMonthlySales(LocalDateTime start, LocalDateTime end) {
+        // 1. DTO에 담을 '대표 날짜'를 String으로 추출
+        StringTemplate dateStrPath = Expressions.stringTemplate(
+                "DATE_FORMAT(MIN({0}), '%Y-%m-%d')",
+                order.createdAt
+        );
 
-        return monthlyOrders.entrySet().stream()
-                .map(entry -> {
-                    List<Order> monthOrders = entry.getValue();
-                    Long totalSales = monthOrders.stream().mapToLong(Order::getTotalAmount).sum();
-                    Long totalOrders = (long) monthOrders.size();
-
-                    int activeBranchCount = (int) monthOrders.stream()
-                            .map(Order::getBranchId)
-                            .distinct()
-                            .count();
-
-                    LocalDate firstDate = monthOrders.stream()
-                            .map(order -> order.getCreatedAt().toLocalDate())
-                            .min(LocalDate::compareTo)
-                            .orElse(LocalDate.now());
-
-                    return AllBranchesSalesDto.builder()
-                            .date(firstDate)
-                            .period("MONTH")
-                            .totalSales(totalSales)
-                            .totalOrders(totalOrders)
-                            .averageOrderAmount(totalOrders > 0 ? totalSales / totalOrders : 0L)
-                            .activeBranchCount(activeBranchCount)
-                            .averageSalesPerBranch(activeBranchCount > 0 ? totalSales / activeBranchCount : 0L)
-                            .build();
-                })
-                .sorted(Comparator.comparing(AllBranchesSalesDto::getDate))
-                .collect(Collectors.toList());
+        return queryFactory
+                .select(new QAllBranchesSalesDto(
+                        dateStrPath,                        // 1. String 전달
+                        Expressions.asString("MONTH"),      // 2. String
+                        order.totalAmount.sum().coalesce(0L),
+                        order.count(),
+                        order.totalAmount.sum().divide(order.count().nullif(0L)).longValue().coalesce(0L),
+                        order.branchId.countDistinct(),
+                        order.totalAmount.sum().divide(order.branchId.countDistinct().nullif(0L)).longValue().coalesce(0L)
+                ))
+                .from(order)
+                .where(order.createdAt.between(start, end))
+                .groupBy(order.createdAt.year(), order.createdAt.month())
+                .orderBy(order.createdAt.year().asc(), order.createdAt.month().asc())
+                .fetch();
     }
+//    private List<AllBranchesSalesDto> calculateAllBranchesMonthlySales(List<Order> orders) {
+//        // 월별 주문 그룹화
+//        Map<String, List<Order>> monthlyOrders = orders.stream()
+//                .collect(Collectors.groupingBy(order ->
+//                        order.getCreatedAt().getYear() + "-" +
+//                        String.format("%02d", order.getCreatedAt().getMonthValue())));
+//
+//        return monthlyOrders.entrySet().stream()
+//                .map(entry -> {
+//                    List<Order> monthOrders = entry.getValue();
+//                    Long totalSales = monthOrders.stream().mapToLong(Order::getTotalAmount).sum();
+//                    Long totalOrders = (long) monthOrders.size();
+//
+//                    int activeBranchCount = (int) monthOrders.stream()
+//                            .map(Order::getBranchId)
+//                            .distinct()
+//                            .count();
+//
+//                    LocalDate firstDate = monthOrders.stream()
+//                            .map(order -> order.getCreatedAt().toLocalDate())
+//                            .min(LocalDate::compareTo)
+//                            .orElse(LocalDate.now());
+//
+//                    return AllBranchesSalesDto.builder()
+//                            .date(firstDate)
+//                            .period("MONTH")
+//                            .totalSales(totalSales)
+//                            .totalOrders(totalOrders)
+//                            .averageOrderAmount(totalOrders > 0 ? totalSales / totalOrders : 0L)
+//                            .activeBranchCount(activeBranchCount)
+//                            .averageSalesPerBranch(activeBranchCount > 0 ? totalSales / activeBranchCount : 0L)
+//                            .build();
+//                })
+//                .sorted(Comparator.comparing(AllBranchesSalesDto::getDate))
+//                .collect(Collectors.toList());
+//    }
 
     /**
      * 선택한 가맹점의 매출 내역 기간별 조회

@@ -1,5 +1,7 @@
 package com.careup.ordering.domain.order.repository;
 
+import com.careup.ordering.domain.order.dto.AllBranchesSalesDto;
+import com.careup.ordering.domain.order.dto.SalesStatisticsDto;
 import com.careup.ordering.domain.order.entity.Order;
 import com.careup.ordering.domain.order.entity.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,7 +13,13 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
+public interface OrderRepository extends JpaRepository<Order, Long>, OrderRepositoryCustom {
+
+    @Override
+    List<SalesStatisticsDto> findMonthlySalesStatistics(OrderStatus status, LocalDateTime start, LocalDateTime end);
+
+    @Override
+    AllBranchesSalesDto calculateTotalSalesStats(LocalDateTime start, LocalDateTime end);
 
     // 회원별 주문 조회
     List<Order> findByMemberId(Long memberId);
@@ -65,6 +73,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             @Param("status") OrderStatus status,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+
+
 
     // 전체 지점의 총 주문 수 조회
     @Query("SELECT COUNT(o) FROM Order o " +

@@ -37,6 +37,15 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+	// 1. Querydsl 라이브러리
+	implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
+
+	// 2. Q-Class를 생성하기 위한 APT 설정
+	annotationProcessor "com.querydsl:querydsl-apt:5.0.0:jakarta"
+	annotationProcessor "jakarta.annotation:jakarta.annotation-api"
+	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
+
+
     // jwt 및 security
     testImplementation 'org.springframework.security:spring-security-test'
     implementation 'org.springframework.boot:spring-boot-starter-security'
@@ -95,6 +104,19 @@ dependencies {
 //	implementation("org.springframework.ai:spring-ai-openai-spring-boot-starter")
 	//load balancer
 	implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+}
+def querydslDir = layout.buildDirectory.dir("generated/querydsl").get().asFile
+
+sourceSets {
+	main.java.srcDirs += [ querydslDir ]
+}
+
+tasks.withType(JavaCompile) {
+	options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
+}
+
+clean {
+	delete file(querydslDir)
 }
 
 dependencyManagement{

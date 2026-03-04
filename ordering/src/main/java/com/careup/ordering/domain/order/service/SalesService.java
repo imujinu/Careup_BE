@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StopWatch;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
@@ -42,6 +43,9 @@ public class SalesService {
      * 매출 통계 조회 (요일별, 시간별, 기간별)
      */
     public SalesStatisticsResponseDto getSalesStatistics(SalesStatisticsRequestDto request) {
+        StopWatch stopWatch = new StopWatch("Sales Statistics Task");
+        System.out.println("매출 조회를 시작합니다.");
+        stopWatch.start("Monthly Calculation");
         LocalDateTime startDateTime = request.getStartDate().atStartOfDay();
         LocalDateTime endDateTime = request.getEndDate().atTime(LocalTime.MAX);
 
@@ -50,6 +54,7 @@ public class SalesService {
                 request.getBranchId(), OrderStatus.CONFIRMED, startDateTime, endDateTime);
 
         List<SalesStatisticsDto> statistics;
+
 
         switch (request.getPeriodType().toUpperCase()) {
             case "HOUR":
@@ -74,6 +79,10 @@ public class SalesService {
         Long totalSales = orders.stream()
                 .mapToLong(Order::getTotalAmount)
                 .sum();
+
+        stopWatch.stop();
+
+        System.out.println("매출 계산 시간 :" + stopWatch.prettyPrint());
 
         return SalesStatisticsResponseDto.builder()
                 .branchId(request.getBranchId())
