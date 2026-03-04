@@ -95,6 +95,8 @@ public class PurchaseOrderService {
 
         Branch branch = branchRepository.findById(requestDto.getBranchId())
                 .orElseThrow(() -> new EntityNotFoundException("존재하지 않는 지점입니다."));
+
+        log.info("[알림 시작 시점] 발주ID: {}, 시간: {}", savedOrder.getId(), System.currentTimeMillis());
         SseNotificationResDto dto = SseNotificationResDto.orderStatusChanged(branch.getName(), purchaseOrder.getId(), "REQUESTED", HEAD_OFFICE_BRANCH_ID);
         sseAlarmService.publishNotification(dto);
 
