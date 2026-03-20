@@ -97,7 +97,6 @@ public class ChatUserService {
         branchId = getBranchIdFromToken();
         }
 
-        System.out.println("branchId ===" + branchId);
         if (!params.has("range")) {
             LocalDate now = LocalDate.now(ZoneId.of("Asia/Seoul"));
             startDate = now.withDayOfMonth(1);
