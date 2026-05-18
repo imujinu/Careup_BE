@@ -223,6 +223,30 @@ services:
       timeout: 5s
       retries: 5
 
+  chatbot:
+    build:
+      context: ./chatbot
+      dockerfile: Dockerfile
+    container_name: chatbot
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      BRANCH_SERVICE_URL: http://host.docker.internal:8080/branch-service
+      ORDERING_SERVICE_URL: http://host.docker.internal:8080/ordering-service
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION: careup_chatbot_documents
+      RERANK_ENABLED: ${RERANK_ENABLED:-false}
+    networks:
+      - kafka-net
+    restart: unless-stopped
+
 # ==================== Volumes ====================
 volumes:
   kafka-data:

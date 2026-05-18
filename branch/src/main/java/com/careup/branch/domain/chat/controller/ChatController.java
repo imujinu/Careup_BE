@@ -9,6 +9,7 @@ import com.careup.branch.domain.chat.dto.res.*;
 import com.careup.branch.domain.chat.dto.sales.SalesPredictionResponseDto;
 import com.careup.branch.domain.chat.service.ChatService;
 import com.careup.branch.common.dto.CommonSuccessDto;
+import com.careup.branch.domain.chat.service.ChatbotProxyService;
 import com.careup.branch.domain.chat.service.RagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
@@ -25,10 +27,17 @@ import java.util.List;
 public class ChatController {
     private final ChatService chatService;
     private final RagService ragService;
+    private final ChatbotProxyService chatbotProxyService;
 
     @PostMapping("/ask")
     public ResponseEntity<?> sendMessage(@RequestBody ChatBotReqDto dto){
         System.out.println("[Chat][Controller] : " + dto);
+        Optional<Object> proxiedResponse = chatbotProxyService.ask(dto);
+        boolean useFastApiProxy = proxiedResponse.isPresent();
+        if (useFastApiProxy) {
+            Object response = proxiedResponse.get();
+            return new ResponseEntity<>(new CommonSuccessDto(response, HttpStatus.ACCEPTED.value(), "챗봇 응답 완료"), HttpStatus.ACCEPTED);
+        }
         ResponseEntity<?> response = chatService.handleUserQuery(dto);
         return new ResponseEntity<>(new CommonSuccessDto(response, HttpStatus.ACCEPTED.value(), "챗봇 응답 완료"), HttpStatus.ACCEPTED);
     }
