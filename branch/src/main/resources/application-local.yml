@@ -18,6 +18,9 @@ eureka:
 feign:
   ordering-service:
     url: http://localhost:8080/ordering-service
+chatbot:
+  service:
+    url: ${CHATBOT_SERVICE_URL:http://localhost:8000}
 spring:
   application:
     name: branch-service

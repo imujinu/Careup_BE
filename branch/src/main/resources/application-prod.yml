@@ -6,6 +6,9 @@ eureka:
 feign:
   ordering-service:
     url: http://ordering-service
+chatbot:
+  service:
+    url: ${CHATBOT_SERVICE_URL:http://chatbot-service:8000}
 spring:
   application:
     name: branch-service

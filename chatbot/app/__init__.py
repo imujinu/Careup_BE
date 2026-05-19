@@ -1,0 +1,2 @@
+"""CareUp FastAPI chatbot module."""
+

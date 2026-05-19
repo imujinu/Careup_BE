@@ -38,6 +38,13 @@ spring:
             - StripPrefix=1
           uri: lb://branch-service
 
+        - id: chatbot-service-prefixed
+          predicates:
+            - Path=/chatbot-service/**
+          filters:
+            - StripPrefix=1
+          uri: ${CHATBOT_SERVICE_URI:http://localhost:8000}
+
         # 쇼핑몰 공개 인증
         - id: ordering-public-auth-shortcut
           predicates:
